@@ -1,8 +1,11 @@
 {
-    "trinity_portfolio": [
-        {"sym": "USDJPY+", "magic_time": "00:00", "dur": 15, "tp_opt": {"narrow": 2.6, "normal": 1.2, "wide": 4.3}},
-        {"sym": "GBPUSD+", "magic_time": "07:00", "dur": 15, "tp_opt": {"narrow": 2.5, "normal": 1.0, "wide": 0.5}},
-        {"sym": "NAS100",  "magic_time": "13:30", "dur": 15, "tp_opt": {"narrow": 2.4, "normal": 1.5, "wide": 2.0}}
+    "portfolio": [
+        {"sym": "USDJPY+",  "magic_time": "00:00", "edge": "TREND_UP",     "durations": [15, 30]},
+        {"sym": "XAUUSD",   "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
+        {"sym": "EURUSD+",  "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
+        {"sym": "EURUSD+",  "magic_time": "07:00", "edge": "MAGNET_CLOSE", "durations": [15, 30]},
+        {"sym": "USOIL",    "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
+        {"sym": "SP500",    "magic_time": "12:00", "edge": "TREND_UP",     "durations": [15, 30]}
     ],
-    "risk_percent_per_trade": 0.035
+    "risk_percent_per_trade": 0.03
 }

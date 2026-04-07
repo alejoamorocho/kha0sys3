@@ -110,7 +110,10 @@ class DataEnricher:
         ])
         
         res_df = res_df.with_columns([
-            (pl.col("or_width") / pl.col("atr_14")).alias("or_atr_ratio")
+            pl.when(pl.col("atr_14").is_not_null() & (pl.col("atr_14") > 0))
+            .then(pl.col("or_width") / pl.col("atr_14"))
+            .otherwise(pl.lit(None))
+            .alias("or_atr_ratio")
         ])
         
         # Flag post OR candles & 8H Active Session Window

@@ -9,7 +9,7 @@ import math
 class DynamicRiskAllocator:
     """Calcula volumen exacto de lotes arriesgando un porcentaje fijo del balance."""
 
-    def __init__(self, risk_percent_per_trade: float = 0.035):
+    def __init__(self, risk_percent_per_trade: float = 0.03):
         self.risk_pct = risk_percent_per_trade
 
     def calculate_lots(self, account_balance: float, entry_price: float,

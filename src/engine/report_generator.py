@@ -61,16 +61,11 @@ class ReportGenerator:
         stats_df = TrackerEngine.track_events(df_or, tp_multiplier=1.5)
         
         daily_base = df_or.group_by("trade_date").agg([
-            pl.col("or_width").first(),
-            pl.col("or_high").first(),
-            pl.col("or_low").first(),
-            pl.col("atr_14").first(),
-            pl.col("pd_close").first(),
             pl.col("or_open").first(),
             pl.col("pd_or_high").first(),
             pl.col("pd_or_low").first()
         ])
-        
+
         expanded_stats = daily_base.join(stats_df, on="trade_date", how="left")
         return StatisticalEngine.calculate_edges(expanded_stats)
         

@@ -61,12 +61,19 @@ class TelegramNotifier:
 
     def notify_bot_started(self, portfolio: list[dict]):
         """Notifica que el bot ha iniciado con el portfolio activo."""
-        symbols = ", ".join(s["sym"] for s in portfolio)
-        risk = portfolio[0].get("risk_pct", 0.035) if portfolio else 0.035
+        lines = []
+        for s in portfolio:
+            edge = s.get("edge", "ORB")
+            durs = s.get("durations", [15])
+            durs_str = "/".join(str(d) for d in durs)
+            lines.append(f"  {s['sym']} │ {edge} │ {s.get('magic_time','')} │ {durs_str}m")
+        portfolio_text = "\n".join(lines)
         msg = (
             "<b>🚀 Kha0sys3 Bot Iniciado</b>\n"
-            f"<code>Portfolio: {symbols}</code>\n"
-            f"<code>Riesgo/Trade: {risk:.2%}</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<code>{portfolio_text}</code>\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"<code>Riesgo/Trade: 3.0%</code>\n"
             f"<code>Hora UTC: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}</code>"
         )
         self._broadcast(msg)
@@ -94,12 +101,13 @@ class TelegramNotifier:
 
     def notify_order_placed(self, symbol: str, direction: str,
                             entry: float, sl: float, tp: float,
-                            lots: float):
+                            lots: float, edge: str = ""):
         """Notifica colocacion de orden stop."""
         emoji = "🟢" if direction == "BUY_STOP" else "🔴"
+        edge_label = f"\n<code>Edge  : {edge}</code>" if edge else ""
         msg = (
             f"<b>{emoji} Orden Colocada: {symbol}</b>\n"
-            f"<code>Tipo  : {direction}</code>\n"
+            f"<code>Tipo  : {direction}</code>{edge_label}\n"
             f"<code>Entry : {entry:.5f}</code>\n"
             f"<code>SL    : {sl:.5f}</code>\n"
             f"<code>TP    : {tp:.5f}</code>\n"

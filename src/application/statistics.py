@@ -63,10 +63,10 @@ class StatisticalEngine:
         }
         
         # Positional Open Edge
-        df_open_above = df.filter(pl.col("or_open") > pl.col("pd_close"))
+        df_open_above = valid_df.filter(pl.col("or_open") > pl.col("pd_close"))
         p_up_given_gap_up = df_open_above.filter(pl.col("first_break_dir") == "UP").height / max(1, df_open_above.height)
-        
-        df_open_below = df.filter(pl.col("or_open") < pl.col("pd_close"))
+
+        df_open_below = valid_df.filter(pl.col("or_open") < pl.col("pd_close"))
         p_down_given_gap_down = df_open_below.filter(pl.col("first_break_dir") == "DOWN").height / max(1, df_open_below.height)
         
         # Extensions given valid breakout
@@ -108,10 +108,10 @@ class StatisticalEngine:
         touches_down = break_down_days.filter(pl.col("touches_pd_low") > 0).height / max(1, break_down_days.height)
         
         # New interactions regardless of direction (or conditional if needed)
-        t_pd_close = df.filter(pl.col("touches_pd_close") > 0).height / total_days
-        t_pd_mid = df.filter(pl.col("touches_pd_mid") > 0).height / total_days
-        t_pd_or_high = df.filter(pl.col("touches_pd_or_high") > 0).height / total_days
-        t_pd_or_low = df.filter(pl.col("touches_pd_or_low") > 0).height / total_days
+        t_pd_close = valid_df.filter(pl.col("touches_pd_close") > 0).height / total_days
+        t_pd_mid = valid_df.filter(pl.col("touches_pd_mid") > 0).height / total_days
+        t_pd_or_high = valid_df.filter(pl.col("touches_pd_or_high") > 0).height / total_days
+        t_pd_or_low = valid_df.filter(pl.col("touches_pd_or_low") > 0).height / total_days
         
         touch_stats = {
             "p_touch_pd_high_if_breakup": touches_up,
@@ -127,7 +127,7 @@ class StatisticalEngine:
         day_names = {1:"Lunes", 2:"Martes", 3:"Miercoles", 4:"Jueves", 5:"Viernes"}
         dow_stats = {}
         for d_num, d_name in day_names.items():
-            dow_df = df.filter(pl.col("day_of_week") == d_num)
+            dow_df = valid_df.filter(pl.col("day_of_week") == d_num)
             if dow_df.height > 0:
                 # We reuse the r_multiple logic dynamically
                 target_mult = 1.5

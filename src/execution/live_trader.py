@@ -1,14 +1,17 @@
 """
 Live Trader Engine — Kha0sys3
-Motor principal de trading ORB con lógica idéntica al backtester.
+Motor principal de trading ORB con paridad exacta al backtester.
 
-Consistencia con backtest:
+Paridad con backtest (portfolio_compounder.py):
   - ATR14 filter: or_atr_ratio in [0.1, 0.8]
-  - Un trade por activo por día (first_break_dir)
-  - Cancelar pierna opuesta al detectar fill
-  - Position sizing sobre BALANCE
-  - OR calculado desde barra M15 CERRADA
-  - Timezone UTC consistente
+  - TREND_UP: solo BUY_STOP, monitoreo software si DOWN rompe primero
+  - MAGNET_CLOSE: direccion dada por pd_close vs OR
+  - TP fijo: 1.5R para TREND, pd_close para MAGNET
+  - Waterfall duraciones: 15m primero, 30m si ATR falla
+  - Dedup: 1 trade por (simbolo, edge) por dia
+  - Position sizing: 3% del BALANCE
+  - OR desde barras M15 CERRADAS
+  - Timezone UTC
 """
 
 import MetaTrader5 as mt5
@@ -26,28 +29,30 @@ from src.monitoring.system_health import SystemHealthMonitor
 
 
 class LiveTraderEngine:
-    """Motor de trading ORB con bot Telegram interactivo."""
+    """Motor de trading ORB con paridad backtest y bot Telegram interactivo."""
 
-    HEARTBEAT_INTERVAL = 900         # 15 min entre heartbeats/reportes
-    HEALTH_CHECK_INTERVAL = 300      # 5 min entre chequeos de salud
-    POSITION_CHECK_INTERVAL = 10     # 10s entre chequeos de posiciones (para OCO cancel)
-    STALE_ORDER_CHECK_INTERVAL = 3600  # 1h entre limpieza de órdenes rancias
-    RECONNECT_CHECK_INTERVAL = 60    # 1 min entre chequeos de conexión MT5
+    HEARTBEAT_INTERVAL = 900
+    HEALTH_CHECK_INTERVAL = 300
+    POSITION_CHECK_INTERVAL = 10
+    STALE_ORDER_CHECK_INTERVAL = 3600
+    RECONNECT_CHECK_INTERVAL = 60
+
+    # TP fijo para TREND (paridad con backtest)
+    TREND_TP_MULTIPLIER = 1.5
 
     def __init__(self, config_path: str = "src/execution/bot_config.json"):
         import json
         with open(config_path, "r") as f:
             cfg = json.load(f)
 
-        self.risk_percent = cfg.get("risk_percent_per_trade", 0.035)
-        self.target_symbols = cfg.get("trinity_portfolio", [])
+        self.risk_percent = cfg.get("risk_percent_per_trade", 0.03)
+        self.target_symbols = cfg.get("portfolio", cfg.get("trinity_portfolio", []))
 
         self.client = MT5Client()
         self.risk = DynamicRiskAllocator(risk_percent_per_trade=self.risk_percent)
         self.reporter = MT5Reporter()
         self.health_monitor = SystemHealthMonitor()
 
-        # Bot Telegram con callbacks de control
         self.telegram = TelegramCommandBot(
             stop_callback=self._on_stop_command,
             resume_callback=self._on_resume_command,
@@ -67,15 +72,19 @@ class LiveTraderEngine:
         self._last_stale_check = 0
         self._last_reconnect_check = 0
 
-        # Dedup: un fire por magic_time por día
-        self._last_fired: dict[str, str] = {}  # sym -> "YYYY-MM-DD HH:MM"
+        # Dedup: un fire por (sym, edge, duration) por dia
+        self._last_fired: dict[str, str] = {}
+
+        # Waterfall state: tracks which duration index each setup is at
+        # key = "sym_edge" -> current duration index (0 = first, 1 = second, etc.)
+        self._waterfall_state: dict[str, int] = {}
 
         # Position tracking
         self._known_positions: set[int] = set()
         self._trades_today = 0
         self._last_trade_day = ""
 
-    # ─── Control callbacks (thread-safe) ──────────────────────────
+    # ─── Control callbacks ────────────────────────────────────────
 
     def _on_stop_command(self):
         with self._control_lock:
@@ -90,7 +99,7 @@ class LiveTraderEngine:
         with self._control_lock:
             return self._paused
 
-    # ─── Time helpers (UTC consistente) ───────────────────────────
+    # ─── Time helpers ─────────────────────────────────────────────
 
     def _utc_now(self) -> datetime:
         return datetime.now(timezone.utc)
@@ -100,38 +109,73 @@ class LiveTraderEngine:
         if today != self._last_trade_day:
             self._trades_today = 0
             self._last_fired.clear()
+            self._waterfall_state.clear()
             self._last_trade_day = today
 
-    # ─── Dedup: un fire por magic_time ────────────────────────────
+    # ─── Waterfall scheduling ─────────────────────────────────────
+
+    def _get_execution_time(self, setup: dict) -> str:
+        """Calcula el HH:MM de ejecucion basado en waterfall state."""
+        sym = setup["sym"]
+        edge = setup["edge"]
+        wf_key = f"{sym}_{edge}"
+        durations = setup.get("durations", [15])
+
+        # Current duration index
+        dur_idx = self._waterfall_state.get(wf_key, 0)
+        if dur_idx >= len(durations):
+            return ""  # All durations exhausted
+
+        dur = durations[dur_idx]
+        h, m = map(int, setup["magic_time"].split(":"))
+        total_mins = h * 60 + m + dur
+        exec_h = (total_mins // 60) % 24
+        exec_m = total_mins % 60
+        return f"{exec_h:02d}:{exec_m:02d}"
 
     def _should_execute(self, setup: dict) -> bool:
-        """Verifica si es el magic_time Y no se ha ejecutado ya hoy."""
-        now = self._utc_now()
-        now_hhmm = now.strftime("%H:%M")
-        sym = setup["sym"]
-
-        if now_hhmm != setup["magic_time"]:
+        """Verifica si es el momento de ejecutar (magic_time + duration)."""
+        exec_time = self._get_execution_time(setup)
+        if not exec_time:
             return False
 
-        # Dedup key: symbol + fecha + hora
-        dedup_key = f"{now.strftime('%Y-%m-%d')} {now_hhmm}"
-        if self._last_fired.get(sym) == dedup_key:
+        now = self._utc_now()
+        now_hhmm = now.strftime("%H:%M")
+
+        if now_hhmm != exec_time:
+            return False
+
+        sym = setup["sym"]
+        edge = setup["edge"]
+        wf_key = f"{sym}_{edge}"
+        dur_idx = self._waterfall_state.get(wf_key, 0)
+
+        dedup_key = f"{now.strftime('%Y-%m-%d')} {exec_time} {wf_key}_{dur_idx}"
+        if self._last_fired.get(wf_key) == dedup_key:
             return False
 
         return True
 
-    def _mark_fired(self, sym: str):
+    def _mark_fired(self, setup: dict):
+        sym = setup["sym"]
+        edge = setup["edge"]
+        wf_key = f"{sym}_{edge}"
+        dur_idx = self._waterfall_state.get(wf_key, 0)
+        exec_time = self._get_execution_time(setup)
         now = self._utc_now()
-        dedup_key = f"{now.strftime('%Y-%m-%d')} {now.strftime('%H:%M')}"
-        self._last_fired[sym] = dedup_key
+        dedup_key = f"{now.strftime('%Y-%m-%d')} {exec_time} {wf_key}_{dur_idx}"
+        self._last_fired[wf_key] = dedup_key
 
-    # ─── ATR14 Filter (consistente con backtest) ──────────────────
+    def _advance_waterfall(self, setup: dict):
+        """Avanza al siguiente duration en el waterfall (ATR fallo)."""
+        wf_key = f"{setup['sym']}_{setup['edge']}"
+        current = self._waterfall_state.get(wf_key, 0)
+        self._waterfall_state[wf_key] = current + 1
+
+    # ─── ATR14 Filter ─────────────────────────────────────────────
 
     def _passes_atr_filter(self, symbol: str, or_width: float) -> bool:
-        """Filtra OR width: debe estar entre 10% y 80% del ATR14.
-
-        Idéntico al backtest: or_atr_ratio.is_between(0.1, 0.8)
-        """
+        """Filtra OR width: debe estar entre 10% y 80% del ATR14."""
         atr14 = self.client.calculate_atr14(symbol)
         if atr14 is None or atr14 <= 0:
             print(f"[ATR] No se pudo calcular ATR14 para {symbol}. Skipping.")
@@ -149,15 +193,13 @@ class LiveTraderEngine:
 
         return True
 
-    # ─── Monitoreo periódico ──────────────────────────────────────
+    # ─── Monitoreo periodico ──────────────────────────────────────
 
     def _send_periodic_report(self):
-        """Reporte cada 15 min con balance, equity, PnL del día."""
         now = time.time()
         if now - self._last_heartbeat < self.HEARTBEAT_INTERVAL:
             return
         self._last_heartbeat = now
-
         uptime_hours = (now - self._start_time) / 3600
         self.telegram.notify_heartbeat(uptime_hours, self._trades_today)
 
@@ -166,20 +208,17 @@ class LiveTraderEngine:
         if now - self._last_health_check < self.HEALTH_CHECK_INTERVAL:
             return
         self._last_health_check = now
-
         alerts = self.health_monitor.get_critical_alerts()
         if alerts:
             self.telegram.notify_system_alert(alerts)
 
     def _check_mt5_connection(self):
-        """Verifica conexión MT5 periódicamente y reconecta si es necesario."""
         now = time.time()
         if now - self._last_reconnect_check < self.RECONNECT_CHECK_INTERVAL:
             return
         self._last_reconnect_check = now
-
         if not self.client.ensure_connected():
-            self.telegram.notify_error("MT5 desconectado. Reconexión fallida.", "Connection")
+            self.telegram.notify_error("MT5 desconectado. Reconexion fallida.", "Connection")
 
     def _wipe_stale_orders(self):
         now = time.time()
@@ -188,41 +227,45 @@ class LiveTraderEngine:
         self._last_stale_check = now
         self.om.wipe_stale_orders()
 
-    # ─── Detección de fills y cancelar pierna opuesta ─────────────
+    # ─── Fill detection + trend monitors ──────────────────────────
 
     def _check_positions_and_fills(self):
-        """Detecta nuevas posiciones (fills) y cierre de posiciones.
-
-        Al detectar un fill:
-          - Cancela la pierna opuesta (OCO en software)
-          - Marca el activo como "traded today"
-
-        Al detectar un cierre:
-          - Notifica con mariposas/explosiones
-        """
+        """Detecta fills, cierre de posiciones, y monitorea TREND_UP."""
         now = time.time()
         if now - self._last_position_check < self.POSITION_CHECK_INTERVAL:
             return
         self._last_position_check = now
 
+        # 1. Check TREND_UP monitors (cancel BUY if DOWN breaks first)
+        self.om.check_trend_monitors()
+
+        # 2. Detect new fills
         current_positions = mt5.positions_get()
         if current_positions is None:
-            # MT5 desconectado — NO tocar _known_positions
             return
 
         current_tickets = {p.ticket for p in current_positions}
 
-        # --- Detectar NUEVOS fills (para cancelar pierna opuesta) ---
+        # New fills
         new_tickets = current_tickets - self._known_positions
         for ticket in new_tickets:
             for p in current_positions:
                 if p.ticket == ticket and p.magic == 1337:
-                    # Nueva posición del bot — cancelar pierna opuesta
+                    comment = p.comment or ""
+                    # Determine edge from comment
+                    if "TREND" in comment:
+                        edge = "TREND_UP"
+                    elif "MAGNET" in comment:
+                        edge = "MAGNET_CLOSE"
+                    else:
+                        edge = ""
+
                     self.om.cancel_opposite_leg(p.symbol)
-                    self.om.mark_traded_today(p.symbol)
+                    self.om.mark_traded_today(p.symbol, edge)
+                    self._trades_today += 1
                     break
 
-        # --- Detectar posiciones CERRADAS ---
+        # Closed positions
         closed_tickets = self._known_positions - current_tickets
         if closed_tickets:
             from_date = self._utc_now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -240,6 +283,7 @@ class LiveTraderEngine:
 
                 deal = close_deals[-1]
                 profit = deal.profit + deal.commission + deal.swap
+                comment = deal.comment or ""
 
                 if profit >= 0:
                     emoji_line = "🦋🦋🦋🦋🦋🦋🦋🦋🦋🦋"
@@ -250,12 +294,20 @@ class LiveTraderEngine:
                     result_text = "PERDIDA"
                     result_emoji = "💥"
 
+                # Identify edge from comment
+                edge_label = ""
+                if "TREND" in comment:
+                    edge_label = "TREND_UP"
+                elif "MAGNET" in comment:
+                    edge_label = "MAGNET"
+
                 msg = (
                     f"{emoji_line}\n"
                     "━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"   {result_emoji} <b>TRADE CERRADO</b>\n"
                     "━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"  Simbolo   │ {deal.symbol}\n"
+                    f"  Edge      │ {edge_label}\n"
                     f"  Resultado │ <b>{result_text}</b>\n"
                     f"  P&L       │ <b>${profit:+,.2f}</b>\n"
                     f"  Volumen   │ {deal.volume} lots\n"
@@ -270,26 +322,34 @@ class LiveTraderEngine:
 
         self._known_positions = current_tickets
 
-    # ─── Procesamiento de símbolo ─────────────────────────────────
+    # ─── Symbol processing ────────────────────────────────────────
 
     def _process_symbol(self, setup: dict):
-        """Procesa un símbolo en su magic_time. Aislado con try/except."""
+        """Procesa un setup en su ventana de ejecucion."""
         sym = setup["sym"]
+        edge = setup["edge"]
+        durations = setup.get("durations", [15])
+        wf_key = f"{sym}_{edge}"
 
         if not self._should_execute(setup):
             return
 
-        # Marcar como fired inmediatamente (dedup)
-        self._mark_fired(sym)
+        self._mark_fired(setup)
 
-        # Un trade por día
-        if self.om.has_traded_today(sym):
+        # Dedup: un trade por (symbol, edge) por dia
+        if self.om.has_traded_today(sym, edge):
             return
 
-        print(f"[TICKER] Ventana abierta para {sym}")
+        # Current duration from waterfall
+        dur_idx = self._waterfall_state.get(wf_key, 0)
+        if dur_idx >= len(durations):
+            return
+        duration = durations[dur_idx]
 
-        # OR desde barras CERRADAS (soporta multi-vela)
-        or_data = self.client.get_or_from_closed_bars(sym, duration_mins=setup.get("dur", 15))
+        print(f"[TICKER] {sym} {edge} dur={duration}m")
+
+        # OR desde barras CERRADAS
+        or_data = self.client.get_or_from_closed_bars(sym, duration_mins=duration)
         if or_data is None:
             self.telegram.notify_error(f"Sin datos M15 para {sym}", "DataFeed")
             return
@@ -302,44 +362,42 @@ class LiveTraderEngine:
             self.telegram.notify_order_rejected(sym, "Rango cero o negativo")
             return
 
-        # ATR14 filter (idéntico al backtest: or_atr_ratio in [0.1, 0.8])
+        # ATR14 filter
         if not self._passes_atr_filter(sym, rng):
+            # Waterfall: advance to next duration
+            self._advance_waterfall(setup)
+            remaining = len(durations) - dur_idx - 1
+            if remaining > 0:
+                next_dur = durations[dur_idx + 1]
+                print(f"[WATERFALL] {sym} {edge}: ATR fallo en {duration}m, intentara {next_dur}m")
+            else:
+                print(f"[WATERFALL] {sym} {edge}: ATR fallo en todas las duraciones. Skip day.")
             return
 
         self.telegram.notify_orb_detected(sym, range_high, range_low, rng)
 
-        # Dynamic TP Calculation (Adaptive TP)
-        tp_config = setup.get("tp_opt", 1.5)
-        selected_tp = 1.5 # Default
+        # ─── Edge routing ─────────────────────────────────────────
+        if edge == "TREND_UP":
+            tp_up = range_high + (rng * self.TREND_TP_MULTIPLIER)
+            placed = self.om.place_trend_up_orders(sym, range_high, range_low, tp_up)
 
-        if isinstance(tp_config, dict):
-            # Obtener ATR14 para calcular el ratio del día
-            atr = self.client.calculate_atr14(sym)
-            if atr:
-                ratio = rng / atr
-                if ratio < 0.3: selected_tp = tp_config.get("narrow", 1.5)
-                elif ratio < 0.6: selected_tp = tp_config.get("normal", 1.0)
-                else: selected_tp = tp_config.get("wide", 0.5)
-                print(f"[ADAPTIVE] Ratio: {ratio:.2f} | TP Seleccionado: {selected_tp}x")
-            else:
-                selected_tp = tp_config.get("normal", 1.0)
+        elif edge == "MAGNET_CLOSE":
+            pd_close = self.client.get_previous_day_close(sym)
+            if pd_close is None:
+                self.telegram.notify_error(f"Sin pd_close para {sym}", "DataFeed")
+                return
+
+            # Skip if pd_close inside OR (backtest parity)
+            if range_low <= pd_close <= range_high:
+                print(f"[MAGNET] {sym}: pd_close={pd_close:.5f} dentro del OR. Skip.")
+                self.telegram.notify_order_rejected(sym, "MAGNET: pd_close dentro del OR")
+                return
+
+            placed = self.om.place_magnet_order(sym, range_high, range_low, pd_close)
+
         else:
-            selected_tp = float(tp_config)
-
-        sl_up = range_low
-        sl_dw = range_high
-        tp_up = range_high + (rng * selected_tp)
-        tp_dw = range_low - (rng * selected_tp)
-
-        placed = self.om.place_breakout_stop_orders(
-            symbol=sym,
-            range_high=range_high,
-            range_low=range_low,
-            sl_up=sl_up,
-            sl_dw=sl_dw,
-            tp_up=tp_up,
-            tp_dw=tp_dw,
-        )
+            print(f"[ERROR] Edge desconocido: {edge}")
+            return
 
         if placed:
             self._trades_today += 1
@@ -394,7 +452,6 @@ class LiveTraderEngine:
                 self._check_system_health()
                 self._check_mt5_connection()
 
-                # Heartbeat file — el watchdog verifica este archivo
                 Path("logs/bot_heartbeat").touch()
 
                 time.sleep(10)

@@ -1,12 +1,14 @@
 """
 Order Manager — Kha0sys3
-Ciclo de vida de órdenes con arquitectura defensiva.
+Ciclo de vida de ordenes con arquitectura defensiva.
 
-Reglas fundamentales (consistentes con backtest):
-  1. UN trade por activo por día — si first_break_dir ya ocurrió, no se re-entra
-  2. Expiración hardware: ORDER_TIME_SPECIFIED a 8 horas
-  3. Cancelación de pierna opuesta al detectar fill
+Reglas fundamentales (paridad con backtest):
+  1. UN trade por activo por edge por dia
+  2. Expiracion hardware: ORDER_TIME_SPECIFIED a 8 horas
+  3. Cancelacion de pierna opuesta al detectar fill
   4. Position sizing sobre BALANCE (no free_margin)
+  5. TREND_UP: solo BUY_STOP, monitoreo software para cancel si DOWN rompe primero
+  6. MAGNET_CLOSE: direccion dada por pd_close vs OR
 """
 
 import MetaTrader5 as mt5
@@ -21,38 +23,43 @@ BOT_MAGIC_NUMBER = 1337
 
 
 class OrderManager:
-    """Maneja el ciclo de vida de las órdenes asegurando arquitectura defensiva."""
+    """Maneja el ciclo de vida de las ordenes asegurando arquitectura defensiva."""
 
     def __init__(self, mt5_client: MT5Client, allocator: DynamicRiskAllocator,
                  telegram=None):
         self.client = mt5_client
         self.allocator = allocator
         self.telegram = telegram
-        # Tracking: un trade por activo por día
-        self._daily_trades: dict[str, str] = {}  # symbol -> date string
+        # Tracking: un trade por activo por edge por dia
+        self._daily_trades: dict[str, str] = {}  # "symbol_edge" -> date string
         self._last_daily_reset: str = ""
+        # Monitoreo TREND_UP: cancel BUY si precio toca or_low
+        # {symbol: {"or_low": float, "order_ticket": int, "edge": str}}
+        self._trend_monitors: dict[str, dict] = {}
 
     def _reset_daily_if_needed(self):
-        """Reset del tracker diario a medianoche UTC."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if today != self._last_daily_reset:
             self._daily_trades.clear()
+            self._trend_monitors.clear()
             self._last_daily_reset = today
 
-    def has_traded_today(self, symbol: str) -> bool:
-        """Verifica si ya hubo un trade (first_break) para este activo hoy."""
+    def has_traded_today(self, symbol: str, edge: str) -> bool:
+        """Verifica si ya hubo un trade para este activo+edge hoy."""
         self._reset_daily_if_needed()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        return self._daily_trades.get(symbol) == today
+        key = f"{symbol}_{edge}"
+        return self._daily_trades.get(key) == today
 
-    def mark_traded_today(self, symbol: str):
-        """Marca que este activo ya tuvo su trade del día."""
+    def mark_traded_today(self, symbol: str, edge: str = ""):
+        """Marca que este activo+edge ya tuvo su trade del dia."""
         self._reset_daily_if_needed()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        self._daily_trades[symbol] = today
+        key = f"{symbol}_{edge}" if edge else symbol
+        self._daily_trades[key] = today
 
     def cancel_all_orders(self, symbol: str) -> int:
-        """Cancela TODAS las órdenes pendientes de un símbolo (pierna opuesta)."""
+        """Cancela TODAS las ordenes pendientes de un simbolo."""
         orders = self.client.get_pending_orders(symbol)
         if not orders:
             return 0
@@ -75,20 +82,24 @@ class OrderManager:
 
         return count
 
-    def cancel_opposite_leg(self, symbol: str):
-        """Cancela la pierna opuesta al detectar que una orden se ejecutó.
+    def cancel_order_by_ticket(self, ticket: int, symbol: str) -> bool:
+        """Cancela una orden especifica por ticket."""
+        req = {
+            "action": mt5.TRADE_ACTION_REMOVE,
+            "order": ticket,
+            "symbol": symbol,
+        }
+        res = self.client.send_order_raw(req)
+        return res.get("retcode") == mt5.TRADE_RETCODE_DONE
 
-        Llamado desde el loop principal cuando se detecta una nueva posición.
-        """
+    def cancel_opposite_leg(self, symbol: str):
+        """Cancela la pierna opuesta al detectar que una orden se ejecuto."""
         cancelled = self.cancel_all_orders(symbol)
-        if cancelled > 0:
-            self.mark_traded_today(symbol)
+        # Remove from trend monitors if applicable
+        self._trend_monitors.pop(symbol, None)
 
     def wipe_stale_orders(self) -> int:
-        """Limpia órdenes del bot que superaron ORDER_EXPIRATION_HOURS.
-
-        Capa software complementaria a la expiración hardware.
-        """
+        """Limpia ordenes del bot que superaron ORDER_EXPIRATION_HOURS."""
         orders = mt5.orders_get()
         if not orders:
             return 0
@@ -117,6 +128,10 @@ class OrderManager:
                 if o.symbol not in wiped_symbols:
                     wiped_symbols.append(o.symbol)
 
+        # Clean up trend monitors for wiped orders
+        for sym in wiped_symbols:
+            self._trend_monitors.pop(sym, None)
+
         if total_wiped > 0 and self.telegram:
             symbols_str = ", ".join(wiped_symbols)
             self.telegram.send_sync(
@@ -132,43 +147,89 @@ class OrderManager:
 
         return total_wiped
 
-    def is_already_exposed(self, symbol: str) -> bool:
-        """Verifica si ya hay posiciones o órdenes pendientes."""
+    def is_already_exposed(self, symbol: str, edge: str) -> bool:
+        """Verifica si ya hay posiciones o ordenes pendientes para este edge."""
         positions = self.client.get_open_positions(symbol)
         orders = self.client.get_pending_orders(symbol)
-        return len(positions) > 0 or len(orders) > 0
+        # For TREND_UP and MAGNET on same symbol, filter by comment
+        bot_positions = [p for p in positions if p.magic == BOT_MAGIC_NUMBER]
+        bot_orders = [o for o in orders if o.magic == BOT_MAGIC_NUMBER]
 
-    def place_breakout_stop_orders(
-        self,
-        symbol: str,
-        range_high: float,
-        range_low: float,
-        sl_up: float,
-        sl_dw: float,
-        tp_up: float,
-        tp_dw: float,
-    ) -> bool:
-        """Envía BUY_STOP y SELL_STOP con TP/SL fijos.
+        if edge == "MAGNET_CLOSE":
+            # MAGNET can coexist with TREND_UP orders
+            magnet_pos = [p for p in bot_positions if "MAGNET" in (p.comment or "")]
+            magnet_ord = [o for o in bot_orders if "MAGNET" in (o.comment or "")]
+            return len(magnet_pos) > 0 or len(magnet_ord) > 0
+        elif edge == "TREND_UP":
+            trend_pos = [p for p in bot_positions if "TREND" in (p.comment or "")]
+            trend_ord = [o for o in bot_orders if "TREND" in (o.comment or "")]
+            return len(trend_pos) > 0 or len(trend_ord) > 0
 
-        Reglas:
-        - Un trade por activo por día (consistente con backtest)
-        - Expiración hardware a ORDER_EXPIRATION_HOURS
-        - Position sizing sobre BALANCE
-        """
+        return len(bot_positions) > 0 or len(bot_orders) > 0
 
-        # 1. Un trade por día por activo
-        if self.has_traded_today(symbol):
-            print(f"OrderManager: {symbol} ya operó hoy. Skip.")
+    def _send_stop_order(self, symbol: str, order_type, price: float,
+                         sl: float, tp: float, volume: float,
+                         comment: str) -> bool:
+        """Envia una orden stop con validacion de lotaje y notificacion."""
+        sym_info = self.client.get_symbol_info(symbol)
+        direction = "BUY_STOP" if order_type == mt5.ORDER_TYPE_BUY_STOP else "SELL_STOP"
+
+        if volume < sym_info.volume_min:
+            reason = f"Lotaje insuficiente ({volume:.2f} < {sym_info.volume_min})"
+            print(f"OrderManager: {reason} en {symbol}.")
+            if self.telegram:
+                self.telegram.notify_order_rejected(symbol, reason)
             return False
 
-        # 2. Exposición existente
-        if self.is_already_exposed(symbol):
-            print(f"OrderManager: Exposición existente en {symbol}. Standby.")
+        expiration_ts = int(
+            (datetime.now(timezone.utc) + timedelta(hours=ORDER_EXPIRATION_HOURS)).timestamp()
+        )
+
+        req = {
+            "action": mt5.TRADE_ACTION_PENDING,
+            "symbol": symbol,
+            "volume": float(volume),
+            "type": order_type,
+            "price": float(price),
+            "sl": float(sl),
+            "tp": float(tp),
+            "deviation": 10,
+            "magic": BOT_MAGIC_NUMBER,
+            "comment": comment,
+            "type_time": mt5.ORDER_TIME_SPECIFIED,
+            "expiration": expiration_ts,
+            "type_filling": mt5.ORDER_FILLING_FOK,
+        }
+        res = self.client.send_order_raw(req)
+        success = res.get("retcode") == mt5.TRADE_RETCODE_DONE
+
+        if success and self.telegram:
+            self.telegram.notify_order_placed(symbol, direction, price, sl, tp, volume, comment)
+        elif not success and self.telegram:
+            self.telegram.notify_order_rejected(
+                symbol, f"Retcode {res.get('retcode', 'unknown')}"
+            )
+
+        return success
+
+    # ─── TREND_UP Orders ──────────────────────────────────────────
+
+    def place_trend_up_orders(self, symbol: str, or_high: float,
+                               or_low: float, tp_up: float) -> bool:
+        """Coloca SOLO BUY_STOP para TREND_UP.
+
+        El monitoreo software (check_trend_monitors) se encarga de
+        cancelar el BUY_STOP si el precio toca or_low primero.
+        Paridad con backtest: first_break_dir == "UP" gate.
+        """
+        if self.has_traded_today(symbol, "TREND_UP"):
+            return False
+
+        if self.is_already_exposed(symbol, "TREND_UP"):
             if self.telegram:
                 self.telegram.notify_exposure_blocked(symbol)
             return False
 
-        # 3. Spread filter
         if not self.client.check_spread_friction(symbol):
             if self.telegram:
                 current = self.client.get_current_spread(symbol)
@@ -176,75 +237,155 @@ class OrderManager:
                 self.telegram.notify_spread_alert(symbol, current, avg)
             return False
 
-        # 4. Datos del símbolo y BALANCE
         sym_info = self.client.get_symbol_info(symbol)
         balance = self.client.get_account_balance()
 
-        lots_up = self.allocator.calculate_lots(
+        lots = self.allocator.calculate_lots(
             account_balance=balance,
-            entry_price=range_high,
-            sl_price=sl_up,
+            entry_price=or_high,
+            sl_price=or_low,
             tick_value=sym_info.trade_tick_value,
             tick_size=sym_info.trade_tick_size,
             volume_step=sym_info.volume_step,
         )
 
-        lots_dw = self.allocator.calculate_lots(
-            account_balance=balance,
-            entry_price=range_low,
-            sl_price=sl_dw,
-            tick_value=sym_info.trade_tick_value,
-            tick_size=sym_info.trade_tick_size,
-            volume_step=sym_info.volume_step,
+        success = self._send_stop_order(
+            symbol, mt5.ORDER_TYPE_BUY_STOP,
+            or_high, or_low, tp_up, lots, "TREND_UP"
         )
 
-        # Expiración hardware (timezone-aware UTC)
-        expiration_ts = int(
-            (datetime.now(timezone.utc) + timedelta(hours=ORDER_EXPIRATION_HOURS)).timestamp()
-        )
+        if success:
+            # Registrar monitoreo: si precio toca or_low, cancelar BUY
+            orders = self.client.get_pending_orders(symbol)
+            buy_ticket = None
+            for o in orders:
+                if o.magic == BOT_MAGIC_NUMBER and o.type == mt5.ORDER_TYPE_BUY_STOP:
+                    if "TREND" in (o.comment or ""):
+                        buy_ticket = o.ticket
+                        break
 
-        def send_stop(tipo, price, sl, tp, volume, comment):
-            direction = "BUY_STOP" if tipo == mt5.ORDER_TYPE_BUY_STOP else "SELL_STOP"
-
-            if volume < sym_info.volume_min:
-                reason = f"Lotaje insuficiente ({volume:.2f} < {sym_info.volume_min})"
-                print(f"OrderManager: {reason} en {symbol}.")
-                if self.telegram:
-                    self.telegram.notify_order_rejected(symbol, reason)
-                return False
-
-            req = {
-                "action": mt5.TRADE_ACTION_PENDING,
-                "symbol": symbol,
-                "volume": float(volume),
-                "type": tipo,
-                "price": float(price),
-                "sl": float(sl),
-                "tp": float(tp),
-                "deviation": 10,
-                "magic": BOT_MAGIC_NUMBER,
-                "comment": comment,
-                "type_time": mt5.ORDER_TIME_SPECIFIED,
-                "expiration": expiration_ts,
-                "type_filling": mt5.ORDER_FILLING_FOK,
+            self._trend_monitors[symbol] = {
+                "or_low": or_low,
+                "order_ticket": buy_ticket,
+                "edge": "TREND_UP",
             }
-            res = self.client.send_order_raw(req)
-            success = res.get("retcode") == mt5.TRADE_RETCODE_DONE
 
-            if success and self.telegram:
-                self.telegram.notify_order_placed(symbol, direction, price, sl, tp, volume)
-            elif not success and self.telegram:
+        return success
+
+    # ─── MAGNET_CLOSE Orders ──────────────────────────────────────
+
+    def place_magnet_order(self, symbol: str, or_high: float, or_low: float,
+                           pd_close: float) -> bool:
+        """Coloca orden direccional hacia pd_close.
+
+        Si pd_close > or_high: BUY_STOP @ or_high, TP @ pd_close
+        Si pd_close < or_low:  SELL_STOP @ or_low, TP @ pd_close
+        Paridad con backtest: direccion dada por posicion de pd_close vs OR.
+        """
+        if self.has_traded_today(symbol, "MAGNET_CLOSE"):
+            return False
+
+        if self.is_already_exposed(symbol, "MAGNET_CLOSE"):
+            if self.telegram:
+                self.telegram.notify_exposure_blocked(symbol)
+            return False
+
+        if not self.client.check_spread_friction(symbol):
+            if self.telegram:
+                current = self.client.get_current_spread(symbol)
+                avg = self.client.get_average_spread(symbol)
+                self.telegram.notify_spread_alert(symbol, current, avg)
+            return False
+
+        # Skip if pd_close is inside OR (backtest parity)
+        if or_low <= pd_close <= or_high:
+            print(f"OrderManager: MAGNET {symbol}: pd_close inside OR. Skip.")
+            if self.telegram:
                 self.telegram.notify_order_rejected(
-                    symbol, f"Retcode {res.get('retcode', 'unknown')}"
+                    symbol, "MAGNET: pd_close dentro del OR"
                 )
+            return False
 
-            return success
+        sym_info = self.client.get_symbol_info(symbol)
+        balance = self.client.get_account_balance()
 
-        up_ok = send_stop(
-            mt5.ORDER_TYPE_BUY_STOP, range_high, sl_up, tp_up, lots_up, "ORB_Quant_UP"
+        if pd_close > or_high:
+            # BUY direction
+            entry = or_high
+            sl = or_low
+            tp = pd_close
+            order_type = mt5.ORDER_TYPE_BUY_STOP
+            comment = "MAGNET_UP"
+        else:
+            # SELL direction
+            entry = or_low
+            sl = or_high
+            tp = pd_close
+            order_type = mt5.ORDER_TYPE_SELL_STOP
+            comment = "MAGNET_DW"
+
+        lots = self.allocator.calculate_lots(
+            account_balance=balance,
+            entry_price=entry,
+            sl_price=sl,
+            tick_value=sym_info.trade_tick_value,
+            tick_size=sym_info.trade_tick_size,
+            volume_step=sym_info.volume_step,
         )
-        dw_ok = send_stop(
-            mt5.ORDER_TYPE_SELL_STOP, range_low, sl_dw, tp_dw, lots_dw, "ORB_Quant_DW"
-        )
 
-        return up_ok or dw_ok
+        return self._send_stop_order(symbol, order_type, entry, sl, tp, lots, comment)
+
+    # ─── Software Monitoring (replaces sentinel) ──────────────────
+
+    def check_trend_monitors(self) -> list[str]:
+        """Monitorea precios para cancelar BUY_STOP si DOWN rompe primero.
+
+        Llamado cada 10s desde el loop principal.
+        Paridad con backtest: first_break_dir == "DOWN" cancela TREND_UP.
+        Retorna lista de simbolos donde se cancelo.
+        """
+        cancelled = []
+
+        for sym in list(self._trend_monitors.keys()):
+            monitor = self._trend_monitors[sym]
+            or_low = monitor["or_low"]
+
+            # Obtener precio actual
+            tick = mt5.symbol_info_tick(sym)
+            if tick is None:
+                continue
+
+            # Si precio toco or_low → DOWN rompio primero → cancelar BUY
+            if tick.bid <= or_low:
+                ticket = monitor.get("order_ticket")
+                if ticket:
+                    ok = self.cancel_order_by_ticket(ticket, sym)
+                    if ok:
+                        self.mark_traded_today(sym, "TREND_UP")
+                        cancelled.append(sym)
+                        if self.telegram:
+                            self.telegram.send_sync(
+                                f"<b>🔽 DOWN rompio primero: {sym}</b>\n"
+                                f"<code>BUY_STOP cancelado (TREND_UP skip)</code>\n"
+                                f"<code>Paridad backtest: first_break = DOWN</code>"
+                            )
+                else:
+                    # No ticket, try cancelling all TREND orders
+                    self.cancel_all_orders(sym)
+                    self.mark_traded_today(sym, "TREND_UP")
+                    cancelled.append(sym)
+
+                del self._trend_monitors[sym]
+
+        return cancelled
+
+    # ─── Legacy compatibility ─────────────────────────────────────
+
+    def place_breakout_stop_orders(self, symbol: str, range_high: float,
+                                    range_low: float, sl_up: float,
+                                    sl_dw: float, tp_up: float,
+                                    tp_dw: float) -> bool:
+        """Legacy method — kept for backward compatibility.
+        Use place_trend_up_orders() or place_magnet_order() instead.
+        """
+        return self.place_trend_up_orders(symbol, range_high, range_low, tp_up)

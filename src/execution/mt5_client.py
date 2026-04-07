@@ -158,6 +158,16 @@ class MT5Client:
         atr14 = sum(true_ranges[-15:-1]) / 14
         return atr14
 
+    def get_previous_day_close(self, symbol: str) -> Optional[float]:
+        """Obtiene el cierre del D1 anterior (para MAGNET_CLOSE).
+
+        Consistente con backtest: d_close.shift(1) = cierre del día completado anterior.
+        """
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 1, 1)
+        if rates is None or len(rates) == 0:
+            return None
+        return rates[0].close
+
     def get_or_from_closed_bars(self, symbol: str, duration_mins: int = 15) -> Optional[dict]:
         """Obtiene Opening Range de las barras M15 CERRADAS necesarias.
 
