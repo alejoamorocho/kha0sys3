@@ -15,6 +15,7 @@ import MetaTrader5 as mt5
 import time
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 
 from src.execution.mt5_client import MT5Client
 from src.execution.risk_manager import DynamicRiskAllocator
@@ -392,6 +393,9 @@ class LiveTraderEngine:
                 self._send_periodic_report()
                 self._check_system_health()
                 self._check_mt5_connection()
+
+                # Heartbeat file — el watchdog verifica este archivo
+                Path("logs/bot_heartbeat").touch()
 
                 time.sleep(10)
 
