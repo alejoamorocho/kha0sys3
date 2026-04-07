@@ -8,7 +8,7 @@ import sys
 import os
 import time
 import traceback
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Asegurar que el proyecto este en sys.path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -28,7 +28,7 @@ def main():
     restart_count = 0
     last_restart_time = time.time()
 
-    print(f"[Supervisor] Kha0sys3 Supervisor iniciado — {datetime.utcnow()}")
+    print(f"[Supervisor] Kha0sys3 Supervisor iniciado — {datetime.now(timezone.utc)}")
     telegram.notify_heartbeat(0, 0)
 
     while restart_count < MAX_RESTARTS:

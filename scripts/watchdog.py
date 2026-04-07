@@ -25,9 +25,13 @@ def check_service_running() -> bool:
     try:
         result = subprocess.run(
             ["C:\\nssm\\nssm.exe", "status", SERVICE_NAME],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, timeout=10,
         )
-        return "SERVICE_RUNNING" in result.stdout
+        # NSSM puede devolver UTF-16, decodificar con ambos encodings
+        output = result.stdout.decode("utf-16-le", errors="ignore")
+        if "SERVICE_RUNNING" not in output:
+            output = result.stdout.decode("utf-8", errors="ignore")
+        return "SERVICE_RUNNING" in output
     except Exception:
         return False
 
