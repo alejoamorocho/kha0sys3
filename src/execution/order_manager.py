@@ -198,13 +198,16 @@ class OrderManager:
 
     def _get_filling_mode(self, symbol: str) -> int:
         """Use broker-supported filling mode instead of hardcoded FOK."""
+        # Bitmask constants (not all MT5 Python versions export SYMBOL_FILLING_*)
+        _FILL_FOK = 1
+        _FILL_IOC = 2
         sym_info = mt5.symbol_info(symbol)
         if sym_info is None:
             return mt5.ORDER_FILLING_FOK
         modes = sym_info.filling_mode
-        if modes & mt5.SYMBOL_FILLING_FOK:
+        if modes & _FILL_FOK:
             return mt5.ORDER_FILLING_FOK
-        elif modes & mt5.SYMBOL_FILLING_IOC:
+        elif modes & _FILL_IOC:
             return mt5.ORDER_FILLING_IOC
         else:
             return mt5.ORDER_FILLING_RETURN

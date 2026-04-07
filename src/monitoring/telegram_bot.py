@@ -449,14 +449,15 @@ class TelegramCommandBot:
 
     # ─── Notificaciones Push Profesionales ────────────────────────
 
-    def notify_bot_started(self, portfolio: list[dict]):
+    def notify_bot_started(self, portfolio: list[dict], risk_percent: float = 0.03):
         symbols = ", ".join(s["sym"] for s in portfolio)
+        risk_display = f"{risk_percent * 100:.1f}%"
         msg = (
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "   🚀 <b>KHA0SYS3 INICIADO</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  Portfolio │ {symbols}\n"
-            f"  Riesgo    │ 3.5% por trade\n"
+            f"  Riesgo    │ {risk_display} por trade\n"
             f"  Estrategia│ ORB (Opening Range)\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"

@@ -476,7 +476,7 @@ class LiveTraderEngine:
         self.telegram.start_polling()
         time.sleep(2)
 
-        self.telegram.notify_bot_started(self.target_symbols)
+        self.telegram.notify_bot_started(self.target_symbols, risk_percent=self.risk_percent)
         print("Kha0sys3 Bot Iniciado. Modo Espera...")
 
         try:

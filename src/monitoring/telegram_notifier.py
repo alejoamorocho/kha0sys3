@@ -16,8 +16,9 @@ class TelegramNotifier:
 
     API_URL = "https://api.telegram.org/bot{token}/sendMessage"
 
-    def __init__(self, config_path: str = "config/telegram.yaml"):
+    def __init__(self, config_path: str = "config/telegram.yaml", risk_percent: float = 0.03):
         self._load_config(config_path)
+        self._risk_display = f"{risk_percent * 100:.1f}%"
 
     def _load_config(self, config_path: str):
         """Carga credenciales desde telegram.yaml o usa defaults."""
@@ -73,7 +74,7 @@ class TelegramNotifier:
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"<code>{portfolio_text}</code>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"<code>Riesgo/Trade: 3.0%</code>\n"
+            f"<code>Riesgo/Trade: {self._risk_display}</code>\n"
             f"<code>Hora UTC: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}</code>"
         )
         self._broadcast(msg)

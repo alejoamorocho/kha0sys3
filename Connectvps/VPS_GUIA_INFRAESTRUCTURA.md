@@ -97,7 +97,7 @@ group_chat_id: "-5170985767"
 ### Como modificar el bot de Telegram
 
 1. **Cambiar el token/chat_id:** Editar `config/telegram.yaml` y hacer deploy con `deploy/pull_and_restart.py`
-2. **Modificar mensajes/alertas:** Editar `src/monitoring/telegram_notifier.py`
+2. **Modificar mensajes/alertas:** Editar `src/monitoring/telegram_bot.py` (interactivo) o `src/monitoring/telegram_notifier.py` (push legacy)
 3. **Agregar nuevo grupo:** Agregar `group_chat_id` en `telegram.yaml`, el bot manda mirror a ambos (personal + grupo)
 4. **Comandos admin:** Solo responde en chat personal (778542603), el grupo es solo lectura
 
@@ -112,9 +112,9 @@ group_chat_id: "-5170985767"
 | Orden rechazada | ⚠️ | Razon del rechazo |
 | Spread alto | ⚠️ | Spread actual vs promedio |
 | Exposicion bloqueada | 🛡️ | Ya hay posiciones abiertas |
-| Estado de cuenta | 📈 | Balance, Equity, Margen, Posiciones |
-| Heartbeat | 💓 | Uptime, trades del dia |
-| Error critico | ❌ | Contexto y mensaje del error |
+| Trade cerrado | 🦋/💥 | Win/Loss, PnL, comision |
+| Heartbeat | 💓 | Balance, equity, PnL dia (cada 15min) |
+| Salud sistema | 🚨 | CPU/RAM/disco critico, MT5 offline |
 | Limpieza ordenes | 🧹 | Ordenes huerfanas canceladas |
 
 ---
@@ -128,7 +128,7 @@ group_chat_id: "-5170985767"
 | Python         | 3.12.7 en `C:\Python312`       |
 | NSSM           | v2.24 en `C:\nssm\nssm.exe`    |
 | Git            | v2.47.1                         |
-| MetaTrader 5   | Instalado (terminal)            |
+| MetaTrader 5   | Instalado (terminal + paquete Python 5.0.5735) |
 
 ### Paquetes Python Instalados
 
@@ -208,19 +208,21 @@ C:\Proyectos\kha0sys3\
 │   │   ├── live_trader.py       # LiveTraderEngine principal
 │   │   ├── mt5_client.py        # Gateway MT5
 │   │   ├── order_manager.py     # Ciclo de vida de ordenes
-│   │   ├── risk_manager.py      # Calculo de riesgo/lotaje
+│   │   ├── risk_manager.py      # Calculo de riesgo/lotaje (DynamicRiskAllocator + SLGuardian)
 │   │   └── bot_config.json      # Portfolio y parametros
 │   ├── infrastructure\          # Config & Data loaders
 │   ├── monitoring\
-│   │   ├── telegram_bot.py      # Bot interactivo con comandos
-│   │   ├── telegram_notifier.py # Notificaciones push (legacy)
+│   │   ├── telegram_bot.py      # Bot interactivo con comandos (async, python-telegram-bot)
+│   │   ├── telegram_notifier.py # Notificaciones push (sync, requests — usado por supervisor/watchdog)
 │   │   ├── mt5_reporter.py      # Datos reales MT5 (PnL, posiciones)
 │   │   └── system_health.py     # Salud del sistema (CPU, RAM, MT5)
 │   └── optimize\                # Optuna runners
-├── data\                        # Datos historicos CSV
+├── data\
+│   ├── live_state\              # Estado persistente (daily_trades.json)
+│   └── *.csv                    # Datos historicos
 ├── reports\                     # Edge analysis & tearsheets
 ├── deploy\                      # Scripts de despliegue (LOCAL)
-├── logs\                        # Logs de servicios
+├── logs\                        # Logs de servicios + bot_heartbeat
 └── requirements.txt             # Dependencias Python
 ```
 
@@ -260,44 +262,55 @@ python deploy/restart_bot.py
 
 ## 8. Parametros de Trading (ORB Strategy)
 
-### Portfolio Activo (Trinity)
+### Portfolio Activo (5 activos)
 
-| Instrumento | MT5 Symbol | Magic Time | TP Opt | Riesgo/Trade |
-|-------------|-----------|-----------|--------|--------------|
-| USDJPY      | USDJPY+   | 00:00 UTC | 0.8x   | 3.5%         |
-| GBPUSD      | GBPUSD+   | 07:00 UTC | 0.7x   | 3.5%         |
-| NASDAQ100   | NAS100    | 13:30 UTC | 0.7x   | 3.5%         |
+| Instrumento | MT5 Symbol | Magic Time (UTC) | Edge      | Duraciones | Riesgo/Trade |
+|-------------|-----------|------------------|-----------|------------|--------------|
+| USDJPY      | USDJPY+   | 00:00            | TREND_UP  | 15m, 30m   | 3.0%         |
+| Oro (XAU)   | XAUUSD+   | 07:00            | TREND_UP  | 15m, 30m   | 3.0%         |
+| EURUSD      | EURUSD+   | 07:00            | TREND_UP  | 15m, 30m   | 3.0%         |
+| Petroleo    | USOUSD    | 07:00            | TREND_UP  | 15m, 30m   | 3.0%         |
+| S&P 500     | SP500     | 12:00            | TREND_UP  | 15m, 30m   | 3.0%         |
 
-### Logica ORB (consistente con backtest)
+### Logica ORB TREND_UP (consistente con backtest)
 
-1. A la hora `magic_time`, lee la vela M15 **CERRADA** anterior (no la que se esta formando)
-2. Define Opening Range: High/Low de esa vela cerrada
-3. **Filtro ATR14:** Calcula ATR(14) desde barras D1. Si `or_width / atr14` esta fuera de [0.1, 0.8], descarta
-4. Coloca BUY_STOP en el High y SELL_STOP en el Low
-5. SL = extremo opuesto del rango
-6. TP = entry + (rango * tp_opt)
+1. A la hora `magic_time + duration`, lee las barras M15 **CERRADAS** anteriores
+2. Define Opening Range: High/Low de esas barras cerradas (1 barra para 15m, 2 para 30m)
+3. **Filtro ATR14:** Calcula ATR(14) desde barras D1 (shifted, sin look-ahead). Si `or_width / atr14` esta fuera de [0.1, 0.8], descarta y avanza al siguiente duration (waterfall)
+4. Coloca **BUY_STOP** en el OR High
+5. SL = OR Low (extremo opuesto del rango)
+6. TP = OR High + (rango * 1.5) = +1.5R
 7. Lotaje calculado por DynamicRiskAllocator sobre **BALANCE** (no free_margin)
-8. **Un trade por activo por dia** — si first_break_dir ya ocurrio, no re-entra
-9. Al detectar fill de una pierna, **cancela la opuesta** (OCO en software)
+8. **Un trade por activo por dia** — si ya hay fill o cancellation, no re-entra
+9. **Trend Monitor (Software OCO):** Si el precio toca OR Low primero, cancela el BUY_STOP
+
+### Waterfall de Duraciones
+
+Cada activo tiene duraciones [15m, 30m]. Si el ATR filter rechaza con 15m, el bot reintenta automaticamente con 30m en la siguiente ventana. Si ambas fallan, skip del dia para ese activo.
 
 ### Filtros Defensivos
 
 - **ATR14 Filter:** Rechaza si or_atr_ratio fuera de [0.1, 0.8] (consistente con backtest)
 - **Spread Filter:** Rechaza si spread > 1.5x baseline (con piso minimo de 5 puntos)
-- **One-Trade-Per-Day:** Un solo trade por activo por dia (first_break_dir)
+- **One-Trade-Per-Day:** Un solo trade por activo por edge por dia (persistido en disco)
 - **Exposure Check:** No coloca ordenes si ya hay posiciones/ordenes en el simbolo
 - **Volume Check:** Rechaza si lotaje < volume_min del broker
 - **Expiracion Hardware:** ORDER_TIME_SPECIFIED a 8 horas (broker mata la orden si Python cae)
 - **Limpieza Software:** wipe_stale_orders() cada hora (complementa hardware)
 - **Magic Number:** 1337 (identifica ordenes del bot)
 
+### SL Guardian (Proteccion de Emergencia)
+
+Monitorea posiciones abiertas cada 10s. Si detecta que el precio cruzo el SL sin cerrar (gap/flash crash), cierra la posicion a mercado inmediatamente y notifica por Telegram.
+
 ### Seguridad y Resiliencia
 
 - **Reconexion MT5:** Automatica con backoff exponencial (3 intentos)
 - **Error Isolation:** try/except por simbolo — un fallo no afecta otros
 - **Thread Safety:** Lock en flags de control (_paused)
-- **Watchdog:** Servicio NSSM independiente que reinicia el bot si cae
-- **Supervisor:** Max 5 crashes con cooldown, NSSM reinicia el supervisor
+- **Watchdog:** Servicio NSSM independiente que reinicia el bot si cae o si no hay heartbeat por 2min
+- **Supervisor:** Max 5 crashes con cooldown de 30s, NSSM reinicia el supervisor
+- **Estado Persistente:** daily_trades.json sobrevive reinicios, se resetea a medianoche UTC
 - **Timezone:** Todo UTC via datetime.now(timezone.utc)
 
 ### Telegram — Comandos Admin
@@ -313,17 +326,30 @@ python deploy/restart_bot.py
 | /positions  | Posiciones abiertas con detalle |
 | /orders     | Ordenes pendientes |
 | /health     | CPU, RAM, disco, estado MT5 |
-| /stop       | Detener trading (posiciones siguen activas) |
+| /stop       | Detener trading (cancela ordenes pendientes, posiciones siguen activas) |
 | /resume     | Reanudar trading |
 
 ### Telegram — Notificaciones Automaticas
 
 - **Cada 15 min:** Heartbeat con balance, equity, P&L del dia, estado MT5
-- **Por evento:** ORB detectado, orden colocada/rechazada, trade cerrado (🦋/💥)
+- **Cada 5 min:** Check de salud del sistema (CPU, RAM, disco, MT5)
+- **Por evento:** ORB detectado, orden colocada/rechazada, trade cerrado (🦋 win / 💥 loss)
 - **Alertas:** Spread alto, MT5 desconectado, CPU/RAM/disco critico, crash del bot
+
+### Intervalos del Loop Principal
+
+| Funcion | Intervalo |
+|---------|-----------|
+| Process symbols | 10s (cada tick del loop) |
+| Check positions & fills | 10s |
+| MT5 reconnect check | 60s |
+| System health check | 300s (5 min) |
+| Heartbeat Telegram | 900s (15 min) |
+| Stale order cleanup | 3600s (1 hora) |
 
 ---
 
-*Documento actualizado: 2026-04-06*
-*Refactored: Consistencia backtest-live, ATR14 filter, OCO, balance sizing*
+*Documento actualizado: 2026-04-07*
+*Portfolio: 5 activos (USDJPY+, XAUUSD+, EURUSD+, USOUSD, SP500), TREND_UP, 3% riesgo*
+*TP Multiplier: 1.5R | Waterfall: 15m → 30m | SL Guardian activo*
 *Para Kha0sys3 ORB Bot corriendo en VPS 85.239.230.215*
