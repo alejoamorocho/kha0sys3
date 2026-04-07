@@ -6,7 +6,7 @@ Envia alertas de trades, estado de cuenta, y metricas de riesgo.
 
 import requests
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 from pathlib import Path
 
@@ -74,7 +74,7 @@ class TelegramNotifier:
             f"<code>{portfolio_text}</code>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"<code>Riesgo/Trade: 3.0%</code>\n"
-            f"<code>Hora UTC: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}</code>"
+            f"<code>Hora UTC: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}</code>"
         )
         self._broadcast(msg)
 
@@ -83,7 +83,7 @@ class TelegramNotifier:
         msg = (
             "<b>🛑 Kha0sys3 Bot Detenido</b>\n"
             f"<code>Razon: {reason}</code>\n"
-            f"<code>Hora UTC: {datetime.utcnow().strftime('%Y-%m-%d %H:%M')}</code>"
+            f"<code>Hora UTC: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')}</code>"
         )
         self._broadcast(msg)
 
@@ -95,7 +95,7 @@ class TelegramNotifier:
             f"<code>High : {range_high:.5f}</code>\n"
             f"<code>Low  : {range_low:.5f}</code>\n"
             f"<code>Width: {range_width:.5f}</code>\n"
-            f"<code>Hora : {datetime.utcnow().strftime('%H:%M')} UTC</code>"
+            f"<code>Hora : {datetime.now(timezone.utc).strftime('%H:%M')} UTC</code>"
         )
         self._broadcast(msg)
 
@@ -151,7 +151,7 @@ class TelegramNotifier:
             f"<code>Equity     : ${equity:,.2f}</code>\n"
             f"<code>Margen Libre: ${margin_free:,.2f}</code>\n"
             f"<code>Posiciones : {open_positions}</code>\n"
-            f"<code>Hora UTC   : {datetime.utcnow().strftime('%H:%M')}</code>"
+            f"<code>Hora UTC   : {datetime.now(timezone.utc).strftime('%H:%M')}</code>"
         )
         self._broadcast(msg)
 
@@ -161,7 +161,7 @@ class TelegramNotifier:
             f"<b>❌ Error Critico</b>\n"
             f"<code>Contexto: {context}</code>\n"
             f"<code>Error   : {error_msg[:500]}</code>\n"
-            f"<code>Hora    : {datetime.utcnow().strftime('%H:%M')} UTC</code>"
+            f"<code>Hora    : {datetime.now(timezone.utc).strftime('%H:%M')} UTC</code>"
         )
         self._broadcast(msg)
 
@@ -172,7 +172,7 @@ class TelegramNotifier:
             f"<code>Uptime : {uptime_hours:.1f}h</code>\n"
             f"<code>Trades : {trades_today}</code>\n"
             f"<code>Estado : Operativo</code>\n"
-            f"<code>Hora   : {datetime.utcnow().strftime('%H:%M')} UTC</code>"
+            f"<code>Hora   : {datetime.now(timezone.utc).strftime('%H:%M')} UTC</code>"
         )
         self._broadcast(msg)
 

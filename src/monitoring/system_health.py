@@ -6,7 +6,7 @@ Monitorea el estado del sistema: CPU, RAM, disco, MT5, procesos Python.
 import psutil
 import os
 import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from dataclasses import dataclass
 from typing import Optional
 
@@ -77,7 +77,7 @@ class SystemHealthMonitor:
             mt5_connected=mt5_connected,
             mt5_trade_allowed=mt5_trade_allowed,
             uptime_hours=uptime_seconds / 3600,
-            timestamp=datetime.utcnow(),
+            timestamp=datetime.now(timezone.utc),
         )
 
     def check_nssm_service(self, service_name: str) -> str:

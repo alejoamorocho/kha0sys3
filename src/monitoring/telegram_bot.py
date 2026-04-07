@@ -22,7 +22,7 @@ import threading
 import time
 import os
 import signal
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Callable
 from pathlib import Path
 
@@ -90,7 +90,7 @@ class TelegramCommandBot:
             f"  M. Libre  │ ${acc.margin_free:,.2f}\n"
             f"  Nivel     │ {acc.margin_level:.1f}%\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         )
 
     def _fmt_pnl(self, report: PnLReport) -> str:
@@ -123,7 +123,7 @@ class TelegramCommandBot:
             f"  Swap      │ ${report.total_swap:,.2f}\n"
             f"  Neto      │ <b>${report.realized_pnl:+,.2f}</b>\n"
             f"━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         )
 
     def _fmt_position(self, pos: PositionInfo) -> str:
@@ -251,7 +251,7 @@ class TelegramCommandBot:
                 msg += f"  • {alert}\n"
             msg += "━━━━━━━━━━━━━━━━━━━━━━\n"
 
-        msg += f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+        msg += f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         await update.message.reply_text(msg, parse_mode="HTML")
 
     async def cmd_balance(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -317,7 +317,7 @@ class TelegramCommandBot:
                 msg += self._fmt_position(pos)
                 msg += "──────────────────────\n"
 
-        msg += f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+        msg += f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         await update.message.reply_text(msg, parse_mode="HTML")
 
     async def cmd_orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -349,7 +349,7 @@ class TelegramCommandBot:
                     "──────────────────────\n"
                 )
 
-        msg += f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+        msg += f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         await update.message.reply_text(msg, parse_mode="HTML")
 
     async def cmd_health(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -382,7 +382,7 @@ class TelegramCommandBot:
             "  activas en el broker.\n\n"
             "  Usa /resume para reanudar.\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         )
         await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -410,7 +410,7 @@ class TelegramCommandBot:
             "  reanudado por comando admin.\n\n"
             "  Se reanudan operaciones normales.\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         )
         await update.message.reply_text(msg, parse_mode="HTML")
 
@@ -459,7 +459,7 @@ class TelegramCommandBot:
             f"  Riesgo    │ 3.5% por trade\n"
             f"  Estrategia│ ORB (Opening Range)\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         )
         self.send_sync(msg)
 
@@ -470,7 +470,7 @@ class TelegramCommandBot:
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  Razon     │ {reason}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%Y-%m-%d %H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M')} UTC</i>"
         )
         self.send_sync(msg)
 
@@ -484,7 +484,7 @@ class TelegramCommandBot:
             f"  Low       │ {range_low:.5f}\n"
             f"  Width     │ {range_width:.5f}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%H:%M')} UTC</i>"
         )
         self.send_sync(msg)
 
@@ -506,7 +506,7 @@ class TelegramCommandBot:
             f"  Volumen   │ {lots:.2f} lots\n"
             f"  R:R       │ 1:{rr:.1f}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%H:%M')} UTC</i>"
         )
         self.send_sync(msg)
 
@@ -550,7 +550,7 @@ class TelegramCommandBot:
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  {error_msg[:400]}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%H:%M')} UTC</i>"
         )
         self.send_sync(msg)
 
@@ -577,7 +577,7 @@ class TelegramCommandBot:
             f"  CPU       │ {health.cpu_percent:.1f}%\n"
             f"  RAM       │ {health.ram_percent:.1f}%\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%H:%M')} UTC</i>"
         )
         self.send_sync(msg)
 
@@ -599,7 +599,7 @@ class TelegramCommandBot:
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"{alert_text}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  <i>{datetime.utcnow().strftime('%H:%M')} UTC</i>"
+            f"  <i>{datetime.now(timezone.utc).strftime('%H:%M')} UTC</i>"
         )
         self.send_sync(msg)
 
