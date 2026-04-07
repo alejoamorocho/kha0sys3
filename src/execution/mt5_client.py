@@ -140,9 +140,9 @@ class MT5Client:
 
         true_ranges = []
         for i in range(1, len(rates)):
-            high = rates[i].high
-            low = rates[i].low
-            prev_close = rates[i - 1].close
+            high = rates[i]['high']
+            low = rates[i]['low']
+            prev_close = rates[i - 1]['close']
 
             tr = max(
                 high - low,
@@ -166,7 +166,7 @@ class MT5Client:
         rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 1, 1)
         if rates is None or len(rates) == 0:
             return None
-        return rates[0].close
+        return rates[0]['close']
 
     def get_or_from_closed_bars(self, symbol: str, duration_mins: int = 15) -> Optional[dict]:
         """Obtiene Opening Range de las barras M15 CERRADAS necesarias.
@@ -180,17 +180,17 @@ class MT5Client:
             return None
 
         # Agregación de High y Low sobre el bloque de velas
-        highs = [r.high for r in rates]
-        lows = [r.low for r in rates]
-        
+        highs = [r['high'] for r in rates]
+        lows = [r['low'] for r in rates]
+
         o_high = max(highs)
         o_low = min(lows)
-        
+
         return {
             "high": o_high,
             "low": o_low,
             "width": o_high - o_low,
-            "open": rates[-1].open,   # Apertura de la primera vela (la mas vieja en el array)
-            "close": rates[0].close,  # Cierre de la ultima vela (la mas reciente)
-            "time": rates[0].time,
+            "open": rates[-1]['open'],   # Apertura de la primera vela (la mas vieja en el array)
+            "close": rates[0]['close'],  # Cierre de la ultima vela (la mas reciente)
+            "time": rates[0]['time'],
         }
