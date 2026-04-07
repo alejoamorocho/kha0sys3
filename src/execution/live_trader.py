@@ -506,13 +506,23 @@ class LiveTraderEngine:
                 time.sleep(10)
 
         except KeyboardInterrupt:
-            self.telegram.notify_bot_stopped("KeyboardInterrupt")
+            try:
+                self.telegram.notify_bot_stopped("KeyboardInterrupt")
+                time.sleep(1)
+            except Exception:
+                pass
             print("\nBot finalizado manualmente.")
         except Exception as e:
-            self.telegram.notify_error(str(e), "MainLoop")
+            try:
+                self.telegram.notify_error(str(e), "MainLoop")
+            except Exception:
+                pass
             raise
         finally:
-            self.telegram.stop_polling()
+            try:
+                self.telegram.stop_polling()
+            except Exception:
+                pass
             self.client.disconnect()
 
 

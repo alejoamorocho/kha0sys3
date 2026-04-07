@@ -28,7 +28,7 @@ def main():
     restart_count = 0
     last_restart_time = time.time()
 
-    print(f"[Supervisor] Kha0sys3 Supervisor iniciado — {datetime.now(timezone.utc)}")
+    print(f"[Supervisor] Kha0sys3 Supervisor iniciado -- {datetime.now(timezone.utc)}")
     telegram.notify_heartbeat(0, 0)
 
     while restart_count < MAX_RESTARTS:
