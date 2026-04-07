@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+*.pyo
+.claude/
+*.log
+logs/
+data/live_state/
+.env
+*.db

@@ -36,12 +36,16 @@ class TrackerEngine:
             ((pl.col("high") >= pl.col("pd_or_low").first()) & (pl.col("low") <= pl.col("pd_or_low").first())).sum().alias("touches_pd_or_low"),
         ])
         
-        # 2. Breakouts (Entries) - We trigger strictly when price breaks the level
-        first_break_up = df.filter(pl.col("high") >= pl.col("or_high")).group_by("trade_date").agg([
+        # 2. Breakouts (Entries) - We trigger strictly when price breaks the level DURING the active 8H window
+        first_break_up = df.filter(
+            (pl.col("high") >= pl.col("or_high")) & (pl.col("is_active_session") == True)
+        ).group_by("trade_date").agg([
             pl.col("mins_from_midnight").min().alias("time_entry_up")
         ])
         
-        first_break_down = df.filter(pl.col("low") <= pl.col("or_low")).group_by("trade_date").agg([
+        first_break_down = df.filter(
+            (pl.col("low") <= pl.col("or_low")) & (pl.col("is_active_session") == True)
+        ).group_by("trade_date").agg([
             pl.col("mins_from_midnight").min().alias("time_entry_down")
         ])
         

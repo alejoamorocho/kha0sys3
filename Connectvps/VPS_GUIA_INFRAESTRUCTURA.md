@@ -1,6 +1,6 @@
-# Guia de Infraestructura VPS — Kha0sys
+# Guia de Infraestructura VPS — Kha0sys3
 
-Referencia completa para conectar, desplegar y configurar nuevas estrategias en el VPS.
+Referencia completa para conectar, desplegar y operar el bot Kha0sys3 en el VPS.
 
 ---
 
@@ -15,19 +15,15 @@ Referencia completa para conectar, desplegar y configurar nuevas estrategias en 
 | Password     | `Violetica906`               |
 | OS           | Windows Server               |
 
-### Conectarse desde Python (winrm)
+### Conectarse desde Python (modulo integrado)
 
 ```python
-import winrm
+from deploy.vps_connection import VPSConnection
 
-session = winrm.Session(
-    'https://85.239.230.215:5986/wsman',
-    auth=('Administrator', 'Violetica906'),
-    transport='basic',
-    server_cert_validation='ignore'
-)
-result = session.run_ps('Get-Date')
-print(result.std_out.decode())
+vps = VPSConnection()
+if vps.test_connection():
+    result = vps.run_ps("Get-Date")
+    print(result["stdout"])
 ```
 
 ### Conectarse desde PowerShell (remoto)
@@ -62,11 +58,9 @@ Enter-PSSession $session
 
 ### Archivos de configuracion
 
-- **Config activa:** `C:\Proyectos\Kha0sys\config\broker.yaml`
-- **Template:** `C:\Proyectos\Kha0sys\config\broker.yaml.template`
+- **Config activa:** `C:\Proyectos\kha0sys3\config\broker.yaml`
 
 ```yaml
-# broker.yaml (live)
 login: 23540222
 password: "Frotas1429!"
 server: "VantageInternational-Live 5"
@@ -92,7 +86,7 @@ MT5_SERVER=VantageInternational-Live 5
 
 ### Archivo de configuracion
 
-- **Config activa:** `C:\Proyectos\Kha0sys\config\telegram.yaml`
+- **Config activa:** `C:\Proyectos\kha0sys3\config\telegram.yaml`
 
 ```yaml
 token: "8268613194:AAF1Dt15QXwUGAA4M_A8xrDqNMoSiYbpoyk"
@@ -102,10 +96,26 @@ group_chat_id: "-5170985767"
 
 ### Como modificar el bot de Telegram
 
-1. **Cambiar el token/chat_id:** Editar `config/telegram.yaml` en local y desplegar con `deploy/_deploy_changes.py`
-2. **Modificar mensajes/alertas:** Editar `src/monitoring/telegram_pro.py`
+1. **Cambiar el token/chat_id:** Editar `config/telegram.yaml` y hacer deploy con `deploy/pull_and_restart.py`
+2. **Modificar mensajes/alertas:** Editar `src/monitoring/telegram_notifier.py`
 3. **Agregar nuevo grupo:** Agregar `group_chat_id` en `telegram.yaml`, el bot manda mirror a ambos (personal + grupo)
 4. **Comandos admin:** Solo responde en chat personal (778542603), el grupo es solo lectura
+
+### Notificaciones que envia el bot
+
+| Evento | Emoji | Descripcion |
+|--------|-------|-------------|
+| Bot iniciado | 🚀 | Portfolio activo, riesgo/trade, hora |
+| Bot detenido | 🛑 | Razon del stop |
+| ORB detectado | 📊 | High, Low, Width del rango |
+| Orden colocada | 🟢/🔴 | Entry, SL, TP, Lotes |
+| Orden rechazada | ⚠️ | Razon del rechazo |
+| Spread alto | ⚠️ | Spread actual vs promedio |
+| Exposicion bloqueada | 🛡️ | Ya hay posiciones abiertas |
+| Estado de cuenta | 📈 | Balance, Equity, Margen, Posiciones |
+| Heartbeat | 💓 | Uptime, trades del dia |
+| Error critico | ❌ | Contexto y mensaje del error |
+| Limpieza ordenes | 🧹 | Ordenes huerfanas canceladas |
 
 ---
 
@@ -122,99 +132,60 @@ group_chat_id: "-5170985767"
 
 ### Paquetes Python Instalados
 
-```
-MetaTrader5>=5.0.45
-polars>=1.0           # <-- SI esta instalado
-pyarrow>=15.0
-duckdb>=0.10
-numpy>=1.26
-scipy>=1.12
-scikit-learn>=1.4
-hmmlearn>=0.3
-filterpy>=1.4
-riskfolio-lib>=6.0
-optuna>=3.5
-python-telegram-bot>=21.0
-streamlit>=1.30
-plotly>=5.18
-pyyaml>=6.0
-psutil>=5.9
-requests
-```
-
-### Comando de instalacion de paquetes
-
-```powershell
-python -m pip install polars pyarrow duckdb numpy scipy scikit-learn hmmlearn filterpy riskfolio-lib optuna streamlit plotly pyyaml psutil requests MetaTrader5
-```
-
-Para instalar paquetes adicionales para una nueva estrategia:
-
-```python
-# Desde local via WinRM
-session.run_ps('C:\\Python312\\python.exe -m pip install <paquete_nuevo>')
-```
+Ver `requirements.txt` en la raiz del proyecto.
 
 ---
 
 ## 5. Servicios NSSM (Auto-start)
 
-### Kha0sysBot (Bot de Trading Principal)
+### Kha0sysBot3 (Bot de Trading Principal)
 
-| Campo             | Valor                                                    |
-|-------------------|----------------------------------------------------------|
-| Service Name      | `Kha0sysBot`                                             |
-| Executable        | `C:\Python312\python.exe`                                |
-| Arguments         | `-u C:\Proyectos\Kha0sys\scripts\run_bot_supervisor.py`  |
-| Working Dir       | `C:\Proyectos\Kha0sys`                                   |
-| Startup           | AUTO_START                                               |
-| Restart Delay     | 10,000 ms (10s)                                          |
-| Stdout Log        | `C:\Proyectos\Kha0sys\logs\bot_stdout.log`               |
-| Stderr Log        | `C:\Proyectos\Kha0sys\logs\bot_stderr.log`               |
-| Log Rotation      | Habilitado (10MB max)                                    |
+| Campo             | Valor                                                      |
+|-------------------|------------------------------------------------------------|
+| Service Name      | `Kha0sysBot3`                                              |
+| Executable        | `C:\Python312\python.exe`                                  |
+| Arguments         | `-u C:\Proyectos\kha0sys3\scripts\run_bot_supervisor.py`   |
+| Working Dir       | `C:\Proyectos\kha0sys3`                                    |
+| Startup           | AUTO_START                                                 |
+| Restart Delay     | 10,000 ms (10s)                                            |
+| Stdout Log        | `C:\Proyectos\kha0sys3\logs\bot_stdout.log`                |
+| Stderr Log        | `C:\Proyectos\kha0sys3\logs\bot_stderr.log`                |
+| Log Rotation      | Habilitado (10MB max)                                      |
 
-### Kha0sysWatchdog (Monitoreo)
+### Kha0sysWatchdog3 (Monitoreo)
 
-| Campo             | Valor                                                                                          |
-|-------------------|------------------------------------------------------------------------------------------------|
-| Service Name      | `Kha0sysWatchdog`                                                                              |
-| Executable        | `C:\Python312\python.exe`                                                                      |
-| Arguments         | `-u C:\Proyectos\Kha0sys\scripts\watchdog.py --db C:\Proyectos\Kha0sys\data\live_state\kha0sys_live.db` |
-| Working Dir       | `C:\Proyectos\Kha0sys`                                                                        |
-| Startup           | AUTO_START                                                                                     |
-| Restart Delay     | 5,000 ms (5s)                                                                                  |
-| Stdout Log        | `C:\Proyectos\Kha0sys\logs\watchdog_stdout.log`                                               |
-| Stderr Log        | `C:\Proyectos\Kha0sys\logs\watchdog_stderr.log`                                               |
+| Campo             | Valor                                                      |
+|-------------------|------------------------------------------------------------|
+| Service Name      | `Kha0sysWatchdog3`                                         |
+| Executable        | `C:\Python312\python.exe`                                  |
+| Arguments         | `-u C:\Proyectos\kha0sys3\scripts\watchdog.py`             |
+| Working Dir       | `C:\Proyectos\kha0sys3`                                    |
+| Startup           | AUTO_START                                                 |
+| Restart Delay     | 5,000 ms (5s)                                              |
+| Stdout Log        | `C:\Proyectos\kha0sys3\logs\watchdog_stdout.log`           |
+| Stderr Log        | `C:\Proyectos\kha0sys3\logs\watchdog_stderr.log`           |
 
 ### Tarea Programada
 
 | Campo        | Valor                                |
 |--------------|--------------------------------------|
-| Nombre       | `Kha0sysWeeklyRestart`               |
+| Nombre       | `Kha0sys3WeeklyRestart`              |
 | Horario      | Domingos 20:00 UTC                   |
-| Accion       | Reinicia bot + watchdog              |
+| Accion       | Reinicia Kha0sysBot3 + Kha0sysWatchdog3 |
 
 ### Comandos NSSM utiles
 
 ```powershell
 # Ver estado de servicios
-nssm status Kha0sysBot
-nssm status Kha0sysWatchdog
+nssm status Kha0sysBot3
+nssm status Kha0sysWatchdog3
 
 # Parar / Iniciar (NO usar restart, es poco confiable)
-nssm stop Kha0sysBot
-nssm start Kha0sysBot
+nssm stop Kha0sysBot3
+nssm start Kha0sysBot3
 
 # Ver logs en tiempo real
-Get-Content C:\Proyectos\Kha0sys\logs\bot_stdout.log -Tail 50
-
-# Registrar un nuevo servicio
-nssm install NuevoServicio C:\Python312\python.exe "-u C:\Proyectos\Kha0sys\scripts\nuevo_script.py"
-nssm set NuevoServicio AppDirectory C:\Proyectos\Kha0sys
-nssm set NuevoServicio AppStdout C:\Proyectos\Kha0sys\logs\nuevo_stdout.log
-nssm set NuevoServicio AppStderr C:\Proyectos\Kha0sys\logs\nuevo_stderr.log
-nssm set NuevoServicio AppRestartDelay 10000
-nssm start NuevoServicio
+Get-Content C:\Proyectos\kha0sys3\logs\bot_stdout.log -Tail 50
 ```
 
 ---
@@ -222,33 +193,35 @@ nssm start NuevoServicio
 ## 6. Estructura de Directorios en VPS
 
 ```
-C:\Proyectos\Kha0sys\
+C:\Proyectos\kha0sys3\
 ├── config\
-│   ├── broker.yaml          # Credenciales MT5
-│   ├── telegram.yaml        # Credenciales Telegram
-│   ├── risk_params.yaml     # Parametros de riesgo
-│   ├── instruments.yaml     # 14 instrumentos (5 asset classes)
-│   └── settings.yaml        # Timeframes y pesos MTF
+│   ├── broker.yaml              # Credenciales MT5
+│   └── telegram.yaml            # Credenciales Telegram
 ├── scripts\
-│   ├── run_demo_live.py     # Entry point del bot (V7.1)
-│   ├── run_bot_supervisor.py # Supervisor que lanza run_demo_live
-│   └── watchdog.py          # Monitor independiente
+│   ├── run_bot_supervisor.py    # Supervisor que lanza LiveTraderEngine
+│   └── watchdog.py              # Monitor independiente
 ├── src\
-│   ├── signals\
-│   │   ├── signal_generator_v6.py    # Pipeline V6 Trend
-│   │   └── signal_generator_v6_mr.py # Pipeline V6 MR
-│   └── monitoring\
-│       └── telegram_pro.py  # Notificaciones Telegram
-├── data\
-│   ├── live_state\          # Base de datos del estado live
-│   ├── parquet\             # Datos historicos
-│   └── optuna_v7_*_best.json # Params optimizados por instrumento
-├── logs\
-│   ├── bot_stdout.log
-│   ├── bot_stderr.log
-│   ├── watchdog_stdout.log
-│   └── watchdog_stderr.log
-└── deploy\                  # Scripts de despliegue (se ejecutan desde LOCAL)
+│   ├── application\             # Use Cases & Business Logic
+│   ├── domain\                  # Domain Models & Interfaces
+│   ├── engine\                  # Backtester & Optimization
+│   ├── execution\               # Live Trading (MT5, Orders, Risk)
+│   │   ├── live_trader.py       # LiveTraderEngine principal
+│   │   ├── mt5_client.py        # Gateway MT5
+│   │   ├── order_manager.py     # Ciclo de vida de ordenes
+│   │   ├── risk_manager.py      # Calculo de riesgo/lotaje
+│   │   └── bot_config.json      # Portfolio y parametros
+│   ├── infrastructure\          # Config & Data loaders
+│   ├── monitoring\
+│   │   ├── telegram_bot.py      # Bot interactivo con comandos
+│   │   ├── telegram_notifier.py # Notificaciones push (legacy)
+│   │   ├── mt5_reporter.py      # Datos reales MT5 (PnL, posiciones)
+│   │   └── system_health.py     # Salud del sistema (CPU, RAM, MT5)
+│   └── optimize\                # Optuna runners
+├── data\                        # Datos historicos CSV
+├── reports\                     # Edge analysis & tearsheets
+├── deploy\                      # Scripts de despliegue (LOCAL)
+├── logs\                        # Logs de servicios
+└── requirements.txt             # Dependencias Python
 ```
 
 ---
@@ -257,100 +230,100 @@ C:\Proyectos\Kha0sys\
 
 | Script                        | Proposito                                             |
 |-------------------------------|-------------------------------------------------------|
-| `_deploy_changes.py`         | Sube archivos modificados y reinicia bot               |
-| `_check_bot.py`              | Verifica estado del bot remoto                         |
-| `_restart.py`                | Reinicia el servicio del bot                           |
-| `_nssm_start.py`             | Inicia servicios NSSM                                 |
-| `_register_services.py`      | Registra nuevos servicios NSSM                         |
-| `vps_diagnose.py`            | Diagnostico completo del VPS                           |
-| `vps_verify.py`              | Verifica config MT5 y Telegram en VPS                  |
-| `vps_setup_services.py`      | Configura servicios NSSM via WinRM                     |
-| `vps_start.py`               | Inicia servicios y muestra logs                        |
-| `fix_configs.py`             | Corrige archivos de config en VPS                      |
-| `_pull_and_verify.py`        | Git pull + verificacion de config                      |
-| `deploy_live.ps1`            | Setup completo del VPS desde cero                      |
+| `deploy/deploy_new_bot.py`   | Deploy completo: elimina bot viejo, clona repo, configura servicios |
+| `deploy/check_bot.py`        | Verifica estado del bot remoto                         |
+| `deploy/restart_bot.py`      | Reinicia los servicios del bot                         |
+| `deploy/pull_and_restart.py` | Git pull + reinicio de servicios                       |
+| `deploy/vps_diagnose.py`     | Diagnostico completo del VPS                           |
+| `deploy/vps_connection.py`   | Modulo de conexion WinRM (usado por los demas scripts) |
 
-### Flujo tipico para desplegar una nueva estrategia
+### Flujo tipico de operacion
 
 ```bash
-# 1. Desarrollar y probar localmente
+# 1. Deploy inicial (primera vez)
+python deploy/deploy_new_bot.py
 
-# 2. Subir cambios al VPS
-python deploy/_deploy_changes.py
+# 2. Actualizar codigo (cambios futuros)
+python deploy/pull_and_restart.py
 
-# 3. Verificar que todo esta bien
-python deploy/vps_verify.py
+# 3. Verificar estado
+python deploy/check_bot.py
 
-# 4. Diagnosticar si hay problemas
+# 4. Diagnosticar problemas
 python deploy/vps_diagnose.py
 
 # 5. Reiniciar si es necesario
-python deploy/_restart.py
+python deploy/restart_bot.py
 ```
 
 ---
 
-## 8. Como Instalar una Nueva Estrategia
+## 8. Parametros de Trading (ORB Strategy)
 
-### Checklist rapido
+### Portfolio Activo (Trinity)
 
-1. **Verificar dependencias:** Si tu nueva estrategia usa paquetes no listados arriba, instalarlos via WinRM:
-   ```python
-   session.run_ps('C:\\Python312\\python.exe -m pip install <paquete>')
-   ```
+| Instrumento | MT5 Symbol | Magic Time | TP Opt | Riesgo/Trade |
+|-------------|-----------|-----------|--------|--------------|
+| USDJPY      | USDJPY+   | 00:00 UTC | 0.8x   | 3.5%         |
+| GBPUSD      | GBPUSD+   | 07:00 UTC | 0.7x   | 3.5%         |
+| NASDAQ100   | NAS100    | 13:30 UTC | 0.7x   | 3.5%         |
 
-2. **Subir archivos:** Usar `_deploy_changes.py` como base, o crear un nuevo script de deploy que suba los archivos necesarios via base64 + WinRM.
+### Logica ORB (consistente con backtest)
 
-3. **Configurar credenciales:** Reutilizar `config/broker.yaml` y `config/telegram.yaml` existentes, o crear configs nuevas para la estrategia.
+1. A la hora `magic_time`, lee la vela M15 **CERRADA** anterior (no la que se esta formando)
+2. Define Opening Range: High/Low de esa vela cerrada
+3. **Filtro ATR14:** Calcula ATR(14) desde barras D1. Si `or_width / atr14` esta fuera de [0.1, 0.8], descarta
+4. Coloca BUY_STOP en el High y SELL_STOP en el Low
+5. SL = extremo opuesto del rango
+6. TP = entry + (rango * tp_opt)
+7. Lotaje calculado por DynamicRiskAllocator sobre **BALANCE** (no free_margin)
+8. **Un trade por activo por dia** — si first_break_dir ya ocurrio, no re-entra
+9. Al detectar fill de una pierna, **cancela la opuesta** (OCO en software)
 
-4. **Registrar servicio NSSM:** Si la nueva estrategia corre como proceso independiente:
-   ```powershell
-   nssm install NuevaEstrategia C:\Python312\python.exe "-u C:\Proyectos\NuevaEstrategia\main.py"
-   nssm set NuevaEstrategia AppDirectory C:\Proyectos\NuevaEstrategia
-   nssm set NuevaEstrategia AppStdout C:\Proyectos\NuevaEstrategia\logs\stdout.log
-   nssm set NuevaEstrategia AppStderr C:\Proyectos\NuevaEstrategia\logs\stderr.log
-   nssm set NuevaEstrategia AppRestartDelay 10000
-   nssm start NuevaEstrategia
-   ```
+### Filtros Defensivos
 
-5. **Telegram:** Reutilizar el mismo bot token y chat_id, solo importar `telegram_pro.py` o usar requests directamente.
+- **ATR14 Filter:** Rechaza si or_atr_ratio fuera de [0.1, 0.8] (consistente con backtest)
+- **Spread Filter:** Rechaza si spread > 1.5x baseline (con piso minimo de 5 puntos)
+- **One-Trade-Per-Day:** Un solo trade por activo por dia (first_break_dir)
+- **Exposure Check:** No coloca ordenes si ya hay posiciones/ordenes en el simbolo
+- **Volume Check:** Rechaza si lotaje < volume_min del broker
+- **Expiracion Hardware:** ORDER_TIME_SPECIFIED a 8 horas (broker mata la orden si Python cae)
+- **Limpieza Software:** wipe_stale_orders() cada hora (complementa hardware)
+- **Magic Number:** 1337 (identifica ordenes del bot)
 
-6. **Verificar:** Revisar logs en `C:\Proyectos\...\logs\` y usar `vps_diagnose.py` adaptado.
+### Seguridad y Resiliencia
+
+- **Reconexion MT5:** Automatica con backoff exponencial (3 intentos)
+- **Error Isolation:** try/except por simbolo — un fallo no afecta otros
+- **Thread Safety:** Lock en flags de control (_paused)
+- **Watchdog:** Servicio NSSM independiente que reinicia el bot si cae
+- **Supervisor:** Max 5 crashes con cooldown, NSSM reinicia el supervisor
+- **Timezone:** Todo UTC via datetime.now(timezone.utc)
+
+### Telegram — Comandos Admin
+
+| Comando     | Descripcion |
+|-------------|-------------|
+| /start      | Panel de control |
+| /status     | Estado completo (cuenta, posiciones, salud) |
+| /balance    | Balance y equity en tiempo real |
+| /pnl        | P&L realizado del dia |
+| /weekly     | P&L semanal |
+| /monthly    | P&L mensual |
+| /positions  | Posiciones abiertas con detalle |
+| /orders     | Ordenes pendientes |
+| /health     | CPU, RAM, disco, estado MT5 |
+| /stop       | Detener trading (posiciones siguen activas) |
+| /resume     | Reanudar trading |
+
+### Telegram — Notificaciones Automaticas
+
+- **Cada 15 min:** Heartbeat con balance, equity, P&L del dia, estado MT5
+- **Por evento:** ORB detectado, orden colocada/rechazada, trade cerrado (🦋/💥)
+- **Alertas:** Spread alto, MT5 desconectado, CPU/RAM/disco critico, crash del bot
 
 ---
 
-## 9. Parametros de Riesgo Actuales (V7.1)
-
-| Parametro           | Valor              |
-|---------------------|---------------------|
-| Base Risk/Trade     | 0.30% (global)      |
-| ATR SL Multiplier   | 5.50 (global)       |
-| Partial Close       | 80% @ 2.00R         |
-| Trailing            | 20% restante         |
-| Max Portfolio Heat  | 7%                  |
-| Circuit Breakers    | Daily 6%, Weekly 10%, Monthly 20%, Max DD 25% |
-| Cooldown            | 16 bars M15 (4h)    |
-| Time Stop           | 12 bars M15 (3h)    |
-
-**Nota:** V7.1 usa parametros PER-INSTRUMENT que sobreescriben estos globales. Ver archivos `data/optuna_v7_*_best.json`.
-
----
-
-## 10. Instrumentos Activos
-
-### V7.1 Live (7 combos en 5 simbolos)
-
-| Instrumento   | Estrategia | Risk   | SL ATR | Partial       | Max Bars |
-|---------------|-----------|--------|--------|---------------|----------|
-| NASDAQ100     | Trend     | 0.25%  | 3.75   | 25% @ 4.0R    | 88       |
-| NASDAQ100     | MR        | 0.60%  | 5.75   | 20% @ 1.7R    | 76       |
-| SP500         | Trend     | 1.10%  | 3.75   | 15% @ 3.3R    | 64       |
-| USDJPY        | Trend     | 0.35%  | 5.0    | 45% @ 1.8R    | 72       |
-| USDJPY        | MR        | 1.10%  | 6.0    | 55% @ 1.6R    | 100      |
-| EURUSD        | MR        | 0.25%  | 6.0    | 55% @ 2.2R    | 40       |
-| WTI           | MR        | 0.60%  | 5.0    | 50% @ 2.0R    | 68       |
-
----
-
-*Documento generado: 2026-04-06*
-*Para la estrategia Kha0sys V7.1 corriendo en VPS 85.239.230.215*
+*Documento actualizado: 2026-04-06*
+*Refactored: Consistencia backtest-live, ATR14 filter, OCO, balance sizing*
+*Para Kha0sys3 ORB Bot corriendo en VPS 85.239.230.215*

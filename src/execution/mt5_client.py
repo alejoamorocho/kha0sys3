@@ -1,34 +1,72 @@
+"""
+MT5 Client — Kha0sys3
+Gateway stateless para MetaTrader 5 con reconexión automática y cálculo de ATR14.
+"""
+
 import MetaTrader5 as mt5
 import time
-import pandas as pd
-from typing import Optional, List, Dict
+import math
+from datetime import datetime, timezone
+from typing import Optional
+
 
 class MT5Client:
-    """Gateway interface para interactuar con MetaTrader 5 asumiendo filosofía Stateless."""
-    
+    """Gateway interface para MetaTrader 5. Stateless con reconexión automática."""
+
+    MAX_RECONNECT_ATTEMPTS = 3
+    RECONNECT_DELAY_BASE = 2  # segundos, escala exponencial
+
     def __init__(self):
         self.connected = False
 
     def connect(self) -> bool:
         if not mt5.initialize():
-            print("❌ MT5Client: initialize() failed. Check MT5 Terminal.")
+            print("MT5Client: initialize() failed. Check MT5 Terminal.")
             mt5.shutdown()
             return False
         self.connected = True
-        print("✅ MT5Client: Conectado a MetaTrader 5.")
+        print("MT5Client: Conectado a MetaTrader 5.")
         return True
+
+    def ensure_connected(self) -> bool:
+        """Verifica conexión y reconecta automáticamente si es necesario."""
+        term = mt5.terminal_info()
+        if term and term.connected:
+            self.connected = True
+            return True
+
+        print("MT5Client: Conexión perdida. Intentando reconectar...")
+        for attempt in range(self.MAX_RECONNECT_ATTEMPTS):
+            mt5.shutdown()
+            time.sleep(self.RECONNECT_DELAY_BASE ** attempt)
+            if mt5.initialize():
+                self.connected = True
+                print(f"MT5Client: Reconectado en intento {attempt + 1}.")
+                return True
+
+        self.connected = False
+        print("MT5Client: Reconexión fallida tras todos los intentos.")
+        return False
 
     def disconnect(self):
         if self.connected:
             mt5.shutdown()
             self.connected = False
-            
-    def get_account_free_margin(self) -> float:
+
+    def get_account_balance(self) -> float:
+        """Devuelve el balance settled de la cuenta (base para position sizing)."""
         info = mt5.account_info()
         if info is None:
             raise ConnectionError("No se pudo obtener información de cuenta.")
-        return info.margin_free
-        
+        return info.balance
+
+    def get_account_info(self):
+        """Devuelve el objeto completo de cuenta MT5."""
+        info = mt5.account_info()
+        if info is None:
+            raise ConnectionError("No se pudo obtener información de cuenta.")
+        return info
+
     def get_symbol_info(self, symbol: str):
         info = mt5.symbol_info(symbol)
         if info is None:
@@ -39,45 +77,104 @@ class MT5Client:
         return info
 
     def get_current_spread(self, symbol: str) -> float:
-        """Devuelve el spread actual en Puntos reales del broker"""
+        """Devuelve el spread actual en puntos reales del broker."""
         info = self.get_symbol_info(symbol)
         return info.spread
-        
+
     def get_average_spread(self, symbol: str, lookback_bars: int = 10) -> float:
         """Calcula el spread promedio reciente basándose en barras M15."""
         rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 0, lookback_bars)
         if rates is None or len(rates) == 0:
-            return float('inf')
-        spreads = [r['spread'] for r in rates]
+            return float("inf")
+        spreads = [r["spread"] for r in rates]
         return sum(spreads) / len(spreads)
-        
-    def check_spread_friction(self, symbol: str, threshold_multiplier: float = 1.5) -> bool:
-        """Valida si el spread actual es atípicamente alto comparado con la media reciente."""
+
+    def check_spread_friction(self, symbol: str, threshold_multiplier: float = 1.5,
+                              min_spread_floor: float = 5.0) -> bool:
+        """Valida si el spread actual es atípicamente alto comparado con la media.
+
+        Usa un piso mínimo para evitar falsos positivos cuando spread promedio es 0.
+        """
         current = self.get_current_spread(symbol)
         avg = self.get_average_spread(symbol)
-        # Si el spread actual supera por más de X veces el promedio, hay fricción peligrosa.
-        safe = current <= (avg * threshold_multiplier)
+        baseline = max(avg, min_spread_floor)
+        safe = current <= (baseline * threshold_multiplier)
         if not safe:
-            print(f"⚠️ Alerta Spread {symbol}: Actual={current} | Media={avg:.1f} | Rechazado.")
+            print(f"Spread {symbol}: Actual={current} | Baseline={baseline:.1f} | Rechazado.")
         return safe
 
     def get_open_positions(self, symbol: str):
-        """Lectura In-Vivo de posiciones activas. Diseño Stateless."""
+        """Posiciones activas para un símbolo."""
         positions = mt5.positions_get(symbol=symbol)
         if positions is None:
             return []
         return positions
 
     def get_pending_orders(self, symbol: str):
-        """Lectura In-Vivo de órdenes limit/stop pendientes no ejecutadas."""
+        """Órdenes pendientes para un símbolo."""
         orders = mt5.orders_get(symbol=symbol)
         if orders is None:
             return []
         return orders
 
     def send_order_raw(self, request: dict) -> dict:
-        """Envía solicitud raw al servidor."""
+        """Envía solicitud raw al servidor con guard contra None."""
         result = mt5.order_send(request)
+        if result is None:
+            print(f"order_send returned None para {request.get('symbol')}: {mt5.last_error()}")
+            return {"retcode": -1}
         if result.retcode != mt5.TRADE_RETCODE_DONE:
-            print(f"❌ Error enviando Orden a {request.get('symbol')}: {result.retcode} - {mt5.last_error()}")
-        return result._asdict() if result else {}
+            print(f"Error orden {request.get('symbol')}: {result.retcode} - {mt5.last_error()}")
+        return result._asdict()
+
+    def calculate_atr14(self, symbol: str) -> Optional[float]:
+        """Calcula ATR(14) desde barras D1 de MT5.
+
+        Usa True Range: max(H-L, |H-PrevClose|, |L-PrevClose|)
+        ATR = SMA(14) del True Range, shifted 1 día (sin look-ahead).
+        """
+        # Necesitamos 15 barras D1 (14 para ATR + 1 para el shift)
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, 16)
+        if rates is None or len(rates) < 15:
+            return None
+
+        true_ranges = []
+        for i in range(1, len(rates)):
+            high = rates[i]["high"]
+            low = rates[i]["low"]
+            prev_close = rates[i - 1]["close"]
+
+            tr = max(
+                high - low,
+                abs(high - prev_close),
+                abs(low - prev_close),
+            )
+            true_ranges.append(tr)
+
+        if len(true_ranges) < 14:
+            return None
+
+        # SMA de los últimos 14 TRs (excluyendo el día actual = shifted)
+        atr14 = sum(true_ranges[-15:-1]) / 14
+        return atr14
+
+    def get_or_from_closed_bar(self, symbol: str) -> Optional[dict]:
+        """Obtiene Opening Range de la barra M15 CERRADA anterior (no la actual).
+
+        Retorna dict con high, low, width o None si no hay datos.
+        """
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 1, 1)
+        if rates is None or len(rates) == 0:
+            return None
+
+        bar = rates[0]
+        high = bar["high"]
+        low = bar["low"]
+        return {
+            "high": high,
+            "low": low,
+            "width": high - low,
+            "open": bar["open"],
+            "close": bar["close"],
+            "time": bar["time"],
+        }

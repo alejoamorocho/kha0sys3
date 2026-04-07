@@ -13,23 +13,30 @@ class BacktestPipeline:
         with open(config_path, "r") as f:
             self.config = json.load(f)
 
-    def run_asset(self, symbol: str) -> pl.DataFrame:
+    def run_asset(self, symbol: str, tp_multiplier: float = None) -> pl.DataFrame:
+        """Ejecuta backtest para un activo.
+
+        Args:
+            symbol: Nombre interno del activo.
+            tp_multiplier: Multiplicador de TP sobre OR width.
+                Si None, usa el valor de la config del símbolo (tp_opt) o 1.5 por default.
+        """
         sym_config = self.config.get(symbol)
         if not sym_config:
             raise ValueError(f"Config for {symbol} not found.")
-            
+
         df = self.loader.load_data(symbol, "M15")
-        
+
         df_enriched = DataEnricher.enrich_with_daily_context(
             df, sym_config["pd_start"], sym_config["pd_end"]
         )
-        
+
         df_or = DataEnricher.enrich_with_opening_range(
              df_enriched, sym_config["time_start"], sym_config["duration_minutes"]
         )
-        
-        # Track events passing the TP multiplier for chronological resolution
-        target_mult = 1.5
+
+        # TP multiplier: usar el pasado como argumento, o el de config, o 1.5
+        target_mult = tp_multiplier or sym_config.get("tp_opt", 1.5)
         stats = TrackerEngine.track_events(df_or, tp_multiplier=target_mult)
         
         daily_base = df_or.group_by("trade_date").agg([

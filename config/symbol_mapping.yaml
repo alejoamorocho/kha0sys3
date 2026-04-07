@@ -1,0 +1,20 @@
+# Symbol Mapping — Kha0sys3
+# Mapeo entre nombres internos del sistema y nombres reales en MT5 Vantage International
+# CRITICO: Usar siempre el nombre MT5 (derecha) para operar en el broker
+
+mapping:
+  AUDUSD: AUDUSD+
+  BRENT: UKOUSD
+  EURJPY: EURJPY+
+  EURUSD: EURUSD+
+  GBPAUD: GBPAUD+
+  GBPJPY: GBPJPY+
+  GBPUSD: GBPUSD+
+  NASDAQ100: NAS100
+  NATGAS: NG-C
+  SP500: SP500
+  USDJPY: USDJPY+
+  WTI: USOUSD
+  XAGUSD: XAGUSD
+  XAUUSD: XAUUSD+
+  # VIX: VIX  # Excluido: estrategia incompatible

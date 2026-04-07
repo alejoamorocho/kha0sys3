@@ -1,35 +1,50 @@
+"""
+Dynamic Risk Allocator — Kha0sys3
+Calculadora de position sizing basada en BALANCE (no free_margin).
+"""
+
+import math
+
+
 class DynamicRiskAllocator:
-    """Calculadora centralizada de gestión de riesgo financiero."""
-    
+    """Calcula volumen exacto de lotes arriesgando un porcentaje fijo del balance."""
+
     def __init__(self, risk_percent_per_trade: float = 0.035):
-        # 3.5% default as requested by Kamikaze Model
         self.risk_pct = risk_percent_per_trade
-        
-    def calculate_lots(self, free_margin: float, entry_price: float, sl_price: float, tick_value: float, tick_size: float, volume_step: float) -> float:
+
+    def calculate_lots(self, account_balance: float, entry_price: float,
+                       sl_price: float, tick_value: float, tick_size: float,
+                       volume_step: float) -> float:
+        """Determina el volumen de lotes para arriesgar risk_pct del balance.
+
+        Args:
+            account_balance: Balance settled de la cuenta (NO free_margin).
+            entry_price: Precio de entrada.
+            sl_price: Precio del stop loss.
+            tick_value: Valor monetario de 1 tick para 1 lote.
+            tick_size: Tamaño de 1 tick en precio.
+            volume_step: Paso mínimo de volumen del broker.
         """
-        Determina el volumen exacto de lotes para arriesgar el R-Percent exacto del balance libre.
-        """
-        risk_money = free_margin * self.risk_pct
-        
-        # Diferencia en precio
+        if tick_value <= 0:
+            return 0.0
+        if tick_size <= 0:
+            return 0.0
+        if volume_step <= 0:
+            return 0.0
+
+        risk_money = account_balance * self.risk_pct
+
         price_diff = abs(entry_price - sl_price)
         if price_diff <= 0:
             return 0.0
-            
-        # Cuantos ticks/puntos hay de distancia al StopLoss
+
         ticks_at_risk = price_diff / tick_size
-        
-        # Dinero que se pierde operando 1 Lote base
         loss_per_1_lot = ticks_at_risk * tick_value
+
         if loss_per_1_lot <= 0:
             return 0.0
-            
-        # Cuantos lotes puedo comprar
+
         raw_lots = risk_money / loss_per_1_lot
-        
-        # Redondear al Volume Step del broker (Ej: 0.01)
-        import math
         lots = math.floor(raw_lots / volume_step) * volume_step
-        
-        # Redondear decimales para MT5
+
         return round(lots, 2)

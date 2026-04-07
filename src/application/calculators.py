@@ -74,6 +74,7 @@ class DataEnricher:
         hh, mm = map(int, or_start.split(":"))
         start_td = hh * 60 + mm
         end_td = start_td + duration_mins
+        expiration_td = start_td + (8 * 60) # 8 hours exactly from magic_time
         
         # Map time of day to total minutes. Need to cast hour to Int32 to avoid Int8 overflow when multiplying by 60.
         df = df.with_columns([
@@ -108,9 +109,10 @@ class DataEnricher:
             ((pl.col("or_high") + pl.col("or_low")) / 2).alias("or_mid")
         ])
         
-        # Flag post OR candles
+        # Flag post OR candles & 8H Active Session Window
         res_df = res_df.with_columns([
-            (pl.col("mins_from_midnight") >= end_td).alias("is_post_or")
+            (pl.col("mins_from_midnight") >= end_td).alias("is_post_or"),
+            ((pl.col("mins_from_midnight") >= end_td) & (pl.col("mins_from_midnight") <= expiration_td)).alias("is_active_session")
         ])
         
         return res_df

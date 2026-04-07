@@ -46,8 +46,8 @@
 ✅ SP500: Pre-Market 30m | Edge: 75.46% | Type: UP_Ext
 ✅ NASDAQ100: Pre-Market 15m | Edge: 81.85% | Type: UP_Ext
 ✅ NASDAQ100: Pre-Market 30m | Edge: 74.87% | Type: UP_Ext
-✅ NASDAQ100: Pre-Market 45m | Edge: 65.91% | Type: UP_Ext
-✅ VIX: NY Cash 15m | Edge: 67.05% | Type: UP_Ext
+✅ NASDAQ100: Pre-Market 45m | Edge: 65.98% | Type: UP_Ext
+✅ VIX: NY Cash 15m | Edge: 66.96% | Type: UP_Ext
 
 🧬 Iniciando Genética para: EURUSD (London 15m)
 ⭐ Optimal Expectancy para EURUSD: 0.09 R | Ideal TP: 0.8 | PF: 1.23
@@ -56,10 +56,10 @@
 ⭐ Optimal Expectancy para EURUSD: 0.06 R | Ideal TP: 0.7 | PF: 1.17
 
 🧬 Iniciando Genética para: EURUSD (London 45m)
-⭐ Optimal Expectancy para EURUSD: 0.04 R | Ideal TP: 0.6 | PF: 1.10
+⭐ Optimal Expectancy para EURUSD: 0.03 R | Ideal TP: 0.5 | PF: 1.10
 
 🧬 Iniciando Genética para: EURUSD (London 60m)
-⭐ Optimal Expectancy para EURUSD: 0.04 R | Ideal TP: 0.7 | PF: 1.12
+⭐ Optimal Expectancy para EURUSD: 0.05 R | Ideal TP: 0.7 | PF: 1.12
 
 🧬 Iniciando Genética para: GBPUSD (London 15m)
 ⭐ Optimal Expectancy para GBPUSD: 0.12 R | Ideal TP: 0.7 | PF: 1.35
@@ -95,7 +95,7 @@
 ⭐ Optimal Expectancy para GBPJPY: 0.03 R | Ideal TP: 0.5 | PF: 1.08
 
 🧬 Iniciando Genética para: GBPJPY (Tokyo 45m)
-⭐ Optimal Expectancy para GBPJPY: 0.01 R | Ideal TP: 0.5 | PF: 1.05
+⭐ Optimal Expectancy para GBPJPY: 0.01 R | Ideal TP: 0.6 | PF: 1.04
 
 🧬 Iniciando Genética para: GBPJPY (Tokyo 60m)
 ⭐ Optimal Expectancy para GBPJPY: 0.01 R | Ideal TP: 0.5 | PF: 1.04
@@ -128,7 +128,7 @@
 ⭐ Optimal Expectancy para GBPAUD: 0.05 R | Ideal TP: 0.6 | PF: 1.14
 
 🧬 Iniciando Genética para: XAUUSD (London 15m)
-⭐ Optimal Expectancy para XAUUSD: 0.12 R | Ideal TP: 0.6 | PF: 1.39
+⭐ Optimal Expectancy para XAUUSD: 0.12 R | Ideal TP: 0.8 | PF: 1.31
 
 🧬 Iniciando Genética para: XAUUSD (London 30m)
 ⭐ Optimal Expectancy para XAUUSD: 0.10 R | Ideal TP: 0.8 | PF: 1.25
@@ -179,7 +179,7 @@
 ⭐ Optimal Expectancy para SP500: 0.11 R | Ideal TP: 0.7 | PF: 1.32
 
 🧬 Iniciando Genética para: SP500 (Pre-Market 30m)
-⭐ Optimal Expectancy para SP500: 0.08 R | Ideal TP: 0.5 | PF: 1.28
+⭐ Optimal Expectancy para SP500: 0.08 R | Ideal TP: 0.6 | PF: 1.25
 
 🧬 Iniciando Genética para: NASDAQ100 (Pre-Market 15m)
 ⭐ Optimal Expectancy para NASDAQ100: 0.11 R | Ideal TP: 0.7 | PF: 1.30
@@ -196,9 +196,9 @@
 🌐 Generando Ledger Consolidado de Cuentas...
 --- Ficha de Rendimiento Institucional (Cuenta Unificada) ---
 Trades Diarios Transaccionados: 2138
-Win Rate Sumado Neta: 62.91%
-Profit Factor Central: 2.18
-Sharpe Ratio Global: 0.314
-Max Drawdown Unificado: -79.40 R-Units Máximo Dolor Correlacionado
-Curva Final Creciente Absoluta: +5944.00 R-Units en Retorno Base Libre de Composición
+Win Rate Sumado Neta: 62.82%
+Profit Factor Central: 2.16
+Sharpe Ratio Global: 0.310
+Max Drawdown Unificado: -78.90 R-Units Máximo Dolor Correlacionado
+Curva Final Creciente Absoluta: +5929.60 R-Units en Retorno Base Libre de Composición
 Curva gráfica guardada como portfolio_curve.png

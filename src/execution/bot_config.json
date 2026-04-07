@@ -1,8 +1,8 @@
 {
     "trinity_portfolio": [
-        {"sym": "USDJPY", "magic_time": "00:00", "dur": 15, "tp_opt": 0.8},
-        {"sym": "GBPUSD", "magic_time": "07:00", "dur": 15, "tp_opt": 0.7},
-        {"sym": "US100",  "magic_time": "13:30", "dur": 15, "tp_opt": 0.7}
+        {"sym": "USDJPY+", "magic_time": "00:00", "dur": 15, "tp_opt": 0.8},
+        {"sym": "GBPUSD+", "magic_time": "07:00", "dur": 15, "tp_opt": 0.7},
+        {"sym": "NAS100",  "magic_time": "13:30", "dur": 15, "tp_opt": 0.7}
     ],
     "risk_percent_per_trade": 0.035
 }
