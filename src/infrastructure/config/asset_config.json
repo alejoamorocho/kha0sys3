@@ -1,0 +1,105 @@
+{
+    "EURUSD": {
+        "sessions": [
+            {"name": "London", "time_start": "07:00"},
+            {"name": "NY", "time_start": "13:30"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "GBPUSD": {
+        "sessions": [
+            {"name": "London", "time_start": "07:00"},
+            {"name": "NY", "time_start": "13:30"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "USDJPY": {
+        "sessions": [
+            {"name": "Tokyo", "time_start": "00:00"},
+            {"name": "NY", "time_start": "13:30"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "AUDUSD": {
+        "sessions": [
+            {"name": "Sydney", "time_start": "22:00"},
+            {"name": "London", "time_start": "07:00"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "GBPJPY": {
+        "sessions": [
+            {"name": "Tokyo", "time_start": "00:00"},
+            {"name": "London", "time_start": "07:00"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "EURJPY": {
+        "sessions": [
+            {"name": "Tokyo", "time_start": "00:00"},
+            {"name": "London", "time_start": "07:00"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "GBPAUD": {
+        "sessions": [
+            {"name": "Sydney", "time_start": "22:00"},
+            {"name": "London", "time_start": "07:00"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "XAUUSD": {
+        "sessions": [
+            {"name": "London", "time_start": "07:00"},
+            {"name": "NY", "time_start": "13:30"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "XAGUSD": {
+        "sessions": [
+            {"name": "London", "time_start": "07:00"},
+            {"name": "NY", "time_start": "13:30"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "WTI": {
+        "sessions": [
+            {"name": "London Initial", "time_start": "07:00"},
+            {"name": "NY Main", "time_start": "13:00"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "BRENT": {
+        "sessions": [
+            {"name": "London", "time_start": "07:00"},
+            {"name": "NY", "time_start": "13:00"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "NATGAS": {
+        "sessions": [
+            {"name": "NY", "time_start": "13:00"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "SP500": {
+        "sessions": [
+            {"name": "Pre-Market", "time_start": "12:00"},
+            {"name": "NY Cash", "time_start": "13:30"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "NASDAQ100": {
+        "sessions": [
+            {"name": "Pre-Market", "time_start": "12:00"},
+            {"name": "NY Cash", "time_start": "13:30"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    },
+    "VIX": {
+        "sessions": [
+            {"name": "NY Cash", "time_start": "13:30"}
+        ],
+        "pd_start": "00:00", "pd_end": "23:59"
+    }
+}

@@ -1,0 +1,204 @@
+🔍 Extrayendo config empíricas MASIVAS (>65%) del universo...
+✅ EURUSD: London 15m | Edge: 74.06% | Type: PD_Close_Magnet
+✅ EURUSD: London 30m | Edge: 72.85% | Type: PD_Close_Magnet
+✅ EURUSD: London 45m | Edge: 71.49% | Type: PD_Close_Magnet
+✅ EURUSD: London 60m | Edge: 70.47% | Type: PD_Close_Magnet
+✅ GBPUSD: London 15m | Edge: 73.69% | Type: PD_Close_Magnet
+✅ GBPUSD: London 30m | Edge: 72.56% | Type: PD_Close_Magnet
+✅ GBPUSD: London 45m | Edge: 71.47% | Type: PD_Close_Magnet
+✅ GBPUSD: London 60m | Edge: 69.99% | Type: PD_Close_Magnet
+✅ USDJPY: Tokyo 15m | Edge: 86.44% | Type: PD_Close_Magnet
+✅ USDJPY: Tokyo 30m | Edge: 84.45% | Type: PD_Close_Magnet
+✅ USDJPY: Tokyo 45m | Edge: 82.90% | Type: PD_Close_Magnet
+✅ USDJPY: Tokyo 60m | Edge: 79.87% | Type: PD_Close_Magnet
+✅ AUDUSD: London 15m | Edge: 74.58% | Type: DW_Ext
+✅ GBPJPY: Tokyo 15m | Edge: 88.18% | Type: PD_Close_Magnet
+✅ GBPJPY: Tokyo 30m | Edge: 86.74% | Type: PD_Close_Magnet
+✅ GBPJPY: Tokyo 45m | Edge: 85.65% | Type: PD_Close_Magnet
+✅ GBPJPY: Tokyo 60m | Edge: 83.59% | Type: PD_Close_Magnet
+✅ GBPJPY: London 15m | Edge: 68.84% | Type: UP_Ext
+✅ GBPJPY: London 30m | Edge: 66.41% | Type: PD_Close_Magnet
+✅ EURJPY: Tokyo 15m | Edge: 87.99% | Type: PD_Close_Magnet
+✅ EURJPY: Tokyo 30m | Edge: 86.55% | Type: PD_Close_Magnet
+✅ EURJPY: Tokyo 45m | Edge: 85.27% | Type: PD_Close_Magnet
+✅ EURJPY: Tokyo 60m | Edge: 83.02% | Type: PD_Close_Magnet
+✅ EURJPY: London 15m | Edge: 70.30% | Type: UP_Ext
+✅ GBPAUD: London 15m | Edge: 73.44% | Type: UP_Ext
+✅ GBPAUD: London 30m | Edge: 65.15% | Type: PD_Close_Magnet
+✅ XAUUSD: London 15m | Edge: 75.73% | Type: DW_Ext
+✅ XAUUSD: London 30m | Edge: 69.48% | Type: DW_Ext
+✅ XAUUSD: London 45m | Edge: 67.63% | Type: PD_Close_Magnet
+✅ XAUUSD: London 60m | Edge: 66.97% | Type: PD_Close_Magnet
+✅ XAGUSD: London 15m | Edge: 75.22% | Type: DW_Ext
+✅ XAGUSD: London 30m | Edge: 68.62% | Type: DW_Ext
+✅ XAGUSD: London 45m | Edge: 67.63% | Type: PD_Close_Magnet
+✅ XAGUSD: London 60m | Edge: 67.16% | Type: PD_Close_Magnet
+✅ WTI: London Initial 15m | Edge: 82.07% | Type: DW_Ext
+✅ WTI: London Initial 30m | Edge: 75.69% | Type: UP_Ext
+✅ WTI: London Initial 45m | Edge: 73.76% | Type: PD_Close_Magnet
+✅ WTI: London Initial 60m | Edge: 73.09% | Type: PD_Close_Magnet
+✅ BRENT: London 15m | Edge: 80.22% | Type: DW_Ext
+✅ BRENT: London 30m | Edge: 74.65% | Type: PD_Close_Magnet
+✅ BRENT: London 45m | Edge: 73.89% | Type: PD_Close_Magnet
+✅ BRENT: London 60m | Edge: 73.19% | Type: PD_Close_Magnet
+❌ NATGAS: Descartado. No súperó ninguna rama del 65% absoluto.
+✅ SP500: Pre-Market 15m | Edge: 80.34% | Type: DW_Ext
+✅ SP500: Pre-Market 30m | Edge: 75.46% | Type: UP_Ext
+✅ NASDAQ100: Pre-Market 15m | Edge: 81.85% | Type: UP_Ext
+✅ NASDAQ100: Pre-Market 30m | Edge: 74.87% | Type: UP_Ext
+✅ NASDAQ100: Pre-Market 45m | Edge: 65.91% | Type: UP_Ext
+✅ VIX: NY Cash 15m | Edge: 67.05% | Type: UP_Ext
+
+🧬 Iniciando Genética para: EURUSD (London 15m)
+⭐ Optimal Expectancy para EURUSD: 0.09 R | Ideal TP: 0.8 | PF: 1.23
+
+🧬 Iniciando Genética para: EURUSD (London 30m)
+⭐ Optimal Expectancy para EURUSD: 0.06 R | Ideal TP: 0.7 | PF: 1.17
+
+🧬 Iniciando Genética para: EURUSD (London 45m)
+⭐ Optimal Expectancy para EURUSD: 0.04 R | Ideal TP: 0.6 | PF: 1.10
+
+🧬 Iniciando Genética para: EURUSD (London 60m)
+⭐ Optimal Expectancy para EURUSD: 0.04 R | Ideal TP: 0.7 | PF: 1.12
+
+🧬 Iniciando Genética para: GBPUSD (London 15m)
+⭐ Optimal Expectancy para GBPUSD: 0.12 R | Ideal TP: 0.7 | PF: 1.35
+
+🧬 Iniciando Genética para: GBPUSD (London 30m)
+⭐ Optimal Expectancy para GBPUSD: 0.07 R | Ideal TP: 0.6 | PF: 1.22
+
+🧬 Iniciando Genética para: GBPUSD (London 45m)
+⭐ Optimal Expectancy para GBPUSD: 0.07 R | Ideal TP: 0.7 | PF: 1.18
+
+🧬 Iniciando Genética para: GBPUSD (London 60m)
+⭐ Optimal Expectancy para GBPUSD: 0.05 R | Ideal TP: 0.7 | PF: 1.12
+
+🧬 Iniciando Genética para: USDJPY (Tokyo 15m)
+⭐ Optimal Expectancy para USDJPY: 0.12 R | Ideal TP: 0.8 | PF: 1.31
+
+🧬 Iniciando Genética para: USDJPY (Tokyo 30m)
+⭐ Optimal Expectancy para USDJPY: 0.10 R | Ideal TP: 0.8 | PF: 1.26
+
+🧬 Iniciando Genética para: USDJPY (Tokyo 45m)
+⭐ Optimal Expectancy para USDJPY: 0.10 R | Ideal TP: 0.7 | PF: 1.28
+
+🧬 Iniciando Genética para: USDJPY (Tokyo 60m)
+⭐ Optimal Expectancy para USDJPY: 0.06 R | Ideal TP: 0.5 | PF: 1.22
+
+🧬 Iniciando Genética para: AUDUSD (London 15m)
+⭐ Optimal Expectancy para AUDUSD: 0.08 R | Ideal TP: 0.7 | PF: 1.23
+
+🧬 Iniciando Genética para: GBPJPY (Tokyo 15m)
+⭐ Optimal Expectancy para GBPJPY: 0.08 R | Ideal TP: 0.7 | PF: 1.22
+
+🧬 Iniciando Genética para: GBPJPY (Tokyo 30m)
+⭐ Optimal Expectancy para GBPJPY: 0.03 R | Ideal TP: 0.5 | PF: 1.08
+
+🧬 Iniciando Genética para: GBPJPY (Tokyo 45m)
+⭐ Optimal Expectancy para GBPJPY: 0.01 R | Ideal TP: 0.5 | PF: 1.05
+
+🧬 Iniciando Genética para: GBPJPY (Tokyo 60m)
+⭐ Optimal Expectancy para GBPJPY: 0.01 R | Ideal TP: 0.5 | PF: 1.04
+
+🧬 Iniciando Genética para: GBPJPY (London 15m)
+⭐ Optimal Expectancy para GBPJPY: 0.11 R | Ideal TP: 0.8 | PF: 1.27
+
+🧬 Iniciando Genética para: GBPJPY (London 30m)
+⭐ Optimal Expectancy para GBPJPY: 0.06 R | Ideal TP: 0.7 | PF: 1.17
+
+🧬 Iniciando Genética para: EURJPY (Tokyo 15m)
+⭐ Optimal Expectancy para EURJPY: 0.07 R | Ideal TP: 0.6 | PF: 1.20
+
+🧬 Iniciando Genética para: EURJPY (Tokyo 30m)
+⭐ Optimal Expectancy para EURJPY: 0.04 R | Ideal TP: 0.6 | PF: 1.11
+
+🧬 Iniciando Genética para: EURJPY (Tokyo 45m)
+⭐ Optimal Expectancy para EURJPY: 0.03 R | Ideal TP: 0.6 | PF: 1.09
+
+🧬 Iniciando Genética para: EURJPY (Tokyo 60m)
+⭐ Optimal Expectancy para EURJPY: 0.02 R | Ideal TP: 0.6 | PF: 1.06
+
+🧬 Iniciando Genética para: EURJPY (London 15m)
+⭐ Optimal Expectancy para EURJPY: 0.08 R | Ideal TP: 0.7 | PF: 1.23
+
+🧬 Iniciando Genética para: GBPAUD (London 15m)
+⭐ Optimal Expectancy para GBPAUD: 0.11 R | Ideal TP: 0.8 | PF: 1.30
+
+🧬 Iniciando Genética para: GBPAUD (London 30m)
+⭐ Optimal Expectancy para GBPAUD: 0.05 R | Ideal TP: 0.6 | PF: 1.14
+
+🧬 Iniciando Genética para: XAUUSD (London 15m)
+⭐ Optimal Expectancy para XAUUSD: 0.12 R | Ideal TP: 0.6 | PF: 1.39
+
+🧬 Iniciando Genética para: XAUUSD (London 30m)
+⭐ Optimal Expectancy para XAUUSD: 0.10 R | Ideal TP: 0.8 | PF: 1.25
+
+🧬 Iniciando Genética para: XAUUSD (London 45m)
+⭐ Optimal Expectancy para XAUUSD: 0.05 R | Ideal TP: 0.7 | PF: 1.13
+
+🧬 Iniciando Genética para: XAUUSD (London 60m)
+⭐ Optimal Expectancy para XAUUSD: 0.05 R | Ideal TP: 0.5 | PF: 1.17
+
+🧬 Iniciando Genética para: XAGUSD (London 15m)
+⭐ Optimal Expectancy para XAGUSD: 0.05 R | Ideal TP: 0.5 | PF: 1.15
+
+🧬 Iniciando Genética para: XAGUSD (London 30m)
+⭐ Optimal Expectancy para XAGUSD: 0.04 R | Ideal TP: 0.5 | PF: 1.13
+
+🧬 Iniciando Genética para: XAGUSD (London 45m)
+⭐ Optimal Expectancy para XAGUSD: 0.01 R | Ideal TP: 0.5 | PF: 1.02
+
+🧬 Iniciando Genética para: XAGUSD (London 60m)
+⭐ Optimal Expectancy para XAGUSD: -0.01 R | Ideal TP: 0.5 | PF: 0.97
+
+🧬 Iniciando Genética para: WTI (London Initial 15m)
+⭐ Optimal Expectancy para WTI: 0.11 R | Ideal TP: 0.8 | PF: 1.27
+
+🧬 Iniciando Genética para: WTI (London Initial 30m)
+⭐ Optimal Expectancy para WTI: 0.03 R | Ideal TP: 0.7 | PF: 1.09
+
+🧬 Iniciando Genética para: WTI (London Initial 45m)
+⭐ Optimal Expectancy para WTI: 0.03 R | Ideal TP: 0.5 | PF: 1.08
+
+🧬 Iniciando Genética para: WTI (London Initial 60m)
+⭐ Optimal Expectancy para WTI: 0.05 R | Ideal TP: 0.5 | PF: 1.15
+
+🧬 Iniciando Genética para: BRENT (London 15m)
+⭐ Optimal Expectancy para BRENT: 0.11 R | Ideal TP: 0.8 | PF: 1.28
+
+🧬 Iniciando Genética para: BRENT (London 30m)
+⭐ Optimal Expectancy para BRENT: 0.05 R | Ideal TP: 0.5 | PF: 1.18
+
+🧬 Iniciando Genética para: BRENT (London 45m)
+⭐ Optimal Expectancy para BRENT: 0.01 R | Ideal TP: 0.5 | PF: 1.04
+
+🧬 Iniciando Genética para: BRENT (London 60m)
+⭐ Optimal Expectancy para BRENT: 0.04 R | Ideal TP: 0.5 | PF: 1.12
+
+🧬 Iniciando Genética para: SP500 (Pre-Market 15m)
+⭐ Optimal Expectancy para SP500: 0.11 R | Ideal TP: 0.7 | PF: 1.32
+
+🧬 Iniciando Genética para: SP500 (Pre-Market 30m)
+⭐ Optimal Expectancy para SP500: 0.08 R | Ideal TP: 0.5 | PF: 1.28
+
+🧬 Iniciando Genética para: NASDAQ100 (Pre-Market 15m)
+⭐ Optimal Expectancy para NASDAQ100: 0.11 R | Ideal TP: 0.7 | PF: 1.30
+
+🧬 Iniciando Genética para: NASDAQ100 (Pre-Market 30m)
+⭐ Optimal Expectancy para NASDAQ100: 0.08 R | Ideal TP: 0.7 | PF: 1.21
+
+🧬 Iniciando Genética para: NASDAQ100 (Pre-Market 45m)
+⭐ Optimal Expectancy para NASDAQ100: 0.01 R | Ideal TP: 0.6 | PF: 1.04
+
+🧬 Iniciando Genética para: VIX (NY Cash 15m)
+⭐ Optimal Expectancy para VIX: 0.16 R | Ideal TP: 0.9 | PF: 1.41
+
+🌐 Generando Ledger Consolidado de Cuentas...
+--- Ficha de Rendimiento Institucional (Cuenta Unificada) ---
+Trades Diarios Transaccionados: 2138
+Win Rate Sumado Neta: 62.91%
+Profit Factor Central: 2.18
+Sharpe Ratio Global: 0.314
+Max Drawdown Unificado: -79.40 R-Units Máximo Dolor Correlacionado
+Curva Final Creciente Absoluta: +5944.00 R-Units en Retorno Base Libre de Composición
+Curva gráfica guardada como portfolio_curve.png

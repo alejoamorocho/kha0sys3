@@ -1,0 +1,504 @@
+--- START OF c:\Proyectos\kha0sys3\ORB_Framework_Evaluacion.docx ---
+
+OPENING RANGE BREAKOUT
+Framework de Evaluacion Multi-Asset
+15 Instrumentos | Vantage Markets | M15 Base
+Alejandro | SSI | Abril 2026
+
+1. Activos, sesiones optimas y ventana ORB por instrumento
+La tabla siguiente define para cada activo la sesion de trading optima, el horario UTC correspondiente, la ventana de Opening Range recomendada (primaria y alternativa), y notas especificas basadas en la investigacion academica y de practitioners.
+EURUSD (FX Major)
+
+GBPUSD (FX Major)
+
+USDJPY (FX Major)
+
+AUDUSD (FX Major)
+
+GBPJPY (FX Cross)
+
+EURJPY (FX Cross)
+
+GBPAUD (FX Cross)
+
+XAUUSD (Metal)
+
+XAGUSD (Metal)
+
+WTI (LIGHT.CMD/USD) (Energia)
+
+Brent (BRENT.CMD/USD) (Energia)
+
+Gas Natural (GAS.CMD/USD) (Energia)
+
+SP500 (USA500.IDX/USD) (Indice)
+
+NASDAQ (USATECH.IDX/USD) (Indice)
+
+VIX (^VIX) (Volatilidad)
+
+
+2. Metricas y variables a evaluar
+Para cada activo y cada dia de trading, se calcularan y almacenaran las siguientes metricas. El objetivo es construir una base de datos estadistica que permita calcular probabilidades condicionales de cada escenario.
+Metricas del rango de apertura (Opening Range)
+High del Opening Range (OR_High)
+Low del Opening Range (OR_Low)
+Ancho del Opening Range en pips/puntos (OR_Width = OR_High - OR_Low)
+OR_Width como porcentaje del ATR(14) diario: OR_Width / ATR_D1
+Punto medio del Opening Range (OR_Mid = (OR_High + OR_Low) / 2)
+Precio de apertura de la sesion (Session_Open)
+Posicion del Session_Open dentro del OR (arriba/medio/abajo del rango)
+Metricas del dia anterior (Previous Day)
+High del dia anterior (PD_High)
+Low del dia anterior (PD_Low)
+Rango del dia anterior (PD_Range = PD_High - PD_Low)
+Close del dia anterior (PD_Close)
+Open del dia anterior (PD_Open)
+OR del dia anterior: PD_OR_High, PD_OR_Low, PD_OR_Width
+Posicion del precio actual respecto al rango del dia anterior (encima/dentro/debajo)
+Distancia del precio actual al PD_High y PD_Low en pips
+Eventos de rompimiento (Breakout Events)
+Rompimiento del OR_High hacia arriba: hora exacta, velocidad (pips/min), volumen relativo
+Rompimiento del OR_Low hacia abajo: hora exacta, velocidad, volumen relativo
+Cuantas veces se rompio OR_High en el dia (conteo)
+Cuantas veces se rompio OR_Low en el dia (conteo)
+Primer rompimiento: direccion (arriba/abajo), hora, distancia maxima recorrida
+Segundo rompimiento (si lo hubo): direccion, hora, fue en la misma o contraria direccion?
+False breakout: rompio y regreso dentro del rango en menos de N velas (3, 5, 10 velas)
+Movimiento maximo despues del breakout arriba: max_up = Max(High) - OR_High
+Movimiento maximo despues del breakout abajo: max_down = OR_Low - Min(Low)
+Retroceso maximo post-breakout antes de continuar (pullback depth)
+Interaccion con rango del dia anterior (Previous Day Range)
+El precio llego a tocar PD_High? (si/no, hora, cuantas veces)
+El precio llego a tocar PD_Low? (si/no, hora, cuantas veces)
+El precio toco AMBOS extremos del PD? (si/no, orden: primero arriba luego abajo o viceversa)
+El precio lleno el rango del dia anterior? (visito desde PD_Low hasta PD_High o viceversa)
+Distancia recorrida dentro del PD range antes de revertir
+El precio estaba dentro del PD_OR al momento del ORB? (si/no)
+El precio primero rompio el PD_OR y luego giro en direccion contraria? (trap/false break del PD)
+Secuencias y combinaciones
+Secuencia A: Precio dentro de PD range -> rompe OR arriba -> continua hasta PD_High -> rebota
+Secuencia B: Precio dentro de PD range -> rompe OR arriba -> continua hasta PD_High -> lo penetra
+Secuencia C: Precio dentro de PD range -> rompe OR abajo -> continua hasta PD_Low -> rebota
+Secuencia D: Precio dentro de PD range -> rompe OR abajo -> continua hasta PD_Low -> lo penetra
+Secuencia E: Rompe OR arriba -> false breakout -> regresa -> rompe OR abajo -> extiende (BOS reverso)
+Secuencia F: Rompe OR abajo -> false breakout -> regresa -> rompe OR arriba -> extiende (BOS reverso)
+Secuencia G: Precio aun en PD_OR -> rompe PD_OR_High -> luego gira y rompe PD_OR_Low
+Secuencia H: Precio aun en PD_OR -> rompe PD_OR_Low -> luego gira y rompe PD_OR_High
+Secuencia I: Gap up (Open > PD_High) -> gap fill parcial -> continuation
+Secuencia J: Gap down (Open < PD_Low) -> gap fill parcial -> continuation
+Secuencia K: OR estrecho (< 30% ATR) -> explosion post-rango (expansion > 2x OR_Width)
+Secuencia L: OR ancho (> 70% ATR) -> dia de rango/consolidacion (no extension significativa)
+Estadisticas probabilisticas por activo
+P(breakout arriba | precio abre encima de PD_Close)
+P(breakout abajo | precio abre debajo de PD_Close)
+P(extension > 1x OR_Width | breakout confirmado)
+P(extension > 2x OR_Width | breakout confirmado)
+P(false breakout | OR_Width < 30% ATR)
+P(false breakout | OR_Width > 70% ATR)
+P(toca PD_High | breakout arriba confirmado)
+P(toca PD_Low | breakout abajo confirmado)
+P(toca ambos extremos PD en el dia)
+P(reversa despues de tocar PD extremo)
+P(continuation despues de tocar PD extremo)
+P(gap fill completo | gap > X pips)
+P(gap fill parcial > 50%)
+Distribucion de max_up y max_down por dia de la semana
+Distribucion de max_up y max_down por hora del dia
+Win rate del ORB por dia de la semana (lunes vs viernes)
+Win rate del ORB por tamano del OR relativo al ATR
+Tiempo promedio hasta alcanzar target de 1R, 1.5R, 2R post-breakout
+Ratio de veces que el precio toca el extremo opuesto del OR despues del breakout (stop hit rate)
+
+3. Horarios consolidados de evaluacion (UTC)
+El sistema debe ejecutar analisis ORB en los siguientes horarios criticos cada dia:
+
+4. Output esperado del analisis
+Por cada activo, el sistema generara:
+Tabla de frecuencias: cuantas veces ocurrio cada secuencia (A-L) en los ultimos N dias
+Heatmap de probabilidades: P(evento Y | condicion X) para todas las combinaciones
+Distribucion de movimiento post-breakout: histograma de max_up y max_down en multiplos del OR_Width
+Win rate por dia de la semana y por tamano relativo del OR
+Tiempo medio hasta target: cuanto tarda en llegar a 1R, 1.5R, 2R
+Tabla de correlacion cruzada: cuando EURUSD rompe arriba, que probabilidad hay de que GBPUSD tambien rompa arriba?
+Filtros de regimen: como cambian las estadisticas en regimen trending vs ranging (via HMM)
+Reporte semanal automatico por Telegram con las mejores oportunidades ORB del dia siguiente basado en probabilidades historicas
+--- END OF c:\Proyectos\kha0sys3\ORB_Framework_Evaluacion.docx ---
+--- START OF c:\Proyectos\kha0sys3\ORB_Pseudocodigo_Engine.docx ---
+PSEUDOCODIGO
+Opening Range Breakout Engine
+Logica de evaluacion por activo | Abril 2026
+
+1. Pipeline principal (ejecuta cada dia)
+PARA cada DIA_TRADING en dataset (5 anios M15):
+    PARA cada ACTIVO en [EURUSD, GBPUSD, USDJPY, AUDUSD, GBPJPY, 
+                          EURJPY, GBPAUD, XAUUSD, XAGUSD, WTI, 
+                          Brent, Gas, SP500, NASDAQ, VIX]:
+        
+        // 1. Obtener config del activo
+        config = CARGAR_CONFIG(ACTIVO)  // sesion, hora_inicio_OR, duracion_OR
+        
+        // 2. Calcular metricas del dia anterior
+        PD = CALCULAR_PREVIOUS_DAY(ACTIVO, DIA_TRADING - 1)
+            PD.Open, PD.Close, PD.High, PD.Low
+            PD.Range = PD.High - PD.Low
+            PD.OR_High, PD.OR_Low, PD.OR_Width
+        
+        // 3. Calcular Opening Range del dia actual
+        OR = CALCULAR_OPENING_RANGE(ACTIVO, DIA_TRADING, config)
+            velas_OR = FILTRAR_VELAS(hora >= config.hora_inicio, 
+                                      hora < config.hora_inicio + config.duracion_OR)
+            OR.High = MAX(velas_OR.high)
+            OR.Low = MIN(velas_OR.low)
+            OR.Width = OR.High - OR.Low
+            OR.Mid = (OR.High + OR.Low) / 2
+            OR.Open = velas_OR[0].open
+        
+        // 4. Calcular ATR diario para contexto
+        ATR_D1 = ATR(14, timeframe=D1, fecha=DIA_TRADING)
+        OR.Width_Ratio = OR.Width / ATR_D1
+        
+        // 5. Evaluar posicion relativa al dia anterior
+        posicion_vs_PD = CLASIFICAR_POSICION(OR.Open, PD)
+            SI OR.Open > PD.High: "GAP_UP"
+            SI OR.Open < PD.Low: "GAP_DOWN"
+            SI OR.Open dentro [PD.Low, PD.High]: "DENTRO_PD_RANGE"
+            SI OR.Open dentro [PD.OR_Low, PD.OR_High]: "DENTRO_PD_OR"
+        
+        // 6. Rastrear eventos post-OR (resto del dia)
+        eventos = RASTREAR_EVENTOS(ACTIVO, DIA_TRADING, OR, PD, config)
+        
+        // 7. Almacenar todo en base de datos
+        GUARDAR_EN_DB(ACTIVO, DIA_TRADING, PD, OR, ATR_D1, 
+                       posicion_vs_PD, eventos)
+    
+    FIN PARA activos
+FIN PARA dias
+
+2. Funcion RASTREAR_EVENTOS (core del sistema)
+FUNCION RASTREAR_EVENTOS(activo, dia, OR, PD, config):
+    
+    velas_post = OBTENER_VELAS(activo, dia, 
+                                desde=config.hora_inicio + config.duracion_OR,
+                                hasta=config.hora_fin_sesion)
+    
+    // Inicializar contadores
+    breakout_up_count = 0
+    breakout_down_count = 0
+    primer_breakout = NULL
+    segundo_breakout = NULL
+    max_up = 0          // Maximo sobre OR.High
+    max_down = 0        // Maximo bajo OR.Low
+    toco_PD_High = FALSE
+    toco_PD_Low = FALSE
+    veces_toco_PD_High = 0
+    veces_toco_PD_Low = 0
+    secuencia = []      // Lista de eventos en orden
+    
+    estado_actual = "DENTRO_OR"  // DENTRO_OR | ARRIBA_OR | ABAJO_OR
+    
+    PARA cada VELA en velas_post:
+        
+        // --- Detectar breakout hacia arriba ---
+        SI VELA.close > OR.High Y estado_actual != "ARRIBA_OR":
+            breakout_up_count += 1
+            estado_actual = "ARRIBA_OR"
+            hora_breakout = VELA.timestamp
+            velocidad = (VELA.close - OR.High) / duracion_vela_minutos
+            
+            SI primer_breakout == NULL:
+                primer_breakout = {dir: "UP", hora: hora_breakout, 
+                                    vel: velocidad, precio: VELA.close}
+                secuencia.AGREGAR("BREAKOUT_UP")
+            SINO:
+                segundo_breakout = {dir: "UP", hora: hora_breakout}
+                secuencia.AGREGAR("RE_BREAKOUT_UP")
+        
+        // --- Detectar breakout hacia abajo ---
+        SI VELA.close < OR.Low Y estado_actual != "ABAJO_OR":
+            breakout_down_count += 1
+            estado_actual = "ABAJO_OR"
+            hora_breakout = VELA.timestamp
+            velocidad = (OR.Low - VELA.close) / duracion_vela_minutos
+            
+            SI primer_breakout == NULL:
+                primer_breakout = {dir: "DOWN", hora: hora_breakout,
+                                    vel: velocidad, precio: VELA.close}
+                secuencia.AGREGAR("BREAKOUT_DOWN")
+            SINO:
+                segundo_breakout = {dir: "DOWN", hora: hora_breakout}
+                secuencia.AGREGAR("RE_BREAKOUT_DOWN")
+        
+        // --- Detectar regreso al rango (false breakout) ---
+        SI estado_actual == "ARRIBA_OR" Y VELA.close < OR.High:
+            estado_actual = "DENTRO_OR"
+            secuencia.AGREGAR("FALSE_BREAK_UP")
+        
+        SI estado_actual == "ABAJO_OR" Y VELA.close > OR.Low:
+            estado_actual = "DENTRO_OR"
+            secuencia.AGREGAR("FALSE_BREAK_DOWN")
+        
+        // --- Rastrear movimiento maximo ---
+        SI VELA.high > OR.High:
+            extension_up = VELA.high - OR.High
+            max_up = MAX(max_up, extension_up)
+        
+        SI VELA.low < OR.Low:
+            extension_down = OR.Low - VELA.low
+            max_down = MAX(max_down, extension_down)
+        
+        // --- Rastrear interaccion con PD range ---
+        SI VELA.high >= PD.High:
+            SI NOT toco_PD_High:
+                toco_PD_High = TRUE
+                hora_toco_PD_High = VELA.timestamp
+                secuencia.AGREGAR("TOCO_PD_HIGH")
+            veces_toco_PD_High += 1
+        
+        SI VELA.low <= PD.Low:
+            SI NOT toco_PD_Low:
+                toco_PD_Low = TRUE
+                hora_toco_PD_Low = VELA.timestamp
+                secuencia.AGREGAR("TOCO_PD_LOW")
+            veces_toco_PD_Low += 1
+    
+    FIN PARA velas
+    
+    // --- Clasificar secuencia del dia ---
+    secuencia_tipo = CLASIFICAR_SECUENCIA(secuencia)
+        // Mapea la lista de eventos a una de las secuencias A-L
+        // Ejemplo: ["BREAKOUT_UP", "TOCO_PD_HIGH", "FALSE_BREAK_UP", 
+        //           "BREAKOUT_DOWN"] -> Secuencia E
+    
+    // --- Calcular gap fill ---
+    gap_info = NULL
+    SI posicion_vs_PD == "GAP_UP":
+        gap_size = OR.Open - PD.High
+        gap_filled_pct = MAX(0, (OR.Open - min_low_del_dia) / gap_size * 100)
+        gap_info = {tipo: "UP", size: gap_size, fill_pct: gap_filled_pct}
+    SI posicion_vs_PD == "GAP_DOWN":
+        gap_size = PD.Low - OR.Open
+        gap_filled_pct = MAX(0, (max_high_del_dia - OR.Open) / gap_size * 100)
+        gap_info = {tipo: "DOWN", size: gap_size, fill_pct: gap_filled_pct}
+    
+    RETORNAR {
+        breakout_up_count, breakout_down_count,
+        primer_breakout, segundo_breakout,
+        max_up, max_down,
+        max_up_ratio: max_up / OR.Width,  // En multiplos del OR
+        max_down_ratio: max_down / OR.Width,
+        toco_PD_High, toco_PD_Low,
+        toco_ambos_PD: toco_PD_High Y toco_PD_Low,
+        veces_toco_PD_High, veces_toco_PD_Low,
+        secuencia, secuencia_tipo,
+        gap_info
+    }
+
+FIN FUNCION
+
+3. Funcion CALCULAR_PROBABILIDADES (analisis estadistico)
+FUNCION CALCULAR_PROBABILIDADES(activo, db):
+    
+    registros = db.CONSULTAR(activo, todos_los_dias)
+    N = registros.LENGTH
+    
+    // --- Probabilidades basicas ---
+    prob = {}
+    
+    prob["P(breakout_up)"] = 
+        CONTAR(r.primer_breakout.dir == "UP") / N
+    
+    prob["P(breakout_down)"] = 
+        CONTAR(r.primer_breakout.dir == "DOWN") / N
+    
+    prob["P(false_break)"] = 
+        CONTAR("FALSE_BREAK" en r.secuencia) / N
+    
+    // --- Probabilidades condicionales ---
+    
+    // Dado que el precio abre encima del close anterior
+    subset_above = FILTRAR(r.OR.Open > r.PD.Close)
+    prob["P(break_up | open > PD_close)"] = 
+        CONTAR(s.primer_breakout.dir == "UP" para s en subset_above) 
+        / subset_above.LENGTH
+    
+    // Dado que el OR es estrecho
+    subset_narrow = FILTRAR(r.OR.Width_Ratio < 0.30)
+    prob["P(extension > 2x | OR estrecho)"] = 
+        CONTAR(s.max_up_ratio > 2 O s.max_down_ratio > 2 
+               para s en subset_narrow)
+        / subset_narrow.LENGTH
+    
+    // Dado que rompio arriba, que tan lejos llego?
+    subset_broke_up = FILTRAR(r.primer_breakout.dir == "UP")
+    prob["P(toca PD_High | break_up)"] = 
+        CONTAR(s.toco_PD_High para s en subset_broke_up) 
+        / subset_broke_up.LENGTH
+    
+    // --- Distribucion de extension ---
+    dist_up = [r.max_up_ratio para r en registros si r.max_up > 0]
+    dist_down = [r.max_down_ratio para r en registros si r.max_down > 0]
+    
+    // Histograma: cuantas veces llego a 0.5x, 1x, 1.5x, 2x, 3x del OR
+    buckets = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0]
+    hist_up = HISTOGRAMA(dist_up, buckets)
+    hist_down = HISTOGRAMA(dist_down, buckets)
+    
+    // --- Por dia de la semana ---
+    PARA dow en [Lunes, Martes, Miercoles, Jueves, Viernes]:
+        subset_dow = FILTRAR(r.dia_semana == dow)
+        prob["win_rate_" + dow] = 
+            CONTAR(s.max_up_ratio > 1.5 O s.max_down_ratio > 1.5 
+                   para s en subset_dow)
+            / subset_dow.LENGTH
+    
+    // --- Secuencias mas frecuentes ---
+    freq_secuencias = CONTAR_FRECUENCIA(r.secuencia_tipo para r en registros)
+    top_5_secuencias = TOP_N(freq_secuencias, 5)
+    
+    // --- Tiempo hasta target ---
+    PARA target_R en [1.0, 1.5, 2.0]:
+        tiempos = []
+        PARA r en registros SI r.primer_breakout != NULL:
+            // Buscar primera vela donde extension >= target_R * OR.Width
+            PARA vela en velas_post_breakout:
+                SI extension >= target_R * r.OR.Width:
+                    tiempos.AGREGAR(vela.timestamp - r.primer_breakout.hora)
+                    BREAK
+        prob["tiempo_medio_" + target_R + "R"] = MEDIA(tiempos)
+        prob["mediana_" + target_R + "R"] = MEDIANA(tiempos)
+    
+    // --- Cross-asset: correlacion de breakouts ---
+    PARA otro_activo en TODOS_LOS_ACTIVOS si otro != activo:
+        dias_ambos_up = CONTAR(activo.break_up Y otro.break_up, mismo_dia)
+        dias_activo_up = CONTAR(activo.break_up)
+        prob["P(" + otro + "_up | " + activo + "_up)"] = 
+            dias_ambos_up / dias_activo_up
+    
+    RETORNAR prob, hist_up, hist_down, top_5_secuencias
+
+FIN FUNCION
+
+4. Config especifica por activo
+// Configuracion de sesiones y ventanas ORB por activo
+// Todas las horas en UTC
+
+CONFIGS = {
+    "EURUSD":  { sesion: "London",  hora_inicio: "07:00", duracion_OR: 30, 
+                  hora_fin: "17:00", pd_start: "00:00", pd_end: "23:59" },
+    "GBPUSD":  { sesion: "London",  hora_inicio: "07:00", duracion_OR: 30,
+                  hora_fin: "17:00", pd_start: "00:00", pd_end: "23:59" },
+    "USDJPY":  { sesion: "Tokyo+NY", hora_inicio_1: "00:00", duracion_OR_1: 15,
+                  hora_inicio_2: "13:30", duracion_OR_2: 30,
+                  hora_fin: "21:00", pd_start: "00:00", pd_end: "23:59",
+                  NOTA: "Evaluar DOS ORBs: uno en Tokyo, otro en NY" },
+    "AUDUSD":  { sesion: "Sydney+London", hora_inicio: "07:00", duracion_OR: 30,
+                  asia_range_start: "22:00", asia_range_end: "07:00",
+                  hora_fin: "17:00" },
+    "GBPJPY":  { sesion: "London",  hora_inicio: "07:00", duracion_OR: 15,
+                  hora_fin: "17:00", ATR_multiplier: 2.5 },
+    "EURJPY":  { sesion: "London",  hora_inicio: "07:00", duracion_OR: 15,
+                  hora_fin: "17:00" },
+    "GBPAUD":  { sesion: "London",  hora_inicio: "07:00", duracion_OR: 30,
+                  hora_fin: "17:00" },
+    "XAUUSD":  { sesion: "London+NY", hora_inicio_1: "07:00", duracion_OR_1: 30,
+                  hora_inicio_2: "13:30", duracion_OR_2: 15,
+                  asia_range_start: "00:00", asia_range_end: "07:00",
+                  hora_fin: "21:00",
+                  NOTA: "Tres rangos: Asia(soporte/resistencia), London(ORB1), NY(ORB2)" },
+    "XAGUSD":  { sesion: "London+NY", hora_inicio_1: "07:00", duracion_OR_1: 30,
+                  hora_inicio_2: "13:30", duracion_OR_2: 30,
+                  hora_fin: "21:00" },
+    "WTI":     { sesion: "NY",      hora_inicio: "13:00", duracion_OR: 15,
+                  hora_fin: "20:00",
+                  ALERTA: "Miercoles 14:30 UTC = inventarios EIA. No operar ORB." },
+    "BRENT":   { sesion: "London+NY", hora_inicio_1: "07:00", duracion_OR_1: 30,
+                  hora_inicio_2: "13:00", duracion_OR_2: 15,
+                  hora_fin: "20:00" },
+    "GAS":     { sesion: "NY",      hora_inicio: "13:00", duracion_OR: 30,
+                  hora_fin: "20:00", ATR_multiplier: 3.0,
+                  ALERTA: "Jueves 14:30 UTC = storage report. No operar ORB." },
+    "SP500":   { sesion: "NY Cash", hora_inicio: "13:30", duracion_OR: 15,
+                  premarket_start: "12:00", hora_fin: "20:00",
+                  NOTA: "Pre-market (12:00-13:30) como rango previo adicional" },
+    "NASDAQ":  { sesion: "NY Cash", hora_inicio: "13:30", duracion_OR: 15,
+                  premarket_start: "12:00", hora_fin: "20:00" },
+    "VIX":     { sesion: "NY Cash", hora_inicio: "13:30", duracion_OR: 30,
+                  hora_fin: "20:00",
+                  MODO: "INVERTIDO",
+                  NOTA: "VIX es mean-reverting. Breakout UP = esperar reversion.
+                         Solo usar como FILTRO de regimen, NO como trade directo.
+                         SI VIX_OR.Width > 2*ATR: regimen de PANICO, reducir sizing." }
+}
+
+5. Flujo de decision para entrada (trade logic)
+FUNCION EVALUAR_ENTRADA(activo, OR, PD, ATR, probabilidades):
+    
+    // Paso 1: Filtros de exclusion
+    SI OR.Width_Ratio > 0.80:
+        RETORNAR "NO_TRADE: OR demasiado ancho (>80% ATR), dia de rango probable"
+    
+    SI OR.Width_Ratio < 0.10:
+        RETORNAR "NO_TRADE: OR demasiado estrecho (<10% ATR), falta de liquidez"
+    
+    SI ES_DIA_DE_NOTICIAS_ALTO_IMPACTO(activo, hoy):
+        SI minutos_hasta_noticia < 60:
+            RETORNAR "NO_TRADE: noticia de alto impacto inminente"
+    
+    SI activo == "VIX":
+        RETORNAR "NO_TRADE_DIRECTO: usar solo como filtro de regimen"
+    
+    // Paso 2: Esperar breakout confirmado
+    ESPERAR HASTA (precio.close > OR.High O precio.close < OR.Low)
+    
+    SI precio.close > OR.High:
+        direccion = "LONG"
+        entry = precio.close
+        stop_loss = OR.Low  // O OR.Mid para stop mas agresivo
+        distancia_SL = entry - stop_loss
+    
+    SI precio.close < OR.Low:
+        direccion = "SHORT"
+        entry = precio.close
+        stop_loss = OR.High  // O OR.Mid
+        distancia_SL = stop_loss - entry
+    
+    // Paso 3: Confirmar con probabilidades historicas
+    win_rate = probabilidades["P(extension > 1.5R | " + direccion + ")"]
+    SI win_rate < 0.45:
+        RETORNAR "NO_TRADE: win rate historico insuficiente (<45%)"
+    
+    // Paso 4: Confirmar con contexto PD
+    SI direccion == "LONG" Y posicion_vs_PD == "GAP_DOWN":
+        // Contratendencia, reducir confianza
+        confianza *= 0.7
+    
+    SI direccion == "LONG" Y precio > PD.Close:
+        // A favor de cierre anterior, aumentar confianza
+        confianza *= 1.2
+    
+    // Paso 5: Calcular position size
+    risk_pct = 0.25%  // Base con 15-20 posiciones simultaneas
+    SI confianza > umbral_alto: risk_pct = 0.40%
+    SI confianza < umbral_bajo: risk_pct = 0.15%
+    
+    position_size = (equity * risk_pct) / (distancia_SL * valor_pip)
+    
+    // Paso 6: Definir targets
+    TP1 = entry + (1.5 * distancia_SL * signo_direccion)   // Parcial 50%
+    TP2 = entry + (2.5 * distancia_SL * signo_direccion)   // Parcial 30%
+    TP3 = TRAILING con ATR(14) * 2.0                        // Resto 20%
+    
+    // Paso 7: Verificar targets vs PD levels
+    SI direccion == "LONG" Y PD.High < TP1:
+        // PD_High esta antes del TP1, considerar como TP parcial
+        TP_parcial_extra = PD.High
+    
+    RETORNAR TRADE_SIGNAL {
+        activo, direccion, entry, stop_loss, 
+        TP1, TP2, TP3, position_size, confianza,
+        contexto: {OR, PD, ATR, posicion_vs_PD, win_rate}
+    }
+
+FIN FUNCION
+--- END OF c:\Proyectos\kha0sys3\ORB_Pseudocodigo_Engine.docx ---
