@@ -2,23 +2,23 @@
 
 ## Overview
 
-Kha0sys3 is a quantitative trading system based on Opening Range Breakout (ORB) methodology with statistical edge validation. It trades 5 instruments across 3 sessions using 2 edge types, validated through walk-forward out-of-sample testing with Monte Carlo confidence intervals.
+Kha0sys3 is a quantitative trading system based on Opening Range Breakout (ORB) methodology with statistical edge validation. It trades 5 instruments across 3 sessions using TREND_UP edge, validated through walk-forward out-of-sample testing with Monte Carlo confidence intervals.
 
-## Portfolio
+## Portfolio (Live — April 2026)
 
-| Symbol | Session | Edge | Time (UTC) | OR Durations |
-|---|---|---|---|---|
-| USDJPY | Tokyo | TREND_UP | 00:00 | 15m, 30m |
-| XAUUSD | London | TREND_UP | 07:00 | 15m, 30m |
-| EURUSD | London | TREND_UP | 07:00 | 15m, 30m |
-| EURUSD | London | MAGNET_CLOSE | 07:00 | 15m, 30m |
-| WTI (USOIL) | London Initial | TREND_UP | 07:00 | 15m, 30m |
-| SP500 | Pre-Market | TREND_UP | 12:00 | 15m, 30m |
+| Symbol | MT5 Symbol | Session | Edge | Time (UTC) | OR Durations |
+|---|---|---|---|---|---|
+| USDJPY | USDJPY+ | Tokyo | TREND_UP | 00:00 | 15m, 30m |
+| Gold | XAUUSD+ | London | TREND_UP | 07:00 | 15m, 30m |
+| EURUSD | EURUSD+ | London | TREND_UP | 07:00 | 15m, 30m |
+| Oil (WTI) | USOUSD | London | TREND_UP | 07:00 | 15m, 30m |
+| S&P 500 | SP500 | Pre-Market | TREND_UP | 12:00 | 15m, 30m |
 
 **Decorrelation:**
 - 3 time zones (Tokyo / London / Pre-Market)
 - 5 asset classes (JPY FX, Metal, EUR FX, Commodity, Index)
-- TREND and MAGNET can coexist on same symbol (independent edges)
+
+Note: MAGNET_CLOSE edge was removed from the live portfolio. The code still supports it but no active setups use it.
 
 ## Edge Types
 
@@ -63,7 +63,7 @@ Kha0sys3 is a quantitative trading system based on Opening Range Breakout (ORB) 
 |---|---|
 | Risk per trade | 3% of account balance |
 | Position sizing | Based on BALANCE (not free_margin) |
-| Max concurrent | 6 setups (5 symbols, EURUSD has 2 edges) |
+| Max concurrent | 5 setups (5 symbols, all TREND_UP) |
 | Dedup | 1 trade/day per (symbol, edge) |
 | Order expiration | 8 hours from OR close |
 | Session window | magic_time + OR duration to magic_time + 8h |
