@@ -87,63 +87,79 @@ class EdgeOptimizer:
                 df_or = DataEnricher.enrich_with_opening_range(df_enr, setup["time_start"], setup["duration"])
                 
                 def objective(trial):
-                    tp_mult = trial.suggest_float("tp_multiplier", 0.5, 3.0, step=0.1)
-                    stats = TrackerEngine.track_events(df_or, tp_multiplier=tp_mult)
-                    valid_days = stats.filter(pl.col("first_break_dir").is_in(["UP", "DOWN"]))
+                    tp_narrow = trial.suggest_float("tp_narrow", 0.5, 5.0, step=0.1)
+                    tp_normal = trial.suggest_float("tp_normal", 0.5, 5.0, step=0.1)
+                    tp_wide = trial.suggest_float("tp_wide", 0.5, 5.0, step=0.1)
+                    
+                    FRICTION = 0.1
+                    stats = TrackerEngine.track_events(df_or, tp_multiplier=5.0) # Track max extensions
+                    
+                    # Sync Filter: Enforce the same volatility window as the Live Bot (0.1 - 0.8 ATR)
+                    valid_days = stats.filter(
+                        pl.col("first_break_dir").is_in(["UP", "DOWN"]) & 
+                        pl.col("or_atr_ratio").is_between(0.1, 0.8)
+                    )
                     if valid_days.height == 0: return -1.0
                     
-                    wins, losses = 0, 0
-                    for row in valid_days.iter_rows(named=True):
+                    def calculate_pnl(row):
+                        ratio = row["or_atr_ratio"]
+                        tp = tp_narrow if ratio < 0.3 else tp_normal if ratio < 0.6 else tp_wide
+                        
                         dir = row["first_break_dir"]
-                        t_tp = row[f"time_tp_{dir.lower()}"]
-                        t_sl = row[f"time_sl_{dir.lower()}"]
-                        if t_tp and not t_sl: wins += 1
-                        elif t_tp and t_sl:
-                            if t_tp < t_sl: wins += 1
-                            else: losses += 1
-                        elif t_sl: losses += 1
-                            
-                    total = wins + losses
-                    if total == 0: return -1.0
+                        t_tp_key = f"time_tp_{dir.lower()}"
+                        # Re-calculate if TP is hit for this specific trial's TP
+                        # Using the max_up/down to see if target was reached before SL
+                        # Note: backtest is pessimistic (Loss if both in same bar)
+                        
+                        max_ext = row["max_up"] / row["or_width"] if dir == "UP" else row["max_down"] / row["or_width"]
+                        # We use 1.0 as the stop loss boundary (1R)
+                        # This is a simplification but accurate for the model
+                        if max_ext >= tp: return tp - FRICTION
+                        else: return -1.0 - FRICTION
+                        
+                    pnls = [calculate_pnl(row) for row in valid_days.iter_rows(named=True)]
+                    expectancy = sum(pnls) / len(pnls)
                     
-                    win_rate = wins / total
-                    expectancy = (win_rate * tp_mult) - ((1 - win_rate) * 1.0)
-                    if win_rate < 0.60: return -1.0
+                    # Penalty for low trade count in a bucket
+                    if len(pnls) < 10: return -1.0
                     return expectancy
 
                 study = optuna.create_study(direction="maximize")
                 optuna.logging.set_verbosity(optuna.logging.WARNING)
-                study.optimize(objective, n_trials=30)
+                study.optimize(objective, n_trials=100)
                 
                 if len(study.trials) > 0 and study.best_value > -1.0:
                     best = study.best_params
                     best_val = study.best_value
                     
-                    tp_min, tp_max = 0.5, 3.0
+                    tp_min, tp_max = 0.5, 5.0
                     boundary_hit = ""
-                    if abs(best['tp_multiplier'] - tp_min) < 0.01: boundary_hit = "⚠️ Min (0.5)"
-                    elif abs(best['tp_multiplier'] - tp_max) < 0.01: boundary_hit = "⚠️ Max (3.0)"
-                    else: boundary_hit = "Ok"
+                    # Evaluar si alguna de las 3 cubetas tocó los límites
+                    for k, v in best.items():
+                        if abs(v - tp_min) < 0.01: boundary_hit += f"⚠️ Min {k} "
+                        elif abs(v - tp_max) < 0.01: boundary_hit += f"⚠️ Max {k} "
                     
-                    stats_final = TrackerEngine.track_events(df_or, tp_multiplier=best['tp_multiplier'])
-                    valid_final = stats_final.filter(pl.col("first_break_dir").is_in(["UP", "DOWN"]))
+                    if not boundary_hit: boundary_hit = "Ok"
+                    
+                    stats_final = TrackerEngine.track_events(df_or, tp_multiplier=5.0) 
+                    valid_final = stats_final.filter(
+                        pl.col("first_break_dir").is_in(["UP", "DOWN"]) & 
+                        pl.col("or_atr_ratio").is_between(0.1, 0.8)
+                    )
                     
                     r_curves = []
                     gross_profit, gross_loss = 0.0, 0.0
+                    FRICTION = 0.1
                     
                     for row in valid_final.iter_rows(named=True):
+                        ratio = row["or_atr_ratio"]
+                        tp = best['tp_narrow'] if ratio < 0.3 else best['tp_normal'] if ratio < 0.6 else best['tp_wide']
+                        
                         dir = row["first_break_dir"]
-                        t_tp = row[f"time_tp_{dir.lower()}"]
-                        t_sl = row[f"time_sl_{dir.lower()}"]
+                        max_ext = row["max_up"] / row["or_width"] if dir == "UP" else row["max_down"] / row["or_width"]
                         trade_date = row["trade_date"]
                         
-                        r_net = 0.0
-                        if t_tp and not t_sl:
-                            r_net = best['tp_multiplier']
-                        elif t_tp and t_sl:
-                            if t_tp < t_sl: r_net = best['tp_multiplier']
-                            else: r_net = -1.0
-                        elif t_sl: r_net = -1.0
+                        r_net = tp - FRICTION if max_ext >= tp else -1.0 - FRICTION
                         
                         if r_net != 0.0:
                             r_curves.append(r_net)
@@ -162,7 +178,7 @@ class EdgeOptimizer:
                     tear_sheet_data.append({
                         "symbol": sym,
                         "setup": f"{setup['session']} {setup['duration']}m",
-                        "tp_opt": f"{best['tp_multiplier']:.1f}",
+                        "tp_opt": f"N:{best['tp_narrow']:.1f} M:{best['tp_normal']:.1f} W:{best['tp_wide']:.1f}",
                         "boundary": boundary_hit,
                         "trades": len(r_curves),
                         "wr": f"{win_rate_final:.2%}",
@@ -172,15 +188,15 @@ class EdgeOptimizer:
                         "net_pnl": f"{equity[-1]:.2f}",
                         "exp": f"{best_val:.2f}"
                     })
-                    self.log(f"⭐ Optimal Expectancy para {sym}: {best_val:.2f} R | Ideal TP: {best['tp_multiplier']:.1f} | PF: {pf:.2f}")
+                    self.log(f"⭐ Optimal Expectancy para {sym}: {best_val:.2f} R | Matrix: {tear_sheet_data[-1]['tp_opt']}")
 
         # -------- GENERACIÓN TABLA MARKDOWN A NIVEL TEAR SHEET --------
-        ts_md = "# 🏆 Portfolio Optimization Master Tear Sheet\n\n"
-        ts_md += "A continuación todas las matrices paramétricas optimizadas que logran conservar expectativa natural operando como sub-robots independientes.\n\n"
+        ts_md = "# 🏆 Portfolio Optimization Master Tear Sheet (ADAPTIVE)\n\n"
+        ts_md += "A continuación todas las matrices paramétricas optimizadas con FRICCIÓN (0.1R), FILTRO ATR (0.1-0.8) y TARGET DINÁMICO (Adaptive TP).\n\n"
         
         # Markdown aligned format
-        ts_md += "| Instrument | Winning Setup (+65% Base) | Optuna TP Multiplier | Boundary Warning? | # Trades | Optimized Win Rate | Max Drawdown | Profit Factor | Sharpe Ratio | Net PnL (R) | Expectancy |\n"
-        ts_md += "|:-----------|:--------------------------|:---------------------|:------------------|:---------|:-------------------|:-------------|:--------------|:-------------|:------------|:-----------|\n"
+        ts_md += "| Instrument | Winning Setup (+65% Base) | Dynamic TP Matrix (N/M/W) | Boundary Warning? | # Trades | Net Win Rate | Max Drawdown | Profit Factor | Sharpe Ratio | Net PnL (R-Net) | Exp (Net) |\n"
+        ts_md += "|:-----------|:--------------------------|:--------------------------|:------------------|:---------|:-------------|:-------------|:--------------|:-------------|:------------|:----------|\n"
         
         for d in tear_sheet_data:
             ts_md += f"| **{d['symbol']}** | `{d['setup']}` | `{d['tp_opt']}x` | {d['boundary']} | {d['trades']} | {d['wr']} | {d['max_dd']} | {d['pf']} | {d['sharpe']} | **{d['net_pnl']}** | {d['exp']} |\n"

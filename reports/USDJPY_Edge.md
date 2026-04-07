@@ -15,210 +15,210 @@ Este archivo representa la bitácora minera exhaustiva evaluando este activo cru
 
 ---
 ## Permutación #1: Tokyo 15m
-**Configuración:** Inicia a las `00:00 UTC`. Tamaño de caja evaluativa: `15 minutos`. Días procesados válidos: `2573`.
+**Configuración:** Inicia a las `00:00 UTC`. Tamaño de caja evaluativa: `15 minutos`. Días procesados válidos: `1693`.
 
 ### 🧭 Momentum Base Básico
-- **Rotura Alcista (UP):** `41.90%`
-- **Rotura Bajista (DOWN):** `37.74%`
+- **Rotura Alcista (UP):** `51.09%`
+- **Rotura Bajista (DOWN):** `46.25%`
 
 ### 🎯 Extensiones Geométricas (Target Limits)
 | Multiplicador | Probabilidad Movimiento LUP (UP) | Probabilidad Movimiento DOWN (Cortos) |
 | --- | --- | --- |
-| 1.0x Rango OR | `81.82%` | `82.49%` |
-| 1.5x Rango OR | `73.47%` | `73.02%` |
-| 2.0x Rango OR | `64.10%` | `64.16%` |
-| 1.0x Volatilidad ATR Diaria | `14.75%` | `17.71%` |
+| 1.0x Rango OR | `80.12%` | `81.35%` |
+| 1.5x Rango OR | `71.10%` | `71.26%` |
+| 2.0x Rango OR | `60.92%` | `61.56%` |
+| 1.0x Volatilidad ATR Diaria | `15.38%` | `18.77%` |
 
 ### ⚠️ Vulnerabilidad a Trampas (False Breakouts)
-- Falsa Ruptura Alcista atrapada en SL contra-caja: `52.88%`
-- Falsa Ruptura Bajista atrapada en SL contra-caja: `53.35%`
+- Falsa Ruptura Alcista atrapada en SL contra-caja: `54.57%`
+- Falsa Ruptura Bajista atrapada en SL contra-caja: `54.15%`
 
 ### 🧲 Mapeo Hacia Niveles Previo / Atracción de Reversión
-- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `86.44%`
-- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `63.16%`
-- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `39.12%`
+- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `131.36%`
+- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `95.98%`
+- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `59.45%`
 
 ---
 
 ## Permutación #2: Tokyo 30m
-**Configuración:** Inicia a las `00:00 UTC`. Tamaño de caja evaluativa: `30 minutos`. Días procesados válidos: `2573`.
+**Configuración:** Inicia a las `00:00 UTC`. Tamaño de caja evaluativa: `30 minutos`. Días procesados válidos: `1952`.
 
 ### 🧭 Momentum Base Básico
-- **Rotura Alcista (UP):** `43.88%`
-- **Rotura Bajista (DOWN):** `37.31%`
+- **Rotura Alcista (UP):** `52.87%`
+- **Rotura Bajista (DOWN):** `45.03%`
 
 ### 🎯 Extensiones Geométricas (Target Limits)
 | Multiplicador | Probabilidad Movimiento LUP (UP) | Probabilidad Movimiento DOWN (Cortos) |
 | --- | --- | --- |
-| 1.0x Rango OR | `76.88%` | `76.25%` |
-| 1.5x Rango OR | `65.54%` | `65.31%` |
-| 2.0x Rango OR | `56.16%` | `55.31%` |
-| 1.0x Volatilidad ATR Diaria | `13.55%` | `18.02%` |
+| 1.0x Rango OR | `76.36%` | `75.77%` |
+| 1.5x Rango OR | `64.73%` | `64.62%` |
+| 2.0x Rango OR | `54.75%` | `54.27%` |
+| 1.0x Volatilidad ATR Diaria | `13.76%` | `18.54%` |
 
 ### ⚠️ Vulnerabilidad a Trampas (False Breakouts)
-- Falsa Ruptura Alcista atrapada en SL contra-caja: `56.78%`
-- Falsa Ruptura Bajista atrapada en SL contra-caja: `53.02%`
+- Falsa Ruptura Alcista atrapada en SL contra-caja: `57.36%`
+- Falsa Ruptura Bajista atrapada en SL contra-caja: `53.36%`
 
 ### 🧲 Mapeo Hacia Niveles Previo / Atracción de Reversión
-- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `84.45%`
-- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `62.46%`
-- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `39.00%`
+- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `111.32%`
+- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `82.33%`
+- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `51.41%`
 
 ---
 
 ## Permutación #3: Tokyo 45m
-**Configuración:** Inicia a las `00:00 UTC`. Tamaño de caja evaluativa: `45 minutos`. Días procesados válidos: `2573`.
+**Configuración:** Inicia a las `00:00 UTC`. Tamaño de caja evaluativa: `45 minutos`. Días procesados válidos: `2041`.
 
 ### 🧭 Momentum Base Básico
-- **Rotura Alcista (UP):** `43.41%`
-- **Rotura Bajista (DOWN):** `37.58%`
+- **Rotura Alcista (UP):** `52.18%`
+- **Rotura Bajista (DOWN):** `45.12%`
 
 ### 🎯 Extensiones Geométricas (Target Limits)
 | Multiplicador | Probabilidad Movimiento LUP (UP) | Probabilidad Movimiento DOWN (Cortos) |
 | --- | --- | --- |
-| 1.0x Rango OR | `72.43%` | `72.70%` |
-| 1.5x Rango OR | `60.43%` | `59.98%` |
-| 2.0x Rango OR | `50.13%` | `50.16%` |
-| 1.0x Volatilidad ATR Diaria | `13.52%` | `18.10%` |
+| 1.0x Rango OR | `72.30%` | `72.64%` |
+| 1.5x Rango OR | `60.09%` | `59.83%` |
+| 2.0x Rango OR | `49.67%` | `49.73%` |
+| 1.0x Volatilidad ATR Diaria | `13.62%` | `18.02%` |
 
 ### ⚠️ Vulnerabilidad a Trampas (False Breakouts)
-- Falsa Ruptura Alcista atrapada en SL contra-caja: `55.86%`
-- Falsa Ruptura Bajista atrapada en SL contra-caja: `52.74%`
+- Falsa Ruptura Alcista atrapada en SL contra-caja: `56.06%`
+- Falsa Ruptura Bajista atrapada en SL contra-caja: `52.88%`
 
 ### 🧲 Mapeo Hacia Niveles Previo / Atracción de Reversión
-- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `82.90%`
-- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `62.03%`
-- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `38.92%`
+- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `104.51%`
+- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `78.20%`
+- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `49.07%`
 
 ---
 
 ## Permutación #4: Tokyo 60m
-**Configuración:** Inicia a las `00:00 UTC`. Tamaño de caja evaluativa: `60 minutos`. Días procesados válidos: `2573`.
+**Configuración:** Inicia a las `00:00 UTC`. Tamaño de caja evaluativa: `60 minutos`. Días procesados válidos: `2087`.
 
 ### 🧭 Momentum Base Básico
-- **Rotura Alcista (UP):** `41.08%`
-- **Rotura Bajista (DOWN):** `41.47%`
+- **Rotura Alcista (UP):** `48.78%`
+- **Rotura Bajista (DOWN):** `49.07%`
 
 ### 🎯 Extensiones Geométricas (Target Limits)
 | Multiplicador | Probabilidad Movimiento LUP (UP) | Probabilidad Movimiento DOWN (Cortos) |
 | --- | --- | --- |
-| 1.0x Rango OR | `66.98%` | `64.67%` |
-| 1.5x Rango OR | `53.26%` | `52.48%` |
-| 2.0x Rango OR | `41.44%` | `41.61%` |
-| 1.0x Volatilidad ATR Diaria | `14.38%` | `16.40%` |
+| 1.0x Rango OR | `67.58%` | `65.23%` |
+| 1.5x Rango OR | `53.83%` | `52.83%` |
+| 2.0x Rango OR | `41.94%` | `41.70%` |
+| 1.0x Volatilidad ATR Diaria | `14.44%` | `16.50%` |
 
 ### ⚠️ Vulnerabilidad a Trampas (False Breakouts)
-- Falsa Ruptura Alcista atrapada en SL contra-caja: `51.18%`
-- Falsa Ruptura Bajista atrapada en SL contra-caja: `52.58%`
+- Falsa Ruptura Alcista atrapada en SL contra-caja: `51.08%`
+- Falsa Ruptura Bajista atrapada en SL contra-caja: `53.22%`
 
 ### 🧲 Mapeo Hacia Niveles Previo / Atracción de Reversión
-- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `79.87%`
-- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `60.98%`
-- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `38.30%`
+- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `98.47%`
+- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `75.18%`
+- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `47.22%`
 
 ---
 
 ## Permutación #5: NY 15m
-**Configuración:** Inicia a las `13:30 UTC`. Tamaño de caja evaluativa: `15 minutos`. Días procesados válidos: `2570`.
+**Configuración:** Inicia a las `13:30 UTC`. Tamaño de caja evaluativa: `15 minutos`. Días procesados válidos: `1617`.
 
 ### 🧭 Momentum Base Básico
-- **Rotura Alcista (UP):** `38.33%`
-- **Rotura Bajista (DOWN):** `37.78%`
+- **Rotura Alcista (UP):** `47.06%`
+- **Rotura Bajista (DOWN):** `47.50%`
 
 ### 🎯 Extensiones Geométricas (Target Limits)
 | Multiplicador | Probabilidad Movimiento LUP (UP) | Probabilidad Movimiento DOWN (Cortos) |
 | --- | --- | --- |
-| 1.0x Rango OR | `66.40%` | `66.53%` |
-| 1.5x Rango OR | `53.91%` | `51.91%` |
-| 2.0x Rango OR | `43.15%` | `42.53%` |
-| 1.0x Volatilidad ATR Diaria | `3.35%` | `5.05%` |
+| 1.0x Rango OR | `62.29%` | `63.54%` |
+| 1.5x Rango OR | `49.93%` | `47.66%` |
+| 2.0x Rango OR | `38.76%` | `37.24%` |
+| 1.0x Volatilidad ATR Diaria | `3.29%` | `5.21%` |
 
 ### ⚠️ Vulnerabilidad a Trampas (False Breakouts)
-- Falsa Ruptura Alcista atrapada en SL contra-caja: `47.11%`
-- Falsa Ruptura Bajista atrapada en SL contra-caja: `47.27%`
+- Falsa Ruptura Alcista atrapada en SL contra-caja: `47.17%`
+- Falsa Ruptura Bajista atrapada en SL contra-caja: `47.01%`
 
 ### 🧲 Mapeo Hacia Niveles Previo / Atracción de Reversión
-- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `43.07%`
-- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `34.82%`
-- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `28.48%`
+- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `68.46%`
+- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `55.35%`
+- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `45.27%`
 
 ---
 
 ## Permutación #6: NY 30m
-**Configuración:** Inicia a las `13:30 UTC`. Tamaño de caja evaluativa: `30 minutos`. Días procesados válidos: `2570`.
+**Configuración:** Inicia a las `13:30 UTC`. Tamaño de caja evaluativa: `30 minutos`. Días procesados válidos: `1942`.
 
 ### 🧭 Momentum Base Básico
-- **Rotura Alcista (UP):** `39.26%`
-- **Rotura Bajista (DOWN):** `40.08%`
+- **Rotura Alcista (UP):** `47.63%`
+- **Rotura Bajista (DOWN):** `48.51%`
 
 ### 🎯 Extensiones Geométricas (Target Limits)
 | Multiplicador | Probabilidad Movimiento LUP (UP) | Probabilidad Movimiento DOWN (Cortos) |
 | --- | --- | --- |
-| 1.0x Rango OR | `56.49%` | `56.41%` |
-| 1.5x Rango OR | `39.94%` | `41.07%` |
-| 2.0x Rango OR | `29.63%` | `30.78%` |
-| 1.0x Volatilidad ATR Diaria | `3.47%` | `4.47%` |
+| 1.0x Rango OR | `56.00%` | `54.56%` |
+| 1.5x Rango OR | `38.81%` | `39.49%` |
+| 2.0x Rango OR | `28.54%` | `29.30%` |
+| 1.0x Volatilidad ATR Diaria | `3.78%` | `4.67%` |
 
 ### ⚠️ Vulnerabilidad a Trampas (False Breakouts)
-- Falsa Ruptura Alcista atrapada en SL contra-caja: `40.44%`
-- Falsa Ruptura Bajista atrapada en SL contra-caja: `42.91%`
+- Falsa Ruptura Alcista atrapada en SL contra-caja: `40.65%`
+- Falsa Ruptura Bajista atrapada en SL contra-caja: `42.46%`
 
 ### 🧲 Mapeo Hacia Niveles Previo / Atracción de Reversión
-- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `41.63%`
-- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `33.54%`
-- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `27.32%`
+- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `55.10%`
+- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `44.39%`
+- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `36.15%`
 
 ---
 
 ## Permutación #7: NY 45m
-**Configuración:** Inicia a las `13:30 UTC`. Tamaño de caja evaluativa: `45 minutos`. Días procesados válidos: `2570`.
+**Configuración:** Inicia a las `13:30 UTC`. Tamaño de caja evaluativa: `45 minutos`. Días procesados válidos: `1979`.
 
 ### 🧭 Momentum Base Básico
-- **Rotura Alcista (UP):** `41.01%`
-- **Rotura Bajista (DOWN):** `39.65%`
+- **Rotura Alcista (UP):** `49.37%`
+- **Rotura Bajista (DOWN):** `48.05%`
 
 ### 🎯 Extensiones Geométricas (Target Limits)
 | Multiplicador | Probabilidad Movimiento LUP (UP) | Probabilidad Movimiento DOWN (Cortos) |
 | --- | --- | --- |
-| 1.0x Rango OR | `44.21%` | `42.79%` |
-| 1.5x Rango OR | `27.70%` | `28.95%` |
-| 2.0x Rango OR | `17.08%` | `19.33%` |
-| 1.0x Volatilidad ATR Diaria | `2.66%` | `4.61%` |
+| 1.0x Rango OR | `44.63%` | `42.69%` |
+| 1.5x Rango OR | `27.64%` | `28.50%` |
+| 2.0x Rango OR | `16.58%` | `18.61%` |
+| 1.0x Volatilidad ATR Diaria | `2.76%` | `4.84%` |
 
 ### ⚠️ Vulnerabilidad a Trampas (False Breakouts)
-- Falsa Ruptura Alcista atrapada en SL contra-caja: `34.06%`
-- Falsa Ruptura Bajista atrapada en SL contra-caja: `36.70%`
+- Falsa Ruptura Alcista atrapada en SL contra-caja: `33.88%`
+- Falsa Ruptura Bajista atrapada en SL contra-caja: `36.80%`
 
 ### 🧲 Mapeo Hacia Niveles Previo / Atracción de Reversión
-- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `39.53%`
-- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `31.91%`
-- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `25.41%`
+- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `51.34%`
+- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `41.44%`
+- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `33.00%`
 
 ---
 
 ## Permutación #8: NY 60m
-**Configuración:** Inicia a las `13:30 UTC`. Tamaño de caja evaluativa: `60 minutos`. Días procesados válidos: `2570`.
+**Configuración:** Inicia a las `13:30 UTC`. Tamaño de caja evaluativa: `60 minutos`. Días procesados válidos: `1982`.
 
 ### 🧭 Momentum Base Básico
-- **Rotura Alcista (UP):** `40.12%`
-- **Rotura Bajista (DOWN):** `38.95%`
+- **Rotura Alcista (UP):** `48.44%`
+- **Rotura Bajista (DOWN):** `47.02%`
 
 ### 🎯 Extensiones Geométricas (Target Limits)
 | Multiplicador | Probabilidad Movimiento LUP (UP) | Probabilidad Movimiento DOWN (Cortos) |
 | --- | --- | --- |
-| 1.0x Rango OR | `38.02%` | `37.36%` |
-| 1.5x Rango OR | `20.85%` | `23.38%` |
-| 2.0x Rango OR | `12.22%` | `15.78%` |
-| 1.0x Volatilidad ATR Diaria | `2.72%` | `4.50%` |
+| 1.0x Rango OR | `38.75%` | `37.66%` |
+| 1.5x Rango OR | `20.94%` | `23.61%` |
+| 2.0x Rango OR | `11.98%` | `15.67%` |
+| 1.0x Volatilidad ATR Diaria | `2.81%` | `4.29%` |
 
 ### ⚠️ Vulnerabilidad a Trampas (False Breakouts)
-- Falsa Ruptura Alcista atrapada en SL contra-caja: `29.29%`
-- Falsa Ruptura Bajista atrapada en SL contra-caja: `31.77%`
+- Falsa Ruptura Alcista atrapada en SL contra-caja: `29.58%`
+- Falsa Ruptura Bajista atrapada en SL contra-caja: `32.40%`
 
 ### 🧲 Mapeo Hacia Niveles Previo / Atracción de Reversión
-- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `38.64%`
-- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `31.05%`
-- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `24.44%`
+- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `50.10%`
+- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `40.26%`
+- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `31.69%`
 
 ---
 
@@ -229,42 +229,44 @@ Nuestro equipo algorítmico ha procesado la matriz omnidireccional. **Atención:
 ### 🏆 Lógica Mecánica Revelada (> 60% Fidelidad Operativa)
 > Se han detectado asimetrías de enorme valor predictivo superando los tests empíricos de rigor:
 
-- **[EDGE MAGNET PD_CLOSE] Tokyo (15m)**: Imantación cíclica brutal. El `86.44%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
+- **[EDGE MAGNET PD_CLOSE] NY (15m)**: Imantación cíclica brutal. El `68.46%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
 
-- **[EDGE MAGNET PD_CLOSE] Tokyo (30m)**: Imantación cíclica brutal. El `84.45%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
+- **[EDGE MAGNET PD_CLOSE] Tokyo (15m)**: Imantación cíclica brutal. El `131.36%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
 
-- **[EDGE MAGNET PD_CLOSE] Tokyo (45m)**: Imantación cíclica brutal. El `82.90%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
+- **[EDGE MAGNET PD_CLOSE] Tokyo (30m)**: Imantación cíclica brutal. El `111.32%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
 
-- **[EDGE MAGNET PD_CLOSE] Tokyo (60m)**: Imantación cíclica brutal. El `79.87%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
+- **[EDGE MAGNET PD_CLOSE] Tokyo (45m)**: Imantación cíclica brutal. El `104.51%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
 
-- **[EDGE MAGNET PD_MID] Tokyo (15m)**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `63.16%` de los eventos evaluados.
+- **[EDGE MAGNET PD_CLOSE] Tokyo (60m)**: Imantación cíclica brutal. El `98.47%` de las veces la volatilidad es mitigada revisitando el Cierre del Día Anterior. Sugerencia Algo: Sistema Mean-Reversion absoluto.
 
-- **[EDGE MAGNET PD_MID] Tokyo (30m)**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `62.46%` de los eventos evaluados.
+- **[EDGE MAGNET PD_MID] Tokyo (15m)**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `95.98%` de los eventos evaluados.
 
-- **[EDGE MAGNET PD_MID] Tokyo (45m)**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `62.03%` de los eventos evaluados.
+- **[EDGE MAGNET PD_MID] Tokyo (30m)**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `82.33%` de los eventos evaluados.
 
-- **[EDGE MAGNET PD_MID] Tokyo (60m)**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `60.98%` de los eventos evaluados.
+- **[EDGE MAGNET PD_MID] Tokyo (45m)**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `78.20%` de los eventos evaluados.
 
-- **[EDGE TENDENCIAL DOWN] Tokyo (15m)**: Tasa de extensión polar bajista (1.5x) del `73.02%`. Sugerencia Algo: Estrategia de continuidad tipo cascada con salidas mecánicas de OR.
+- **[EDGE MAGNET PD_MID] Tokyo (60m)**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `75.18%` de los eventos evaluados.
 
-- **[EDGE TENDENCIAL DOWN] Tokyo (30m)**: Tasa de extensión polar bajista (1.5x) del `65.31%`. Sugerencia Algo: Estrategia de continuidad tipo cascada con salidas mecánicas de OR.
+- **[EDGE TENDENCIAL DOWN] Tokyo (15m)**: Tasa de extensión polar bajista (1.5x) del `71.26%`. Sugerencia Algo: Estrategia de continuidad tipo cascada con salidas mecánicas de OR.
 
-- **[EDGE TENDENCIAL UP] Tokyo (15m)**: Tasa de extensión extrema al alza (1.5x tamaño de caja) del `73.47%`. Sugerencia Algo: Disparar *Ruptura de Inercia* persiguiendo TP fijo.
+- **[EDGE TENDENCIAL DOWN] Tokyo (30m)**: Tasa de extensión polar bajista (1.5x) del `64.62%`. Sugerencia Algo: Estrategia de continuidad tipo cascada con salidas mecánicas de OR.
 
-- **[EDGE TENDENCIAL UP] Tokyo (30m)**: Tasa de extensión extrema al alza (1.5x tamaño de caja) del `65.54%`. Sugerencia Algo: Disparar *Ruptura de Inercia* persiguiendo TP fijo.
+- **[EDGE TENDENCIAL UP] Tokyo (15m)**: Tasa de extensión extrema al alza (1.5x tamaño de caja) del `71.10%`. Sugerencia Algo: Disparar *Ruptura de Inercia* persiguiendo TP fijo.
 
-- **[EDGE TENDENCIAL UP] Tokyo (45m)**: Tasa de extensión extrema al alza (1.5x tamaño de caja) del `60.43%`. Sugerencia Algo: Disparar *Ruptura de Inercia* persiguiendo TP fijo.
+- **[EDGE TENDENCIAL UP] Tokyo (30m)**: Tasa de extensión extrema al alza (1.5x tamaño de caja) del `64.73%`. Sugerencia Algo: Disparar *Ruptura de Inercia* persiguiendo TP fijo.
+
+- **[EDGE TENDENCIAL UP] Tokyo (45m)**: Tasa de extensión extrema al alza (1.5x tamaño de caja) del `60.09%`. Sugerencia Algo: Disparar *Ruptura de Inercia* persiguiendo TP fijo.
 
 ### 🧪 Laboratorio Quant: Resultados de Feature Crossing Estructural
 Hemos sometido la mejor matriz base (`Tokyo 15m`) a una sub-perforación condicional aislando las variantes de volatilidad extrema y apertura direccional. A continuación la probabilidad neta aislada:
 
 #### 1. Percentiles de Volatilidad (Ancho del Rango de Apertura en Pips)
-- **Rango Ultras Estrecho (Q1)**: Eventos=539 | UP: `49%` | Ext 1.5 UP: `81%` | Falsa Ruptura DW: `54%` | Reversión a PD_Close: `93%`
-- **Rango Masivo Hiper-Volátil (Q4)**: Eventos=535 | UP: `50%` | Ext 1.5 UP: `68%` | Falsa Ruptura DW: `48%` | Reversión a PD_Close: `85%`
+- **Rango Ultras Estrecho (Q1)**: Eventos=424 | UP: `50%` | Ext 1.5 UP: `77%` | Falsa Ruptura DW: `53%` | Reversión a PD_Close: `91%`
+- **Rango Masivo Hiper-Volátil (Q4)**: Eventos=427 | UP: `51%` | Ext 1.5 UP: `66%` | Falsa Ruptura DW: `50%` | Reversión a PD_Close: `86%`
 
 #### 2. Relación de Apertura (Memoria de Día Anterior)
-- **Apertura Interna (Consolidación atrapada en el OR de ayer)**: Eventos=197 | UP: `44%` | Ext 1.5 UP: `74%` | Falsa Ruptura DW: `51%` | Reversión a PD_Close: `85%`
-- **Apertura en Gap Bidireccional (Desconexión de ayer)**: Eventos=1940 | UP: `51%` | Ext 1.5 UP: `73%` | Falsa Ruptura DW: `54%` | Reversión a PD_Close: `90%`
+- **Apertura Interna (Consolidación atrapada en el OR de ayer)**: Eventos=147 | UP: `46%` | Ext 1.5 UP: `75%` | Falsa Ruptura DW: `54%` | Reversión a PD_Close: `84%`
+- **Apertura en Gap Bidireccional (Desconexión de ayer)**: Eventos=1546 | UP: `52%` | Ext 1.5 UP: `71%` | Falsa Ruptura DW: `54%` | Reversión a PD_Close: `89%`
 
 > *Nota de Mesa Operativa:* Analiza si filtrar por un rango apretado (Q1) eleva tu falso rompimiento o detona tu extensión objetivo por encima del base histórico. Si la extensión TENDENCIAL UP salta al 80% en Q1, el sistema de trading debe programar explícitamente: `IF OR_Width < Cuartil_25 THEN EJECUTAR ALGORITMO`.
 

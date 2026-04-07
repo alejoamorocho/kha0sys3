@@ -140,9 +140,9 @@ class MT5Client:
 
         true_ranges = []
         for i in range(1, len(rates)):
-            high = rates[i]["high"]
-            low = rates[i]["low"]
-            prev_close = rates[i - 1]["close"]
+            high = rates[i].high
+            low = rates[i].low
+            prev_close = rates[i - 1].close
 
             tr = max(
                 high - low,
@@ -158,23 +158,29 @@ class MT5Client:
         atr14 = sum(true_ranges[-15:-1]) / 14
         return atr14
 
-    def get_or_from_closed_bar(self, symbol: str) -> Optional[dict]:
-        """Obtiene Opening Range de la barra M15 CERRADA anterior (no la actual).
+    def get_or_from_closed_bars(self, symbol: str, duration_mins: int = 15) -> Optional[dict]:
+        """Obtiene Opening Range de las barras M15 CERRADAS necesarias.
 
+        Si duration_mins=30, agrupa las últimas 2 velas de 15m.
         Retorna dict con high, low, width o None si no hay datos.
         """
-        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 1, 1)
-        if rates is None or len(rates) == 0:
+        n_bars = int(duration_mins / 15)
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 1, n_bars)
+        if rates is None or len(rates) < n_bars:
             return None
 
-        bar = rates[0]
-        high = bar["high"]
-        low = bar["low"]
+        # Agregación de High y Low sobre el bloque de velas
+        highs = [r.high for r in rates]
+        lows = [r.low for r in rates]
+        
+        o_high = max(highs)
+        o_low = min(lows)
+        
         return {
-            "high": high,
-            "low": low,
-            "width": high - low,
-            "open": bar["open"],
-            "close": bar["close"],
-            "time": bar["time"],
+            "high": o_high,
+            "low": o_low,
+            "width": o_high - o_low,
+            "open": rates[-1].open,   # Apertura de la primera vela (la mas vieja en el array)
+            "close": rates[0].close,  # Cierre de la ultima vela (la mas reciente)
+            "time": rates[0].time,
         }

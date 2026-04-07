@@ -24,6 +24,8 @@ class TrackerEngine:
         
         # 1. Base daily stats
         stats_df = df.group_by("trade_date").agg([
+            pl.col("or_width").first().alias("or_width"),
+            pl.col("or_atr_ratio").first().alias("or_atr_ratio"),
             pl.col("max_up").max() if "max_up" in df.columns else (pl.col("high").max() - pl.col("or_high").first()).alias("max_up"),
             pl.col("max_down").max() if "max_down" in df.columns else (pl.col("or_low").first() - pl.col("low").min()).alias("max_down"),
             (pl.col("close") > pl.col("or_high").first()).sum().alias("breakout_up_count"),

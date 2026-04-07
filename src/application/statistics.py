@@ -21,8 +21,11 @@ class StatisticalEngine:
             (pl.col("max_down") / pl.col("atr_14")).alias("down_extension_atr")
         )
         
-        # We only work with days that had a valid OR mapped.
-        valid_df = df.filter(pl.col("first_break_dir").is_not_null())
+        # We only work with days that had a valid OR mapped and pass the volatility filter
+        valid_df = df.filter(
+            pl.col("first_break_dir").is_not_null() &
+            pl.col("or_atr_ratio").is_between(0.1, 0.8)
+        )
         total_days = valid_df.height
         if total_days == 0:
             return {"error": "No valid days found"}

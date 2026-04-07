@@ -103,10 +103,14 @@ class DataEnricher:
         # Join back
         res_df = df.join(or_stats, on="trade_date", how="left")
         
-        # Calculate OR Width
+        # Calculate OR Width and ATR Ratio
         res_df = res_df.with_columns([
             (pl.col("or_high") - pl.col("or_low")).alias("or_width"),
             ((pl.col("or_high") + pl.col("or_low")) / 2).alias("or_mid")
+        ])
+        
+        res_df = res_df.with_columns([
+            (pl.col("or_width") / pl.col("atr_14")).alias("or_atr_ratio")
         ])
         
         # Flag post OR candles & 8H Active Session Window

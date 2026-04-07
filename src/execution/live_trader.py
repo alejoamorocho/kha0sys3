@@ -287,8 +287,8 @@ class LiveTraderEngine:
 
         print(f"[TICKER] Ventana abierta para {sym}")
 
-        # OR desde barra CERRADA (no la que se está formando)
-        or_data = self.client.get_or_from_closed_bar(sym)
+        # OR desde barras CERRADAS (soporta multi-vela)
+        or_data = self.client.get_or_from_closed_bars(sym, duration_mins=setup.get("dur", 15))
         if or_data is None:
             self.telegram.notify_error(f"Sin datos M15 para {sym}", "DataFeed")
             return
@@ -301,16 +301,34 @@ class LiveTraderEngine:
             self.telegram.notify_order_rejected(sym, "Rango cero o negativo")
             return
 
-        # ATR14 filter (idéntico al backtest)
+        # ATR14 filter (idéntico al backtest: or_atr_ratio in [0.1, 0.8])
         if not self._passes_atr_filter(sym, rng):
             return
 
         self.telegram.notify_orb_detected(sym, range_high, range_low, rng)
 
+        # Dynamic TP Calculation (Adaptive TP)
+        tp_config = setup.get("tp_opt", 1.5)
+        selected_tp = 1.5 # Default
+
+        if isinstance(tp_config, dict):
+            # Obtener ATR14 para calcular el ratio del día
+            atr = self.client.calculate_atr14(sym)
+            if atr:
+                ratio = rng / atr
+                if ratio < 0.3: selected_tp = tp_config.get("narrow", 1.5)
+                elif ratio < 0.6: selected_tp = tp_config.get("normal", 1.0)
+                else: selected_tp = tp_config.get("wide", 0.5)
+                print(f"[ADAPTIVE] Ratio: {ratio:.2f} | TP Seleccionado: {selected_tp}x")
+            else:
+                selected_tp = tp_config.get("normal", 1.0)
+        else:
+            selected_tp = float(tp_config)
+
         sl_up = range_low
         sl_dw = range_high
-        tp_up = range_high + (rng * setup["tp_opt"])
-        tp_dw = range_low - (rng * setup["tp_opt"])
+        tp_up = range_high + (rng * selected_tp)
+        tp_dw = range_low - (rng * selected_tp)
 
         placed = self.om.place_breakout_stop_orders(
             symbol=sym,
