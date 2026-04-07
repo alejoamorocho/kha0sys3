@@ -48,3 +48,46 @@ class DynamicRiskAllocator:
         lots = math.floor(raw_lots / volume_step) * volume_step
 
         return round(lots, 2)
+
+
+class SLGuardian:
+    """Proteccion contra slippage que salta el SL.
+
+    Cada 10s revisa posiciones abiertas del bot. Si el precio actual
+    esta MAS ALLA del SL (gap/flash crash hizo que el SL no se ejecutara),
+    cierra la posicion a mercado inmediatamente.
+    """
+
+    SL_BREACH_MARGIN = 0.0001  # tolerancia minima para evitar falsos positivos
+
+    @staticmethod
+    def find_breached_positions(positions, magic: int = 1337) -> list:
+        """Retorna posiciones donde el precio paso el SL sin cerrarse.
+
+        Args:
+            positions: lista de posiciones de mt5.positions_get()
+            magic: magic number del bot
+
+        Returns:
+            lista de posiciones que deben cerrarse de emergencia
+        """
+        breached = []
+        if not positions:
+            return breached
+
+        for p in positions:
+            if p.magic != magic:
+                continue
+            if p.sl == 0.0:
+                continue
+
+            # BUY: SL esta debajo del precio de entrada. Si bid <= SL, el SL fallo.
+            if p.type == 0:  # POSITION_TYPE_BUY
+                if p.price_current <= p.sl:
+                    breached.append(p)
+            # SELL: SL esta arriba del precio de entrada. Si ask >= SL, el SL fallo.
+            elif p.type == 1:  # POSITION_TYPE_SELL
+                if p.price_current >= p.sl:
+                    breached.append(p)
+
+        return breached

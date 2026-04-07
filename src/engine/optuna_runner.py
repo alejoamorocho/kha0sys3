@@ -104,18 +104,21 @@ class EdgeOptimizer:
                     def calculate_pnl(row):
                         ratio = row["or_atr_ratio"]
                         tp = tp_narrow if ratio < 0.3 else tp_normal if ratio < 0.6 else tp_wide
-                        
+
                         dir = row["first_break_dir"]
-                        t_tp_key = f"time_tp_{dir.lower()}"
-                        # Re-calculate if TP is hit for this specific trial's TP
-                        # Using the max_up/down to see if target was reached before SL
-                        # Note: backtest is pessimistic (Loss if both in same bar)
-                        
                         max_ext = row["max_up"] / row["or_width"] if dir == "UP" else row["max_down"] / row["or_width"]
-                        # We use 1.0 as the stop loss boundary (1R)
-                        # This is a simplification but accurate for the model
-                        if max_ext >= tp: return tp - FRICTION
-                        else: return -1.0 - FRICTION
+
+                        # Check SL chronology
+                        time_sl = row.get(f"time_sl_{dir.lower()}")
+                        time_tp = row.get(f"time_tp_{dir.lower()}")
+
+                        if max_ext >= tp:
+                            # TP level reached, but did SL hit first?
+                            if time_sl is not None and (time_tp is None or time_sl <= time_tp):
+                                return -1.0 - FRICTION
+                            return tp - FRICTION
+                        else:
+                            return -1.0 - FRICTION
                         
                     pnls = [calculate_pnl(row) for row in valid_days.iter_rows(named=True)]
                     expectancy = sum(pnls) / len(pnls)
@@ -159,7 +162,14 @@ class EdgeOptimizer:
                         max_ext = row["max_up"] / row["or_width"] if dir == "UP" else row["max_down"] / row["or_width"]
                         trade_date = row["trade_date"]
                         
-                        r_net = tp - FRICTION if max_ext >= tp else -1.0 - FRICTION
+                        # Check SL chronology
+                        time_sl = row.get(f"time_sl_{dir.lower()}")
+                        time_tp = row.get(f"time_tp_{dir.lower()}")
+
+                        if max_ext >= tp and not (time_sl is not None and (time_tp is None or time_sl <= time_tp)):
+                            r_net = tp - FRICTION
+                        else:
+                            r_net = -1.0 - FRICTION
                         
                         if r_net != 0.0:
                             r_curves.append(r_net)

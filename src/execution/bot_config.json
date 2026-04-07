@@ -3,7 +3,6 @@
         {"sym": "USDJPY+",  "magic_time": "00:00", "edge": "TREND_UP",     "durations": [15, 30]},
         {"sym": "XAUUSD+",  "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
         {"sym": "EURUSD+",  "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
-        {"sym": "EURUSD+",  "magic_time": "07:00", "edge": "MAGNET_CLOSE", "durations": [15, 30]},
         {"sym": "USOUSD",   "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
         {"sym": "SP500",    "magic_time": "12:00", "edge": "TREND_UP",     "durations": [15, 30]}
     ],

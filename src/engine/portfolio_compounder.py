@@ -57,7 +57,10 @@ class PortfolioCompounder:
         """Collect trades for a single setup across all durations, pick best."""
         sym = setup["symbol"]
         cfg = self.config.get(sym, {})
-        FRICTION = 0.1
+        INDEX_SYMBOLS = {"SP500", "NASDAQ100", "VIX"}
+        FRICTION_DEFAULT = 0.1
+        FRICTION_INDEX = 0.2
+        friction = FRICTION_INDEX if sym in INDEX_SYMBOLS else FRICTION_DEFAULT
         ATR_LOW, ATR_HIGH = 0.1, 0.8
 
         df_raw = self.loader.load_data(sym, "M15")
@@ -88,13 +91,13 @@ class PortfolioCompounder:
                     or_w = row["or_width"]
                     if or_w and or_w > 0:
                         max_ext = row["max_up"] / or_w
-                        pnl = 1.5 - FRICTION if max_ext >= 1.5 else -1.0 - FRICTION
+                        pnl = 1.5 - friction if max_ext >= 1.5 else -1.0 - friction
 
                 elif setup["edge"] == "TREND_DW" and trade_dir == "DOWN":
                     or_w = row["or_width"]
                     if or_w and or_w > 0:
                         max_ext = row["max_down"] / or_w
-                        pnl = 1.5 - FRICTION if max_ext >= 1.5 else -1.0 - FRICTION
+                        pnl = 1.5 - friction if max_ext >= 1.5 else -1.0 - friction
 
                 elif setup["edge"] == "MAGNET_CLOSE":
                     pd_close = row["pd_close"]
@@ -104,10 +107,25 @@ class PortfolioCompounder:
                         continue
                     if or_low <= pd_close <= or_high:
                         continue
-                    if row["touches_pd_close"] > 0:
-                        pnl = 1.0 - FRICTION
+
+                    # Determine direction and check SL chronology
+                    if pd_close > or_high:
+                        time_entry = row["time_entry_up"]
+                        time_sl = row["time_sl_up"]
                     else:
-                        pnl = -1.0 - FRICTION
+                        time_entry = row["time_entry_down"]
+                        time_sl = row["time_sl_down"]
+
+                    if time_entry is None:
+                        continue
+
+                    if row["touches_pd_close"] > 0:
+                        if time_sl is not None and time_sl <= time_entry:
+                            pnl = -1.0 - friction
+                        else:
+                            pnl = 1.0 - friction
+                    else:
+                        pnl = -1.0 - friction
 
                 if pnl != 0:
                     h, m = map(int, setup["time_start"].split(':'))

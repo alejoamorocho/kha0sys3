@@ -36,6 +36,34 @@ class OrderManager:
         # Monitoreo TREND_UP: cancel BUY si precio toca or_low
         # {symbol: {"or_low": float, "order_ticket": int, "edge": str}}
         self._trend_monitors: dict[str, dict] = {}
+        self._load_state()
+
+    STATE_FILE = "data/live_state/daily_trades.json"
+
+    def _save_state(self):
+        """Persist dedup state to disk."""
+        import json as _json
+        import os
+        os.makedirs(os.path.dirname(self.STATE_FILE), exist_ok=True)
+        state = {
+            "daily_trades": self._daily_trades,
+            "last_reset": self._last_daily_reset,
+        }
+        with open(self.STATE_FILE, "w") as f:
+            _json.dump(state, f)
+
+    def _load_state(self):
+        """Restore dedup state from disk on startup."""
+        import json as _json
+        try:
+            with open(self.STATE_FILE, "r") as f:
+                state = _json.load(f)
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            if state.get("last_reset") == today:
+                self._daily_trades = state.get("daily_trades", {})
+                self._last_daily_reset = state["last_reset"]
+        except (FileNotFoundError, _json.JSONDecodeError):
+            pass
 
     def _reset_daily_if_needed(self):
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -57,6 +85,7 @@ class OrderManager:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         key = f"{symbol}_{edge}" if edge else symbol
         self._daily_trades[key] = today
+        self._save_state()
 
     def cancel_all_orders(self, symbol: str) -> int:
         """Cancela TODAS las ordenes pendientes de un simbolo."""
@@ -167,6 +196,19 @@ class OrderManager:
 
         return len(bot_positions) > 0 or len(bot_orders) > 0
 
+    def _get_filling_mode(self, symbol: str) -> int:
+        """Use broker-supported filling mode instead of hardcoded FOK."""
+        sym_info = mt5.symbol_info(symbol)
+        if sym_info is None:
+            return mt5.ORDER_FILLING_FOK
+        modes = sym_info.filling_mode
+        if modes & mt5.SYMBOL_FILLING_FOK:
+            return mt5.ORDER_FILLING_FOK
+        elif modes & mt5.SYMBOL_FILLING_IOC:
+            return mt5.ORDER_FILLING_IOC
+        else:
+            return mt5.ORDER_FILLING_RETURN
+
     def _send_stop_order(self, symbol: str, order_type, price: float,
                          sl: float, tp: float, volume: float,
                          comment: str) -> bool:
@@ -198,7 +240,7 @@ class OrderManager:
             "comment": comment,
             "type_time": mt5.ORDER_TIME_SPECIFIED,
             "expiration": expiration_ts,
-            "type_filling": mt5.ORDER_FILLING_FOK,
+            "type_filling": self._get_filling_mode(symbol),
         }
         res = self.client.send_order_raw(req)
         success = res.get("retcode") == mt5.TRADE_RETCODE_DONE

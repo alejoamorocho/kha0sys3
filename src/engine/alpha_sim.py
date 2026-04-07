@@ -112,7 +112,9 @@ class AlphaPortfolioSimulator:
         if setups is None:
             setups = self.qualified_setups
 
-        FRICTION = 0.1
+        FRICTION_DEFAULT = 0.1
+        FRICTION_INDEX = 0.2
+        INDEX_SYMBOLS = {"SP500", "NASDAQ100", "VIX"}
         ATR_LOW, ATR_HIGH = 0.1, 0.8
         traded_day_sym = set()
 
@@ -153,31 +155,48 @@ class AlphaPortfolioSimulator:
 
                 trade_dir = row["first_break_dir"]
                 pnl = 0.0
+                friction = FRICTION_INDEX if sym in INDEX_SYMBOLS else FRICTION_DEFAULT
 
                 if setup["edge_type"] == "TREND_UP" and trade_dir == "UP":
                     max_ext = row["max_up"] / row["or_width"] if row["or_width"] > 0 else 0
-                    pnl = 1.5 - FRICTION if max_ext >= 1.5 else -1.0 - FRICTION
+                    pnl = 1.5 - friction if max_ext >= 1.5 else -1.0 - friction
 
                 elif setup["edge_type"] == "TREND_DW" and trade_dir == "DOWN":
                     max_ext = row["max_down"] / row["or_width"] if row["or_width"] > 0 else 0
-                    pnl = 1.5 - FRICTION if max_ext >= 1.5 else -1.0 - FRICTION
+                    pnl = 1.5 - friction if max_ext >= 1.5 else -1.0 - friction
 
                 elif setup["edge_type"] == "MAGNET_CLOSE":
                     pd_close = row["pd_close"]
                     or_high = row["or_high"]
                     or_low = row["or_low"]
 
-                    # Skip if pd_close is inside OR (already reached by definition)
                     if pd_close is None or or_high is None or or_low is None:
                         continue
                     if or_low <= pd_close <= or_high:
                         continue
 
-                    # Direction is given by the magnet position
-                    if row["touches_pd_close"] > 0:
-                        pnl = 1.0 - FRICTION
+                    # Determine magnet direction and check SL chronology
+                    if pd_close > or_high:
+                        # BUY direction: entry at or_high, SL at or_low
+                        time_entry = row["time_entry_up"]
+                        time_sl = row["time_sl_up"]
                     else:
-                        pnl = -1.0 - FRICTION
+                        # SELL direction: entry at or_low, SL at or_high
+                        time_entry = row["time_entry_down"]
+                        time_sl = row["time_sl_down"]
+
+                    # Must have entry (breakout in magnet direction)
+                    if time_entry is None:
+                        continue
+
+                    # Check if SL was hit before pd_close was touched
+                    if row["touches_pd_close"] > 0:
+                        if time_sl is not None and time_sl <= time_entry:
+                            pnl = -1.0 - friction
+                        else:
+                            pnl = 1.0 - friction
+                    else:
+                        pnl = -1.0 - friction
 
                 if pnl != 0:
                     self.global_ledger.append({

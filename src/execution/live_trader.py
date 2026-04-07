@@ -21,7 +21,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from src.execution.mt5_client import MT5Client
-from src.execution.risk_manager import DynamicRiskAllocator
+from src.execution.risk_manager import DynamicRiskAllocator, SLGuardian
 from src.execution.order_manager import OrderManager
 from src.monitoring.telegram_bot import TelegramCommandBot
 from src.monitoring.mt5_reporter import MT5Reporter
@@ -50,6 +50,7 @@ class LiveTraderEngine:
 
         self.client = MT5Client()
         self.risk = DynamicRiskAllocator(risk_percent_per_trade=self.risk_percent)
+        self.sl_guardian = SLGuardian()
         self.reporter = MT5Reporter()
         self.health_monitor = SystemHealthMonitor()
 
@@ -89,6 +90,17 @@ class LiveTraderEngine:
     def _on_stop_command(self):
         with self._control_lock:
             self._paused = True
+        # Cancel all pending bot orders for safety
+        if self.om:
+            try:
+                import MetaTrader5 as mt5
+                orders = mt5.orders_get()
+                if orders:
+                    for o in orders:
+                        if o.magic == 1337:
+                            self.om.cancel_order_by_ticket(o.ticket, o.symbol)
+            except Exception as e:
+                print(f"[STOP] Error cancelando ordenes: {e}")
 
     def _on_resume_command(self):
         with self._control_lock:
@@ -320,7 +332,45 @@ class LiveTraderEngine:
                 )
                 self.telegram.send_sync(msg)
 
+        # SL Guardian: cierra posiciones donde el precio paso el SL (flash crash/slippage)
+        try:
+            breached = self.sl_guardian.find_breached_positions(current_positions)
+            for p in breached:
+                self._emergency_close_position(p)
+        except Exception as e:
+            print(f"[SL_GUARDIAN] Error checking: {e}")
+
         self._known_positions = current_tickets
+
+    # ─── Emergency close ────────────────────────────────────────
+
+    def _emergency_close_position(self, position):
+        """Cierra UNA posicion cuyo SL fue saltado por slippage/gap."""
+        close_type = mt5.ORDER_TYPE_SELL if position.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
+        req = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": position.symbol,
+            "volume": position.volume,
+            "type": close_type,
+            "position": position.ticket,
+            "deviation": 50,
+            "magic": 1337,
+            "comment": "SL_GUARDIAN",
+            "type_filling": self.om._get_filling_mode(position.symbol) if self.om else mt5.ORDER_FILLING_FOK,
+        }
+        result = mt5.order_send(req)
+        if result and result.retcode == mt5.TRADE_RETCODE_DONE:
+            self.telegram.send_sync(
+                f"🚨 <b>SL SALTADO — CIERRE FORZADO</b>\n"
+                f"  {position.symbol} | {position.volume} lots\n"
+                f"  SL: {position.sl} | Precio: {position.price_current}\n"
+                f"  Cerrado @ {result.price}"
+            )
+        else:
+            self.telegram.send_sync(
+                f"🚨 <b>SL GUARDIAN FALLO</b>: {position.symbol} - "
+                f"retcode {result.retcode if result else 'None'}"
+            )
 
     # ─── Symbol processing ────────────────────────────────────────
 
@@ -399,8 +449,7 @@ class LiveTraderEngine:
             print(f"[ERROR] Edge desconocido: {edge}")
             return
 
-        if placed:
-            self._trades_today += 1
+        # _trades_today is incremented in _check_positions_and_fills on actual fill
 
     # ─── Main loop ────────────────────────────────────────────────
 

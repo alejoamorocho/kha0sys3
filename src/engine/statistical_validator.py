@@ -13,8 +13,9 @@ class StatisticalValidator:
     @staticmethod
     def monte_carlo(pnls: List[float], n_sims: int = 10000) -> Dict[str, Any]:
         """
-        Permuta el orden de los trades n_sims veces para obtener
-        intervalos de confianza del PnL final y drawdown máximo.
+        Bootstrap with replacement: resamples trades to generate
+        different PnL sequences with varying final outcomes.
+        Also computes drawdown distribution.
         """
         pnls_arr = np.array(pnls)
         n = len(pnls_arr)
@@ -26,8 +27,9 @@ class StatisticalValidator:
 
         rng = np.random.default_rng(42)
         for i in range(n_sims):
-            shuffled = rng.permutation(pnls_arr)
-            equity = np.cumsum(shuffled)
+            # Bootstrap: sample WITH replacement
+            sample = rng.choice(pnls_arr, size=n, replace=True)
+            equity = np.cumsum(sample)
             final_pnls[i] = equity[-1]
             peak = np.maximum.accumulate(equity)
             max_drawdowns[i] = (equity - peak).min()
@@ -55,7 +57,8 @@ class StatisticalValidator:
     ) -> Dict[str, Any]:
         """
         Benjamini-Hochberg FDR correction.
-        Tests H0: win_rate <= null_wr (coin flip) for each setup.
+        Tests H0: win_rate <= null_wr for each setup.
+        MAGNET_CLOSE uses null_wr=0.55 (breakeven WR).
         """
         if not setup_stats:
             return {"error": "No setups"}
@@ -66,20 +69,21 @@ class StatisticalValidator:
             k = s["wins"]
             if n < 10:
                 continue
-            # One-sided binomial test: P(X >= k) under H0: p = null_wr
-            p_value = 1.0 - scipy_stats.binom.cdf(k - 1, n, null_wr)
+            # Edge-specific null: MAGNET breakeven is 55%, TREND is 50%
+            effective_null = 0.55 if "MAGNET" in s.get("label", "") else null_wr
+            p_value = 1.0 - scipy_stats.binom.cdf(k - 1, n, effective_null)
             results.append({
                 "label": s["label"],
                 "trades": n,
                 "wins": k,
                 "observed_wr": s["observed_wr"],
+                "null_wr": effective_null,
                 "p_value": p_value
             })
 
         if not results:
             return {"total_tested": 0, "significant_count": 0, "significant_setups": []}
 
-        # Sort by p-value for BH procedure
         results.sort(key=lambda x: x["p_value"])
         m = len(results)
 
@@ -88,7 +92,6 @@ class StatisticalValidator:
             r["p_adj"] = min(r["p_value"] * m / (i + 1), 1.0)
             r["significant"] = r["p_value"] <= bh_threshold
 
-        # Enforce monotonicity on adjusted p-values (step-up)
         for i in range(m - 2, -1, -1):
             results[i]["p_adj"] = min(results[i]["p_adj"], results[i + 1]["p_adj"])
 
@@ -155,27 +158,34 @@ class StatisticalValidator:
             start = end
 
         if len(windows) < 2:
-            return {"windows": windows, "decay_score": 1.0}
+            return {"windows": windows, "decay_score": 1.0, "decay_p_value": None,
+                    "trend": "ESTABLE"}
 
-        # Decay score: ratio of last window expectancy vs first window expectancy
         expectancies = [w["expectancy"] for w in windows]
-        first_half = np.mean(expectancies[:len(expectancies)//2])
-        second_half = np.mean(expectancies[len(expectancies)//2:])
 
-        if first_half > 0:
-            decay_score = second_half / first_half
-        elif first_half == 0:
-            decay_score = 1.0 if second_half >= 0 else 0.0
+        if len(expectancies) >= 3:
+            from scipy.stats import spearmanr
+            x = list(range(len(expectancies)))
+            corr, p_value = spearmanr(x, expectancies)
+            # Map: corr -1..+1 -> decay_score 0..2 (1.0 = stable)
+            decay_score = 1.0 + corr
+            decay_p_value = p_value
         else:
-            decay_score = 0.0
-
-        decay_score = max(0.0, min(2.0, decay_score))
+            first_half = np.mean(expectancies[:len(expectancies)//2])
+            second_half = np.mean(expectancies[len(expectancies)//2:])
+            if first_half > 0:
+                decay_score = second_half / first_half
+            elif first_half == 0:
+                decay_score = 1.0 if second_half >= 0 else 0.0
+            else:
+                decay_score = 0.0
+            decay_score = max(0.0, min(2.0, decay_score))
+            decay_p_value = None
 
         return {
             "windows": windows,
             "decay_score": float(decay_score),
-            "first_half_exp": float(first_half),
-            "second_half_exp": float(second_half),
+            "decay_p_value": float(decay_p_value) if decay_p_value is not None else None,
             "trend": "MEJORANDO" if decay_score > 1.1 else (
                 "ESTABLE" if decay_score >= 0.7 else (
                     "DEGRADANDO" if decay_score >= 0.3 else "COLAPSANDO"
