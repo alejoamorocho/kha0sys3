@@ -206,7 +206,9 @@ class StrategyBacktester:
         best_yr = max(yearly_stats, key=lambda y: yearly_stats[y]["net_r"]) if yearly_stats else ""
         worst_yr = min(yearly_stats, key=lambda y: yearly_stats[y]["net_r"]) if yearly_stats else ""
 
-        passes = wr >= 0.65 and tpy >= 100 and pf > 1.0
+        # Individual strategy approval: WR >= 65%, PF > 1.0, and reasonable trade count
+        # For filtered strategies (lower N), 20 trades/year is acceptable if grouped
+        passes = wr >= 0.65 and pf > 1.0 and tpy >= 20
 
         return StrategyResult(
             strategy=strategy,

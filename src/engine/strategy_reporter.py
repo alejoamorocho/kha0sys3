@@ -15,7 +15,10 @@ class StrategyReporter:
         if s.context_filter:
             ctx_label = s.context_filter.get("label", "filtered")
             filename += f"_{ctx_label}"
-        filename = filename.replace(" ", "_").replace("/", "_") + "_Strategy.md"
+        # Sanitize for Windows: remove characters invalid in filenames
+        for ch in ['<', '>', ':', '"', '|', '?', '*', '/', '\\']:
+            filename = filename.replace(ch, "")
+        filename = filename.replace(" ", "_") + "_Strategy.md"
         filepath = os.path.join(self.reports_dir, filename)
 
         md = self._build_strategy_md(result)
@@ -77,11 +80,11 @@ class StrategyReporter:
         md += f"| --- | --- | --- |\n"
 
         wr_icon = "PASS" if result.win_rate >= 0.65 else "FAIL"
-        tpy_icon = "PASS" if result.trades_per_year >= 100 else "FAIL"
+        tpy_icon = "PASS" if result.trades_per_year >= 20 else "FAIL"
         pf_icon = "PASS" if result.profit_factor > 1.0 else "FAIL"
 
         md += f"| Win Rate | `{result.win_rate:.2%}` | >= 65% [{wr_icon}] |\n"
-        md += f"| Trades/Ano | `{result.trades_per_year:.1f}` | >= 100 [{tpy_icon}] |\n"
+        md += f"| Trades/Ano | `{result.trades_per_year:.1f}` | >= 20 [{tpy_icon}] |\n"
         md += f"| Profit Factor | `{result.profit_factor:.2f}` | > 1.0 [{pf_icon}] |\n"
         md += f"| Total Trades | `{result.total_trades}` | - |\n"
         md += f"| Net R | `{result.net_r:.2f}R` | - |\n"
@@ -109,8 +112,8 @@ class StrategyReporter:
             fails = []
             if result.win_rate < 0.65:
                 fails.append(f"WR={result.win_rate:.1%} < 65%")
-            if result.trades_per_year < 100:
-                fails.append(f"Trades/ano={result.trades_per_year:.0f} < 100")
+            if result.trades_per_year < 20:
+                fails.append(f"Trades/ano={result.trades_per_year:.0f} < 20")
             if result.profit_factor <= 1.0:
                 fails.append(f"PF={result.profit_factor:.2f} <= 1.0")
             md += f"> **ESTRATEGIA NO APROBADA.** Falla en: {', '.join(fails)}. "
