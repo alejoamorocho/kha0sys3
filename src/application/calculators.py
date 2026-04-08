@@ -123,3 +123,31 @@ class DataEnricher:
         ])
         
         return res_df
+
+    @staticmethod
+    def enrich_with_rsi(df: pl.DataFrame, period: int = 14) -> pl.DataFrame:
+        """
+        Calculates RSI(14) over M15 close prices using Wilder's smoothing (EMA).
+        No look-ahead bias: RSI at bar N uses only bars 0..N.
+        """
+        df = df.sort("time")
+        delta = pl.col("close") - pl.col("close").shift(1)
+        df = df.with_columns([
+            pl.when(delta > 0).then(delta).otherwise(0.0).alias("_rsi_gain"),
+            pl.when(delta < 0).then(delta.abs()).otherwise(0.0).alias("_rsi_loss"),
+        ])
+        # Wilder's smoothing = EMA with alpha = 1/period
+        alpha = 1.0 / period
+        df = df.with_columns([
+            pl.col("_rsi_gain").ewm_mean(alpha=alpha, adjust=False, min_periods=period).alias("_avg_gain"),
+            pl.col("_rsi_loss").ewm_mean(alpha=alpha, adjust=False, min_periods=period).alias("_avg_loss"),
+        ])
+        df = df.with_columns([
+            pl.when(pl.col("_avg_loss") == 0)
+            .then(100.0)
+            .otherwise(100.0 - (100.0 / (1.0 + pl.col("_avg_gain") / pl.col("_avg_loss"))))
+            .alias("rsi_14")
+        ])
+        # Clean up temp columns
+        df = df.drop(["_rsi_gain", "_rsi_loss", "_avg_gain", "_avg_loss"])
+        return df
