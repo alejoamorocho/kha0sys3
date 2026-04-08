@@ -248,12 +248,16 @@ class OrderManager:
         res = self.client.send_order_raw(req)
         success = res.get("retcode") == mt5.TRADE_RETCODE_DONE
 
-        if success and self.telegram:
-            self.telegram.notify_order_placed(symbol, direction, price, sl, tp, volume, comment)
-        elif not success and self.telegram:
-            self.telegram.notify_order_rejected(
-                symbol, f"Retcode {res.get('retcode', 'unknown')}"
-            )
+        if self.telegram:
+            try:
+                if success:
+                    self.telegram.notify_order_placed(symbol, direction, price, sl, tp, volume, comment)
+                else:
+                    self.telegram.notify_order_rejected(
+                        symbol, f"Retcode {res.get('retcode', 'unknown')}"
+                    )
+            except Exception as e:
+                print(f"[WARN] Telegram notification failed: {e}")
 
         return success
 

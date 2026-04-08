@@ -490,11 +490,13 @@ class TelegramCommandBot:
         self.send_sync(msg)
 
     def notify_order_placed(self, symbol: str, direction: str,
-                            entry: float, sl: float, tp: float, lots: float):
+                            entry: float, sl: float, tp: float, lots: float,
+                            comment: str = ""):
         emoji = "🟢" if "BUY" in direction else "🔴"
         risk_pips = abs(entry - sl)
         reward_pips = abs(tp - entry)
         rr = reward_pips / risk_pips if risk_pips > 0 else 0
+        edge_label = f"\n  Edge      │ {comment}" if comment else ""
 
         msg = (
             "━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -505,7 +507,7 @@ class TelegramCommandBot:
             f"  Stop Loss │ {sl:.5f}\n"
             f"  Take Prof │ {tp:.5f}\n"
             f"  Volumen   │ {lots:.2f} lots\n"
-            f"  R:R       │ 1:{rr:.1f}\n"
+            f"  R:R       │ 1:{rr:.1f}{edge_label}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  <i>{datetime.now(timezone.utc).strftime('%H:%M')} UTC</i>"
         )
