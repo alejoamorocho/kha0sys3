@@ -55,10 +55,41 @@ class DataEnricher:
         daily_df = daily_df.with_columns([
             pl.col("tr").rolling_mean(window_size=14).shift(1).alias("atr_14")
         ])
-        
+
+        # RSI(14) daily based on d_close
+        delta_close = pl.col("d_close") - pl.col("d_close").shift(1)
+        daily_df = daily_df.with_columns([
+            pl.when(delta_close > 0).then(delta_close).otherwise(0.0).alias("_d_gain"),
+            pl.when(delta_close < 0).then(delta_close.abs()).otherwise(0.0).alias("_d_loss"),
+        ])
+        d_alpha = 1.0 / 14
+        daily_df = daily_df.with_columns([
+            pl.col("_d_gain").ewm_mean(alpha=d_alpha, adjust=False, min_periods=14).alias("_d_avg_gain"),
+            pl.col("_d_loss").ewm_mean(alpha=d_alpha, adjust=False, min_periods=14).alias("_d_avg_loss"),
+        ])
+        daily_df = daily_df.with_columns([
+            pl.when(pl.col("_d_avg_loss") == 0)
+            .then(100.0)
+            .otherwise(100.0 - (100.0 / (1.0 + pl.col("_d_avg_gain") / pl.col("_d_avg_loss"))))
+            .shift(1)  # shift(1) to avoid look-ahead: use YESTERDAY's RSI
+            .alias("rsi_daily_14")
+        ])
+        daily_df = daily_df.drop(["_d_gain", "_d_loss", "_d_avg_gain", "_d_avg_loss"])
+
+        # ATR change vs previous day
+        daily_df = daily_df.with_columns([
+            ((pl.col("atr_14") - pl.col("atr_14").shift(1)) / pl.col("atr_14").shift(1)).alias("atr_change")
+        ])
+
+        # ATR percentile (global rank, simpler approach for Polars compatibility)
+        daily_df = daily_df.with_columns([
+            (pl.col("atr_14").rank() / pl.col("atr_14").count() * 100).alias("atr_percentile")
+        ])
+
         # Join back mapped by trade_date
         enriched_m15 = df.join(
-            daily_df.select(["trade_date", "pd_high", "pd_low", "pd_close", "pd_open", "pd_mid", "atr_14"]),
+            daily_df.select(["trade_date", "pd_high", "pd_low", "pd_close", "pd_open", "pd_mid",
+                              "atr_14", "rsi_daily_14", "atr_change", "atr_percentile"]),
             on="trade_date",
             how="left"
         )
@@ -88,11 +119,16 @@ class DataEnricher:
         )
         
         # Calculate OR High and Low per day
-        or_stats = or_candles.group_by("trade_date").agg([
+        # Build aggregation list - RSI column may not be present
+        agg_exprs = [
             pl.col("high").max().alias("or_high"),
             pl.col("low").min().alias("or_low"),
-            pl.col("open").first().alias("or_open")
-        ]).sort("trade_date")
+            pl.col("open").first().alias("or_open"),
+        ]
+        if "rsi_14" in df.columns:
+            agg_exprs.append(pl.col("rsi_14").last().alias("rsi_at_or_close"))
+
+        or_stats = or_candles.group_by("trade_date").agg(agg_exprs).sort("trade_date")
         
         # Previous Day OR memory
         or_stats = or_stats.with_columns([
@@ -115,7 +151,34 @@ class DataEnricher:
             .otherwise(pl.lit(None))
             .alias("or_atr_ratio")
         ])
-        
+
+        # OR position relative to Previous Day levels
+        res_df = res_df.with_columns([
+            # Categorical position
+            pl.when(pl.col("or_open") > pl.col("pd_high"))
+            .then(pl.lit("ABOVE_PD_HIGH"))
+            .when(pl.col("or_open") < pl.col("pd_low"))
+            .then(pl.lit("BELOW_PD_LOW"))
+            .when(
+                (pl.col("or_open") >= pl.col("pd_close")) &
+                (pl.col("or_open") <= pl.col("pd_high"))
+            )
+            .then(pl.lit("BETWEEN_CLOSE_AND_HIGH"))
+            .when(
+                (pl.col("or_open") >= pl.col("pd_low")) &
+                (pl.col("or_open") < pl.col("pd_close"))
+            )
+            .then(pl.lit("BETWEEN_LOW_AND_CLOSE"))
+            .otherwise(pl.lit("INSIDE_PD_RANGE"))
+            .alias("or_position_vs_pd"),
+
+            # Normalized distances
+            ((pl.col("or_open") - pl.col("pd_close")) / pl.col("atr_14")).alias("or_open_vs_pd_close"),
+            ((pl.col("or_open") - pl.col("pd_mid")) / pl.col("atr_14")).alias("or_open_vs_pd_mid"),
+            ((pl.col("or_high") - pl.col("pd_high")) / pl.col("atr_14")).alias("or_high_vs_pd_high"),
+            ((pl.col("or_low") - pl.col("pd_low")) / pl.col("atr_14")).alias("or_low_vs_pd_low"),
+        ])
+
         # Flag post OR candles & 8H Active Session Window
         res_df = res_df.with_columns([
             (pl.col("mins_from_midnight") >= end_td).alias("is_post_or"),
