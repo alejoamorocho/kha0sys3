@@ -1,10 +1,66 @@
 {
+    "_doc": "Kha0sys3 v2 — 36 estrategias, riesgo dinamico 1-6% basado en WR historico",
+    "_risk_formula": "risk = 1% + (win_rate - 0.57) / 0.34 * 5% — lineal de 57%=1% a 91%=6%",
+
+    "risk_scaling": {
+        "min_risk": 0.01,
+        "max_risk": 0.06,
+        "min_wr": 0.57,
+        "max_wr": 0.91
+    },
+
     "portfolio": [
-        {"sym": "USDJPY+",  "magic_time": "00:00", "edge": "TREND_UP",     "durations": [15, 30]},
-        {"sym": "XAUUSD+",  "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
-        {"sym": "EURUSD+",  "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
-        {"sym": "USOUSD",   "magic_time": "07:00", "edge": "TREND_UP",     "durations": [15, 30]},
-        {"sym": "SP500",    "magic_time": "12:00", "edge": "TREND_UP",     "durations": [15, 30]}
-    ],
-    "risk_percent_per_trade": 0.03
+        {"sym": "EURUSD+",  "magic_time": "07:00", "edge": "FADE_UP",   "duration": 60, "win_rate": 0.623, "session": "London"},
+        {"sym": "EURUSD+",  "magic_time": "13:30", "edge": "FADE_DOWN", "duration": 60, "win_rate": 0.667, "session": "NY", "context": "BelowPD"},
+
+        {"sym": "GBPUSD+",  "magic_time": "13:30", "edge": "FADE_UP",   "duration": 60, "win_rate": 0.635, "session": "NY"},
+        {"sym": "GBPUSD+",  "magic_time": "07:00", "edge": "FADE_DOWN", "duration": 60, "win_rate": 0.589, "session": "London"},
+
+        {"sym": "USDJPY+",  "magic_time": "00:00", "edge": "FADE_UP",   "duration": 30, "win_rate": 0.585, "session": "Tokyo"},
+        {"sym": "USDJPY+",  "magic_time": "13:30", "edge": "FADE_DOWN", "duration": 30, "win_rate": 0.725, "session": "NY", "context": "RSI_D<35"},
+
+        {"sym": "AUDUSD+",  "magic_time": "07:00", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.615, "session": "London"},
+        {"sym": "AUDUSD+",  "magic_time": "22:00", "edge": "FADE_DOWN", "duration": 45, "win_rate": 0.736, "session": "Sydney"},
+        {"sym": "AUDUSD+",  "magic_time": "07:00", "edge": "FADE_UP",   "duration": 60, "win_rate": 0.681, "session": "London", "context": "BelowPD"},
+
+        {"sym": "GBPJPY+",  "magic_time": "00:00", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.602, "session": "Tokyo"},
+        {"sym": "GBPJPY+",  "magic_time": "07:00", "edge": "FADE_DOWN", "duration": 45, "win_rate": 0.590, "session": "London"},
+
+        {"sym": "EURJPY+",  "magic_time": "07:00", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.611, "session": "London"},
+        {"sym": "EURJPY+",  "magic_time": "00:00", "edge": "FADE_DOWN", "duration": 60, "win_rate": 0.605, "session": "Tokyo"},
+        {"sym": "EURJPY+",  "magic_time": "07:00", "edge": "MOMENTUM_DOWN", "duration": 45, "win_rate": 0.652, "session": "London", "context": "RSI>70"},
+
+        {"sym": "GBPAUD+",  "magic_time": "22:00", "edge": "FADE_DOWN", "duration": 30, "win_rate": 0.913, "session": "Sydney"},
+        {"sym": "GBPAUD+",  "magic_time": "07:00", "edge": "FADE_UP",   "duration": 60, "win_rate": 0.582, "session": "London"},
+        {"sym": "GBPAUD+",  "magic_time": "22:00", "edge": "FADE_DOWN", "duration": 15, "win_rate": 0.878, "session": "Sydney"},
+
+        {"sym": "XAUUSD+",  "magic_time": "13:30", "edge": "FADE_DOWN", "duration": 30, "win_rate": 0.572, "session": "NY"},
+
+        {"sym": "XAGUSD",   "magic_time": "13:30", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.673, "session": "NY"},
+        {"sym": "XAGUSD",   "magic_time": "07:00", "edge": "FADE_DOWN", "duration": 60, "win_rate": 0.601, "session": "London"},
+        {"sym": "XAGUSD",   "magic_time": "13:30", "edge": "FADE_UP",   "duration": 60, "win_rate": 0.693, "session": "NY"},
+
+        {"sym": "USOUSD",   "magic_time": "13:00", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.634, "session": "NY Main"},
+        {"sym": "USOUSD",   "magic_time": "07:00", "edge": "FADE_DOWN", "duration": 60, "win_rate": 0.590, "session": "London Initial"},
+        {"sym": "USOUSD",   "magic_time": "13:00", "edge": "FADE_UP",   "duration": 60, "win_rate": 0.700, "session": "NY Main", "context": "AbovePD"},
+
+        {"sym": "UKOUSD",   "magic_time": "13:00", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.625, "session": "NY"},
+        {"sym": "UKOUSD",   "magic_time": "07:00", "edge": "FADE_DOWN", "duration": 60, "win_rate": 0.610, "session": "London"},
+        {"sym": "UKOUSD",   "magic_time": "13:00", "edge": "FADE_UP",   "duration": 60, "win_rate": 0.738, "session": "NY", "context": "AbovePD"},
+
+        {"sym": "NG-C",     "magic_time": "13:00", "edge": "FADE_UP",   "duration": 60, "win_rate": 0.619, "session": "NY"},
+        {"sym": "NG-C",     "magic_time": "13:00", "edge": "FADE_DOWN", "duration": 45, "win_rate": 0.616, "session": "NY"},
+
+        {"sym": "SP500",    "magic_time": "13:30", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.635, "session": "NY Cash"},
+        {"sym": "SP500",    "magic_time": "12:00", "edge": "SHAKEOUT_DOWN", "duration": 30, "win_rate": 0.800, "session": "Pre-Market", "context": "RSI_D<35"},
+        {"sym": "SP500",    "magic_time": "12:00", "edge": "SHAKEOUT_UP",   "duration": 15, "win_rate": 0.824, "session": "Pre-Market", "context": "ATR+10%"},
+
+        {"sym": "NAS100",   "magic_time": "13:30", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.620, "session": "NY Cash"},
+        {"sym": "NAS100",   "magic_time": "12:00", "edge": "SHAKEOUT_DOWN", "duration": 15, "win_rate": 0.667, "session": "Pre-Market", "context": "BtwLowClose"},
+        {"sym": "NAS100",   "magic_time": "12:00", "edge": "SHAKEOUT_UP",   "duration": 15, "win_rate": 0.681, "session": "Pre-Market", "context": "BelowPD"},
+
+        {"sym": "VIX",      "magic_time": "13:30", "edge": "FADE_DOWN", "duration": 45, "win_rate": 0.671, "session": "NY Cash"},
+        {"sym": "VIX",      "magic_time": "13:30", "edge": "FADE_UP",   "duration": 45, "win_rate": 0.671, "session": "NY Cash", "context": "BtwCloseHigh"},
+        {"sym": "VIX",      "magic_time": "13:30", "edge": "FADE_DOWN", "duration": 60, "win_rate": 0.730, "session": "NY Cash", "context": "BtwLowClose"}
+    ]
 }

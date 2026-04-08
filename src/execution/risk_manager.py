@@ -1,38 +1,51 @@
 """
-Dynamic Risk Allocator — Kha0sys3
-Calculadora de position sizing basada en BALANCE (no free_margin).
+Dynamic Risk Allocator — Kha0sys3 v2
+Position sizing con riesgo escalado por win rate historico.
+Rango: 1% (WR=57%) a 6% (WR=91%), interpolacion lineal.
 """
 
 import math
 
 
 class DynamicRiskAllocator:
-    """Calcula volumen exacto de lotes arriesgando un porcentaje fijo del balance."""
+    """Calcula volumen de lotes con riesgo dinamico basado en WR del setup."""
 
-    def __init__(self, risk_percent_per_trade: float = 0.03):
-        self.risk_pct = risk_percent_per_trade
+    def __init__(self, min_risk: float = 0.01, max_risk: float = 0.06,
+                 min_wr: float = 0.57, max_wr: float = 0.91):
+        self.min_risk = min_risk
+        self.max_risk = max_risk
+        self.min_wr = min_wr
+        self.max_wr = max_wr
+
+    def get_risk_percent(self, win_rate: float) -> float:
+        """Calcula el % de riesgo basado en el win rate historico del setup."""
+        if win_rate <= self.min_wr:
+            return self.min_risk
+        if win_rate >= self.max_wr:
+            return self.max_risk
+        # Interpolacion lineal
+        ratio = (win_rate - self.min_wr) / (self.max_wr - self.min_wr)
+        return self.min_risk + ratio * (self.max_risk - self.min_risk)
 
     def calculate_lots(self, account_balance: float, entry_price: float,
                        sl_price: float, tick_value: float, tick_size: float,
-                       volume_step: float) -> float:
-        """Determina el volumen de lotes para arriesgar risk_pct del balance.
+                       volume_step: float, win_rate: float = 0.60) -> float:
+        """Determina el volumen de lotes arriesgando un % dinamico del balance.
 
         Args:
             account_balance: Balance settled de la cuenta (NO free_margin).
             entry_price: Precio de entrada.
             sl_price: Precio del stop loss.
             tick_value: Valor monetario de 1 tick para 1 lote.
-            tick_size: Tamaño de 1 tick en precio.
-            volume_step: Paso mínimo de volumen del broker.
+            tick_size: Tamano de 1 tick en precio.
+            volume_step: Paso minimo de volumen del broker.
+            win_rate: Win rate historico del setup (para escalar riesgo).
         """
-        if tick_value <= 0:
-            return 0.0
-        if tick_size <= 0:
-            return 0.0
-        if volume_step <= 0:
+        if tick_value <= 0 or tick_size <= 0 or volume_step <= 0:
             return 0.0
 
-        risk_money = account_balance * self.risk_pct
+        risk_pct = self.get_risk_percent(win_rate)
+        risk_money = account_balance * risk_pct
 
         price_diff = abs(entry_price - sl_price)
         if price_diff <= 0:
@@ -58,19 +71,8 @@ class SLGuardian:
     cierra la posicion a mercado inmediatamente.
     """
 
-    SL_BREACH_MARGIN = 0.0001  # tolerancia minima para evitar falsos positivos
-
     @staticmethod
     def find_breached_positions(positions, magic: int = 1337) -> list:
-        """Retorna posiciones donde el precio paso el SL sin cerrarse.
-
-        Args:
-            positions: lista de posiciones de mt5.positions_get()
-            magic: magic number del bot
-
-        Returns:
-            lista de posiciones que deben cerrarse de emergencia
-        """
         breached = []
         if not positions:
             return breached
@@ -81,12 +83,10 @@ class SLGuardian:
             if p.sl == 0.0:
                 continue
 
-            # BUY: SL esta debajo del precio de entrada. Si bid <= SL, el SL fallo.
-            if p.type == 0:  # POSITION_TYPE_BUY
+            if p.type == 0:  # BUY
                 if p.price_current <= p.sl:
                     breached.append(p)
-            # SELL: SL esta arriba del precio de entrada. Si ask >= SL, el SL fallo.
-            elif p.type == 1:  # POSITION_TYPE_SELL
+            elif p.type == 1:  # SELL
                 if p.price_current >= p.sl:
                     breached.append(p)
 
