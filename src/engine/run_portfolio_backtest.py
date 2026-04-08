@@ -15,20 +15,11 @@ from src.infrastructure.data.polars_loader import CSVPolarsLoader
 from src.application.calculators import DataEnricher
 from src.application.trackers import TrackerEngine
 from src.engine.strategy_scanner import StrategyScanner
-
-
-MT5_TO_INTERNAL = {
-    "EURUSD+": "EURUSD", "GBPUSD+": "GBPUSD", "USDJPY+": "USDJPY",
-    "AUDUSD+": "AUDUSD", "GBPJPY+": "GBPJPY", "EURJPY+": "EURJPY",
-    "GBPAUD+": "GBPAUD", "XAUUSD+": "XAUUSD", "XAGUSD": "XAGUSD",
-    "USOUSD": "WTI", "UKOUSD": "BRENT", "NG-C": "NATGAS",
-    "SP500": "SP500", "NAS100": "NASDAQ100", "VIX": "VIX",
-}
-
-INDEX_SYMBOLS = {"SP500", "NASDAQ100", "VIX", "WTI", "BRENT", "NATGAS"}
-FRICTION_FX = 0.1
-FRICTION_INDEX = 0.2
-ATR_LOW, ATR_HIGH = 0.1, 0.8
+from src.domain.constants import (
+    MT5_TO_INTERNAL, INDEX_SYMBOLS, FRICTION_FX, FRICTION_INDEX,
+    ATR_RATIO_LOW, ATR_RATIO_HIGH,
+)
+from src.execution.risk_manager import DynamicRiskAllocator
 
 
 def resolve_context_filter(context_label):
@@ -42,15 +33,6 @@ def resolve_context_filter(context_label):
         if filt_def["label"] == context_label:
             return filt_def
     return None
-
-
-def risk_for_wr(wr, min_risk=0.01, max_risk=0.06, min_wr=0.57, max_wr=0.91):
-    """Dynamic risk scaling: linear interpolation between min/max risk based on WR."""
-    if wr <= min_wr:
-        return min_risk
-    if wr >= max_wr:
-        return max_risk
-    return min_risk + (max_risk - min_risk) * (wr - min_wr) / (max_wr - min_wr)
 
 
 def run_portfolio_backtest(initial_balance=20000.0):
@@ -84,6 +66,7 @@ def run_portfolio_backtest(initial_balance=20000.0):
     # Build stats once per combo, then evaluate each strategy
     all_trades = []
     strat_stats = {}
+    allocator = DynamicRiskAllocator(**risk_cfg)
 
     for (sym, time_start, duration), strats in combo_strategies.items():
         cfg = asset_config.get(sym)
@@ -126,7 +109,7 @@ def run_portfolio_backtest(initial_balance=20000.0):
             # Filter valid days
             valid = expanded.filter(
                 pl.col("first_break_dir").is_not_null()
-                & pl.col("or_atr_ratio").is_between(ATR_LOW, ATR_HIGH)
+                & pl.col("or_atr_ratio").is_between(ATR_RATIO_LOW, ATR_RATIO_HIGH)
             ).sort("trade_date")
 
         except Exception as e:
@@ -141,7 +124,7 @@ def run_portfolio_backtest(initial_balance=20000.0):
             context_label = strat.get("context")
             context_filter = resolve_context_filter(context_label)
             win_rate_cfg = strat["win_rate"]
-            risk_pct = risk_for_wr(win_rate_cfg, **{k: v for k, v in risk_cfg.items()})
+            risk_pct = allocator.get_risk_percent(win_rate_cfg)
 
             filtered = valid
             if context_filter:
@@ -392,7 +375,7 @@ def run_portfolio_backtest(initial_balance=20000.0):
         f.write(f"- **Balance fijo:** ${initial_balance:,.0f} (riesgo siempre sobre capital inicial)\n")
         f.write(f"- **Riesgo dinámico:** 1-6% según WR de cada estrategia\n")
         f.write(f"- **Fricción:** -{FRICTION_FX}R (forex), -{FRICTION_INDEX}R (índices/commodities)\n")
-        f.write(f"- **Filtro ATR:** {ATR_LOW}-{ATR_HIGH}\n")
+        f.write(f"- **Filtro ATR:** {ATR_RATIO_LOW}-{ATR_RATIO_HIGH}\n")
         f.write(f"- **Dedup:** 1 trade/día/símbolo\n")
         f.write(f"- **Edges:** Solo FADE (FADE_UP + FADE_DOWN)\n")
         f.write(f"- **TP 1.5R (tracker), FADE gana cuando SL toca primero = +1R neto**\n")

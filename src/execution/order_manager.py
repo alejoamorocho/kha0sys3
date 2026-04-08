@@ -19,10 +19,7 @@ from typing import Optional
 
 from src.execution.mt5_client import MT5Client
 from src.execution.risk_manager import DynamicRiskAllocator
-
-ORDER_EXPIRATION_HOURS = 8
-BOT_MAGIC_NUMBER = 1337
-MOMENTUM_TP_MULT = 1.5
+from src.domain.constants import MAGIC_NUMBER, ORDER_EXPIRATION_HOURS, DEFAULT_TP_MULTIPLIER
 
 
 class OrderManager:
@@ -42,6 +39,7 @@ class OrderManager:
     STATE_FILE = "data/live_state/daily_trades.json"
 
     def _save_state(self):
+        """Persiste estado de trades diarios a disco."""
         import json as _json
         import os
         os.makedirs(os.path.dirname(self.STATE_FILE), exist_ok=True)
@@ -50,6 +48,7 @@ class OrderManager:
             _json.dump(state, f)
 
     def _load_state(self):
+        """Carga estado de trades diarios desde disco. Silencia FileNotFoundError."""
         import json as _json
         try:
             with open(self.STATE_FILE, "r") as f:
@@ -59,9 +58,11 @@ class OrderManager:
                 self._daily_trades = state.get("daily_trades", {})
                 self._last_daily_reset = state["last_reset"]
         except (FileNotFoundError, _json.JSONDecodeError):
+            # Missing state file is a valid initial state — intentional silencing
             pass
 
     def _reset_daily_if_needed(self):
+        """Resetea contadores si el dia UTC cambio."""
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if today != self._last_daily_reset:
             self._daily_trades.clear()
@@ -69,12 +70,14 @@ class OrderManager:
             self._last_daily_reset = today
 
     def has_traded_today(self, symbol: str, edge: str, session: str = "") -> bool:
+        """Verifica si ya se opero hoy para esta combinacion simbolo/edge/sesion."""
         self._reset_daily_if_needed()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         key = f"{symbol}_{edge}_{session}"
         return self._daily_trades.get(key) == today
 
     def mark_traded_today(self, symbol: str, edge: str = "", session: str = ""):
+        """Marca una combinacion como operada hoy."""
         self._reset_daily_if_needed()
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         key = f"{symbol}_{edge}_{session}"
@@ -82,17 +85,19 @@ class OrderManager:
         self._save_state()
 
     def cancel_order_by_ticket(self, ticket: int, symbol: str) -> bool:
+        """Cancela una orden pendiente por ticket."""
         req = {"action": mt5.TRADE_ACTION_REMOVE, "order": ticket, "symbol": symbol}
         res = self.client.send_order_raw(req)
         return res.get("retcode") == mt5.TRADE_RETCODE_DONE
 
     def cancel_all_bot_orders(self, symbol: str) -> int:
+        """Cancela todas las ordenes pendientes del bot para un simbolo."""
         orders = self.client.get_pending_orders(symbol)
         if not orders:
             return 0
         count = 0
         for o in orders:
-            if o.magic != BOT_MAGIC_NUMBER:
+            if o.magic != MAGIC_NUMBER:
                 continue
             req = {"action": mt5.TRADE_ACTION_REMOVE, "order": o.ticket, "symbol": symbol}
             res = self.client.send_order_raw(req)
@@ -101,6 +106,7 @@ class OrderManager:
         return count
 
     def wipe_stale_orders(self) -> int:
+        """Elimina ordenes pendientes que superaron el tiempo de expiracion."""
         orders = mt5.orders_get()
         if not orders:
             return 0
@@ -110,7 +116,7 @@ class OrderManager:
         total_wiped = 0
 
         for o in orders:
-            if o.magic != BOT_MAGIC_NUMBER:
+            if o.magic != MAGIC_NUMBER:
                 continue
             order_time = datetime.fromtimestamp(o.time_setup, tz=timezone.utc)
             if order_time >= cutoff:
@@ -172,7 +178,7 @@ class OrderManager:
             "sl": float(sl),
             "tp": float(tp),
             "deviation": 10,
-            "magic": BOT_MAGIC_NUMBER,
+            "magic": MAGIC_NUMBER,
             "comment": comment,
             "type_time": mt5.ORDER_TIME_SPECIFIED,
             "expiration": expiration_ts,
@@ -196,7 +202,7 @@ class OrderManager:
         if success:
             orders = self.client.get_pending_orders(symbol)
             for o in orders:
-                if o.magic == BOT_MAGIC_NUMBER and comment in (o.comment or ""):
+                if o.magic == MAGIC_NUMBER and comment in (o.comment or ""):
                     return o.ticket
             return -1
         return None
@@ -274,7 +280,7 @@ class OrderManager:
 
         entry = or_high
         sl = or_low
-        tp = or_high + (or_width * MOMENTUM_TP_MULT)
+        tp = or_high + (or_width * DEFAULT_TP_MULTIPLIER)
 
         lots = self.allocator.calculate_lots(
             account_balance=balance, entry_price=entry, sl_price=sl,
@@ -301,7 +307,7 @@ class OrderManager:
 
         entry = or_low
         sl = or_high
-        tp = or_low - (or_width * MOMENTUM_TP_MULT)
+        tp = or_low - (or_width * DEFAULT_TP_MULTIPLIER)
 
         lots = self.allocator.calculate_lots(
             account_balance=balance, entry_price=entry, sl_price=sl,

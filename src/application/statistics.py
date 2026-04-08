@@ -1,5 +1,9 @@
+"""Motor estadistico: probabilidades condicionales y edges sobre eventos ORB."""
+
 import polars as pl
 from typing import Dict, Any
+
+from src.domain.constants import ATR_RATIO_LOW, ATR_RATIO_HIGH
 
 class StatisticalEngine:
     """
@@ -24,7 +28,7 @@ class StatisticalEngine:
         # We only work with days that had a valid OR mapped and pass the volatility filter
         valid_df = df.filter(
             pl.col("first_break_dir").is_not_null() &
-            pl.col("or_atr_ratio").is_between(0.1, 0.8)
+            pl.col("or_atr_ratio").is_between(ATR_RATIO_LOW, ATR_RATIO_HIGH)
         )
         total_days = valid_df.height
         if total_days == 0:

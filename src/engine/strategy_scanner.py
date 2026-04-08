@@ -1,5 +1,9 @@
+"""Scanner de estrategias ORB: evalua permutaciones de sesion x duracion x arquetipo x contexto."""
+
 import polars as pl
 from typing import List, Dict, Optional
+
+from src.domain.constants import ATR_RATIO_LOW, ATR_RATIO_HIGH, MIN_STRATEGY_DAYS
 
 
 class StrategyScanner:
@@ -8,6 +12,7 @@ class StrategyScanner:
     for a given asset and evaluates win rate from enriched historical data.
     """
 
+    # MOMENTUM/SHAKEOUT: dormant — no active strategies. Ready for reactivation via bot_config.json.
     ARCHETYPES = ["MOMENTUM", "FADE", "SHAKEOUT"]
     DIRECTIONS = ["UP", "DOWN"]
 
@@ -89,10 +94,11 @@ class StrategyScanner:
         },
     }
 
-    MIN_DAYS = 20
+    MIN_DAYS = MIN_STRATEGY_DAYS
 
     @staticmethod
     def apply_context_filter(df: pl.DataFrame, filt: Optional[Dict]) -> pl.DataFrame:
+        """Aplica filtro contextual a un DataFrame. Soporta operadores: <, >, ==, between, abs<, abs>."""
         if not filt:
             return df
         # Multi-feature AND filter
@@ -123,9 +129,10 @@ class StrategyScanner:
     @classmethod
     def evaluate_archetype(cls, stats_df: pl.DataFrame, archetype: str,
                            direction: str, context_filter: Optional[Dict] = None) -> Dict:
+        """Evalua win rate de un arquetipo (MOMENTUM/FADE/SHAKEOUT) con filtro opcional."""
         valid_df = stats_df.filter(
             pl.col("first_break_dir").is_not_null() &
-            pl.col("or_atr_ratio").is_between(0.1, 0.8)
+            pl.col("or_atr_ratio").is_between(ATR_RATIO_LOW, ATR_RATIO_HIGH)
         )
         if context_filter:
             valid_df = cls.apply_context_filter(valid_df, context_filter)
@@ -142,6 +149,7 @@ class StrategyScanner:
 
     @staticmethod
     def _eval_momentum(df: pl.DataFrame, direction: str) -> Dict:
+        """Evalua win rate de MOMENTUM: TP hit antes de SL."""
         if direction == "UP":
             trades = df.filter(pl.col("first_break_dir") == "UP")
             if trades.height == 0:
@@ -174,6 +182,7 @@ class StrategyScanner:
 
     @staticmethod
     def _eval_fade(df: pl.DataFrame, direction: str) -> Dict:
+        """Evalua win rate de FADE: SL hit antes de TP (false breakout)."""
         if direction == "UP":
             trades = df.filter(pl.col("first_break_dir") == "UP")
             if trades.height == 0:
@@ -207,6 +216,7 @@ class StrategyScanner:
 
     @staticmethod
     def _eval_shakeout(df: pl.DataFrame, direction: str) -> Dict:
+        """Evalua win rate de SHAKEOUT: re-breakout tras false break."""
         if direction == "UP":
             false_days = df.filter(
                 (pl.col("first_break_dir") == "UP") &
@@ -241,6 +251,7 @@ class StrategyScanner:
     @classmethod
     def scan_asset(cls, symbol: str, stats_by_combo: Dict[str, pl.DataFrame],
                    combo_meta: List[Dict]) -> List[Dict]:
+        """Escanea todas las permutaciones de sesion x duracion x arquetipo x contexto para un activo."""
         all_strategies = []
 
         for meta in combo_meta:

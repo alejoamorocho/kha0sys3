@@ -6,12 +6,14 @@ Rango: 1% (WR=57%) a 6% (WR=91%), interpolacion lineal.
 
 import math
 
+from src.domain.constants import RISK_MIN_PCT, RISK_MAX_PCT, WR_MIN, WR_MAX, MAGIC_NUMBER, DEFAULT_WIN_RATE
+
 
 class DynamicRiskAllocator:
     """Calcula volumen de lotes con riesgo dinamico basado en WR del setup."""
 
-    def __init__(self, min_risk: float = 0.01, max_risk: float = 0.06,
-                 min_wr: float = 0.57, max_wr: float = 0.91):
+    def __init__(self, min_risk: float = RISK_MIN_PCT, max_risk: float = RISK_MAX_PCT,
+                 min_wr: float = WR_MIN, max_wr: float = WR_MAX):
         self.min_risk = min_risk
         self.max_risk = max_risk
         self.min_wr = min_wr
@@ -29,7 +31,7 @@ class DynamicRiskAllocator:
 
     def calculate_lots(self, account_balance: float, entry_price: float,
                        sl_price: float, tick_value: float, tick_size: float,
-                       volume_step: float, win_rate: float = 0.60) -> float:
+                       volume_step: float, win_rate: float = DEFAULT_WIN_RATE) -> float:
         """Determina el volumen de lotes arriesgando un % dinamico del balance.
 
         Args:
@@ -79,7 +81,7 @@ class SLGuardian:
     """
 
     @staticmethod
-    def find_breached_positions(positions, magic: int = 1337) -> list:
+    def find_breached_positions(positions, magic: int = MAGIC_NUMBER) -> list:
         breached = []
         if not positions:
             return breached

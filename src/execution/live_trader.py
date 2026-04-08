@@ -16,6 +16,7 @@ from src.execution.order_manager import OrderManager
 from src.monitoring.telegram_bot import TelegramCommandBot
 from src.monitoring.mt5_reporter import MT5Reporter
 from src.monitoring.system_health import SystemHealthMonitor
+from src.domain.constants import MAGIC_NUMBER, ATR_RATIO_LOW, ATR_RATIO_HIGH
 
 
 class LiveTraderEngine:
@@ -73,6 +74,7 @@ class LiveTraderEngine:
     # ─── Control ──────────────────────────────────────────────────
 
     def _on_stop_command(self):
+        """Pausa el bot y cancela todas las ordenes pendientes."""
         with self._control_lock:
             self._paused = True
         if self.om:
@@ -80,12 +82,13 @@ class LiveTraderEngine:
                 orders = mt5.orders_get()
                 if orders:
                     for o in orders:
-                        if o.magic == 1337:
+                        if o.magic == MAGIC_NUMBER:
                             self.om.cancel_order_by_ticket(o.ticket, o.symbol)
             except Exception as e:
                 print(f"[STOP] Error cancelando ordenes: {e}")
 
     def _on_resume_command(self):
+        """Reanuda el bot."""
         with self._control_lock:
             self._paused = False
 
@@ -100,6 +103,7 @@ class LiveTraderEngine:
         return datetime.now(timezone.utc)
 
     def _reset_daily_counters(self):
+        """Resetea contadores al cambiar de dia UTC."""
         today = self._utc_now().strftime("%Y-%m-%d")
         if today != self._last_trade_day:
             self._trades_today = 0
@@ -115,6 +119,7 @@ class LiveTraderEngine:
         return f"{(total_mins // 60) % 24:02d}:{total_mins % 60:02d}"
 
     def _should_execute(self, setup: dict) -> bool:
+        """Verifica si un setup debe ejecutarse ahora (hora exacta + dedup)."""
         exec_time = self._get_exec_time(setup)
         now_hhmm = self._utc_now().strftime("%H:%M")
         if now_hhmm != exec_time:
@@ -134,14 +139,15 @@ class LiveTraderEngine:
     # ─── ATR Filter ───────────────────────────────────────────────
 
     def _passes_atr_filter(self, symbol: str, or_width: float) -> bool:
+        """Valida que el ratio OR/ATR este dentro del rango valido."""
         atr14 = self.client.calculate_atr14(symbol)
         if atr14 is None or atr14 <= 0:
             print(f"[ATR] No ATR14 para {symbol}. Skip.")
             return False
 
         ratio = or_width / atr14
-        if not (0.1 <= ratio <= 0.8):
-            print(f"[ATR] {symbol}: ratio={ratio:.3f} fuera de [0.1, 0.8]. Skip.")
+        if not (ATR_RATIO_LOW <= ratio <= ATR_RATIO_HIGH):
+            print(f"[ATR] {symbol}: ratio={ratio:.3f} fuera de [{ATR_RATIO_LOW}, {ATR_RATIO_HIGH}]. Skip.")
             if self.telegram:
                 self.telegram.notify_order_rejected(symbol, f"or_atr_ratio={ratio:.3f}")
             return False
@@ -150,6 +156,7 @@ class LiveTraderEngine:
     # ─── Monitoring ───────────────────────────────────────────────
 
     def _send_periodic_report(self):
+        """Envia heartbeat a Telegram cada 15 minutos."""
         now = time.time()
         if now - self._last_heartbeat < self.HEARTBEAT_INTERVAL:
             return
@@ -158,6 +165,7 @@ class LiveTraderEngine:
         self.telegram.notify_heartbeat(uptime_hours, self._trades_today)
 
     def _check_system_health(self):
+        """Verifica salud del sistema (CPU, RAM, disco) cada 5 minutos."""
         now = time.time()
         if now - self._last_health_check < self.HEALTH_CHECK_INTERVAL:
             return
@@ -167,6 +175,7 @@ class LiveTraderEngine:
             self.telegram.notify_system_alert(alerts)
 
     def _check_mt5_connection(self):
+        """Verifica conexion MT5 y reconecta si es necesario."""
         now = time.time()
         if now - self._last_reconnect_check < self.RECONNECT_CHECK_INTERVAL:
             return
@@ -175,6 +184,7 @@ class LiveTraderEngine:
             self.telegram.notify_error("MT5 desconectado. Reconexion fallida.", "Connection")
 
     def _wipe_stale_orders(self):
+        """Limpia ordenes expiradas cada hora."""
         now = time.time()
         if now - self._last_stale_check < self.STALE_ORDER_CHECK_INTERVAL:
             return
@@ -184,6 +194,7 @@ class LiveTraderEngine:
     # ─── Fill & Position detection ────────────────────────────────
 
     def _check_positions_and_fills(self):
+        """Monitorea posiciones: detecta fills, cierres, y ejecuta SL Guardian."""
         now = time.time()
         if now - self._last_position_check < self.POSITION_CHECK_INTERVAL:
             return
@@ -202,7 +213,7 @@ class LiveTraderEngine:
         new_tickets = current_tickets - self._known_positions
         for ticket in new_tickets:
             for p in current_positions:
-                if p.ticket == ticket and p.magic == 1337:
+                if p.ticket == ticket and p.magic == MAGIC_NUMBER:
                     self._trades_today += 1
                     break
 
@@ -260,6 +271,7 @@ class LiveTraderEngine:
         self._known_positions = current_tickets
 
     def _emergency_close_position(self, position):
+        """Cierra posicion a mercado cuando el SL fue saltado (gap/flash crash)."""
         close_type = mt5.ORDER_TYPE_SELL if position.type == mt5.POSITION_TYPE_BUY else mt5.ORDER_TYPE_BUY
         req = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -268,7 +280,7 @@ class LiveTraderEngine:
             "type": close_type,
             "position": position.ticket,
             "deviation": 50,
-            "magic": 1337,
+            "magic": MAGIC_NUMBER,
             "comment": "SL_GUARDIAN",
             "type_filling": self.om._get_filling_mode(position.symbol) if self.om else mt5.ORDER_FILLING_FOK,
         }
@@ -346,6 +358,7 @@ class LiveTraderEngine:
     # ─── Main loop ────────────────────────────────────────────────
 
     def run(self):
+        """Punto de entrada principal. Conecta MT5, inicia Telegram, y ejecuta loop infinito."""
         if not self.client.connect():
             self.telegram.notify_error("MT5 initialize() fallo", "Startup")
             return
@@ -409,18 +422,21 @@ class LiveTraderEngine:
                 self.telegram.send_sync("🛑 <b>Bot detenido manualmente</b>")
                 time.sleep(1)
             except Exception:
+                # Best-effort cleanup during shutdown — intentional silencing
                 pass
             print("\nBot finalizado.")
         except Exception as e:
             try:
                 self.telegram.notify_error(str(e), "MainLoop")
             except Exception:
+                # Best-effort cleanup during shutdown — intentional silencing
                 pass
             raise
         finally:
             try:
                 self.telegram.stop_polling()
             except Exception:
+                # Best-effort cleanup during shutdown — intentional silencing
                 pass
             self.client.disconnect()
 

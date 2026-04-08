@@ -19,17 +19,10 @@ from src.application.calculators import DataEnricher
 from src.application.trackers import TrackerEngine
 from src.engine.strategy_scanner import StrategyScanner
 from src.engine.statistical_validator import StatisticalValidator
-
-
-MT5_TO_INTERNAL = {
-    "EURUSD+": "EURUSD", "GBPUSD+": "GBPUSD", "USDJPY+": "USDJPY",
-    "AUDUSD+": "AUDUSD", "GBPJPY+": "GBPJPY", "EURJPY+": "EURJPY",
-    "GBPAUD+": "GBPAUD", "XAUUSD+": "XAUUSD", "XAGUSD": "XAGUSD",
-    "USOUSD": "WTI", "UKOUSD": "BRENT", "NG-C": "NATGAS",
-    "SP500": "SP500", "NAS100": "NASDAQ100", "VIX": "VIX",
-}
-
-INDEX_SYMBOLS = {"SP500", "NASDAQ100", "VIX", "WTI", "BRENT", "NATGAS"}
+from src.domain.constants import (
+    MT5_TO_INTERNAL, INDEX_SYMBOLS, FRICTION_FX, FRICTION_INDEX,
+    ATR_RATIO_LOW, ATR_RATIO_HIGH,
+)
 
 
 def resolve_context_filter(context_label):
@@ -195,7 +188,7 @@ def run_robustness():
 
             valid = expanded.filter(
                 pl.col("first_break_dir").is_not_null()
-                & pl.col("or_atr_ratio").is_between(0.1, 0.8)
+                & pl.col("or_atr_ratio").is_between(ATR_RATIO_LOW, ATR_RATIO_HIGH)
             ).sort("trade_date")
 
             combo_cache[(sym, time_start, duration)] = valid
@@ -215,7 +208,7 @@ def run_robustness():
         direction = edge.split("_")[-1]
         ctx_label = strat.get("context")
         ctx_filter = resolve_context_filter(ctx_label)
-        friction = 0.2 if sym in INDEX_SYMBOLS else 0.1
+        friction = FRICTION_INDEX if sym in INDEX_SYMBOLS else FRICTION_FX
         label = f"{sym}|{strat['session']}|{edge}|{strat['duration']}m|{ctx_label or 'BASE'}"
 
         filtered = valid
