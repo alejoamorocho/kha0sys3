@@ -119,7 +119,83 @@ class ReportGenerator:
             md += f"- % Veces que pos-ruptura el precio cruzó o tocó el Precio de **Cierre Anterior (`PD_Close`)**: `{m['pd_interactions']['p_touch_pd_close']:.2%}`\n"
             md += f"- % Veces que el precio mitigó la Zona Imantada Media de ayer (`PD_Mid`): `{m['pd_interactions']['p_touch_pd_mid']:.2%}`\n"
             md += f"- % Reingreso de validación a la caja Opening Range de ayer (`PD_OR_High/Low` combinados): `{(m['pd_interactions']['p_touch_pd_or_high'] + m['pd_interactions']['p_touch_pd_or_low'])/2:.2%}`\n\n"
-            
+
+            # Post-Fade Anatomy
+            pf_up = m.get("post_fade", {}).get("UP", {})
+            pf_down = m.get("post_fade", {}).get("DOWN", {})
+
+            if pf_up or pf_down:
+                md += "### 🔄 Anatomia Post-False Breakout\n"
+
+                if pf_up:
+                    md += f"**False Breakouts UP analizados:** `{pf_up.get('n_false_breakups', 0)}`\n\n"
+                    md += "| Metrica | Valor |\n| --- | --- |\n"
+                    md += f"| Shakeout & Re-breakout UP (>=1x OR) | `{pf_up.get('p_shakeout_rebreak_1x', 0):.2%}` |\n"
+                    md += f"| Shakeout & Re-breakout UP (>=1.5x OR) | `{pf_up.get('p_shakeout_rebreak_1_5x', 0):.2%}` |\n"
+                    md += f"| Shakeout & Re-breakout UP (>=2x OR) | `{pf_up.get('p_shakeout_rebreak_2x', 0):.2%}` |\n"
+                    md += f"| Continuacion Bajista (>=1x OR) | `{pf_up.get('p_continuation_down_1x', 0):.2%}` |\n"
+                    md += f"| Extension media reversal UP | `{pf_up.get('mean_reversal_up', 0):.2f}x OR` | Mediana: `{pf_up.get('median_reversal_up', 0):.2f}x` |\n"
+                    md += f"| Extension media continuacion DOWN | `{pf_up.get('mean_cont_down', 0):.2f}x OR` | Mediana: `{pf_up.get('median_cont_down', 0):.2f}x` |\n"
+                    t_rb = pf_up.get('mean_time_to_rebreak')
+                    t_rb_med = pf_up.get('median_time_to_rebreak')
+                    if t_rb is not None:
+                        md += f"| Tiempo medio al re-breakout | `{t_rb:.0f} min` | Mediana: `{t_rb_med:.0f} min` |\n"
+                    md += "\n"
+
+                if pf_down:
+                    md += f"**False Breakouts DOWN analizados:** `{pf_down.get('n_false_breakdowns', 0)}`\n\n"
+                    md += "| Metrica | Valor |\n| --- | --- |\n"
+                    md += f"| Shakeout & Re-breakout DOWN (>=1x OR) | `{pf_down.get('p_shakeout_rebreak_1x', 0):.2%}` |\n"
+                    md += f"| Shakeout & Re-breakout DOWN (>=1.5x OR) | `{pf_down.get('p_shakeout_rebreak_1_5x', 0):.2%}` |\n"
+                    md += f"| Shakeout & Re-breakout DOWN (>=2x OR) | `{pf_down.get('p_shakeout_rebreak_2x', 0):.2%}` |\n"
+                    md += f"| Continuacion Alcista (>=1x OR) | `{pf_down.get('p_continuation_up_1x', 0):.2%}` |\n"
+                    md += f"| Extension media reversal DOWN | `{pf_down.get('mean_reversal_down', 0):.2f}x OR` | Mediana: `{pf_down.get('median_reversal_down', 0):.2f}x` |\n"
+                    md += f"| Extension media continuacion UP | `{pf_down.get('mean_cont_up', 0):.2f}x OR` | Mediana: `{pf_down.get('median_cont_up', 0):.2f}x` |\n"
+                    t_rb = pf_down.get('mean_time_to_rebreak')
+                    t_rb_med = pf_down.get('median_time_to_rebreak')
+                    if t_rb is not None:
+                        md += f"| Tiempo medio al re-breakout | `{t_rb:.0f} min` | Mediana: `{t_rb_med:.0f} min` |\n"
+                    md += "\n"
+
+            # Feature-Conditional Edges
+            def _star(v):
+                return f"`{v:.0%}` ⭐" if v >= 0.60 else f"`{v:.0%}`"
+
+            feat_segs = m.get("feature_segments", {})
+            if feat_segs:
+                md += "### 🔬 Edge por Contexto de Features\n"
+                md += "| Contexto | N | Break UP | Ext 1.5x UP | False BK UP | False BK DW | Shakeout UP | Magnet PD_Close |\n"
+                md += "| --- | --- | --- | --- | --- | --- | --- | --- |\n"
+
+                for key, seg in feat_segs.items():
+                    label = seg.get("label", key)
+                    n = seg.get("n_days", 0)
+                    p_up = _star(seg.get("p_break_up", 0))
+                    ext_up = _star(seg.get("up_ext_1.5", 0))
+                    f_up = _star(seg.get("f_breakup", 0))
+                    f_dw = _star(seg.get("f_breakdw", 0))
+                    shk_up = _star(seg.get("pf_shakeout_up", 0)) if "pf_shakeout_up" in seg else "N/A"
+                    magnet = _star(seg.get("touch_pd_close", 0))
+                    md += f"| {label} | {n} | {p_up} | {ext_up} | {f_up} | {f_dw} | {shk_up} | {magnet} |\n"
+                md += "\n"
+
+            # Timing
+            timing = m.get("timing", {})
+            if timing:
+                md += "### ⏱️ Velocidad de Ejecucion\n"
+                md += "| Metrica | Media | Mediana | P80 |\n"
+                md += "| --- | --- | --- | --- |\n"
+
+                if "up_mean_mins_to_tp" in timing:
+                    md += f"| TP UP (desde entrada) | `{timing['up_mean_mins_to_tp']:.0f} min` | `{timing['up_median_mins_to_tp']:.0f} min` | `{timing['up_p80_mins_to_tp']:.0f} min` |\n"
+                if "down_mean_mins_to_tp" in timing:
+                    md += f"| TP DOWN (desde entrada) | `{timing['down_mean_mins_to_tp']:.0f} min` | `{timing['down_median_mins_to_tp']:.0f} min` | `{timing['down_p80_mins_to_tp']:.0f} min` |\n"
+                if "up_mean_mins_to_sl" in timing:
+                    md += f"| False Break UP → SL | `{timing['up_mean_mins_to_sl']:.0f} min` | - | - |\n"
+                if "down_mean_mins_to_sl" in timing:
+                    md += f"| False Break DOWN → SL | `{timing['down_mean_mins_to_sl']:.0f} min` | - | - |\n"
+                md += "\n"
+
             md += "---\n\n"
             
         # Call the Quant Team Brainstorming logic processing the entire combinations list
