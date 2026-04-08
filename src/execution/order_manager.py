@@ -232,14 +232,10 @@ class OrderManager:
 
     def setup_fade_monitor(self, symbol: str, direction: str,
                            or_high: float, or_low: float, or_width: float,
-                           win_rate: float, session: str) -> bool:
-        """Register a FADE monitor. Waits for breakout, then places counter-order.
-
-        FADE_UP: Wait for UP breakout -> SELL_LIMIT at OR_HIGH, TP=OR_LOW, SL=OR_HIGH+width
-        FADE_DOWN: Wait for DOWN breakout -> BUY_LIMIT at OR_LOW, TP=OR_HIGH, SL=OR_LOW-width
-        """
+                           win_rate: float, session: str, context: str = "BASE") -> bool:
+        """Register a FADE monitor. Waits for breakout, then places counter-order."""
         edge = f"FADE_{direction.split('_')[-1]}" if "FADE" in direction else direction
-        key = f"{symbol}_{direction}_{session}"
+        key = f"{symbol}_{direction}_{session}_{context}"
 
         if self.has_traded_today(symbol, edge, session):
             return False
@@ -254,8 +250,9 @@ class OrderManager:
             "or_width": or_width,
             "win_rate": win_rate,
             "session": session,
+            "context": context,
         }
-        print(f"[FADE] Monitor registrado: {key} stage=WAIT_BREAKOUT")
+        print(f"[FADE] Monitor: {key} WAIT_BREAKOUT")
         return True
 
     # ─── MOMENTUM Orders (direct STOP orders, backtest parity) ────
@@ -264,7 +261,8 @@ class OrderManager:
     # This is already exact parity — STOP order triggers on breakout.
 
     def place_momentum_up(self, symbol: str, or_high: float, or_low: float,
-                          or_width: float, win_rate: float, session: str) -> bool:
+                          or_width: float, win_rate: float, session: str,
+                          context: str = "BASE") -> bool:
         """MOMENTUM_UP: BUY_STOP en OR_HIGH. TP = 1.5R. SL = OR_LOW."""
         if self.has_traded_today(symbol, "MOMENTUM_UP", session):
             return False
@@ -284,12 +282,14 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
-        comment = f"MOM_UP_{session}"
+        ctx_short = context[:8] if context != "BASE" else ""
+        comment = f"MU|{session}|{ctx_short}".rstrip("|")
         ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_BUY_STOP, entry, sl, tp, lots, comment)
         return ticket is not None
 
     def place_momentum_down(self, symbol: str, or_high: float, or_low: float,
-                            or_width: float, win_rate: float, session: str) -> bool:
+                            or_width: float, win_rate: float, session: str,
+                            context: str = "BASE") -> bool:
         """MOMENTUM_DOWN: SELL_STOP en OR_LOW. TP = 1.5R. SL = OR_HIGH."""
         if self.has_traded_today(symbol, "MOMENTUM_DOWN", session):
             return False
@@ -309,7 +309,8 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
-        comment = f"MOM_DW_{session}"
+        ctx_short = context[:8] if context != "BASE" else ""
+        comment = f"MD|{session}|{ctx_short}".rstrip("|")
         ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_SELL_STOP, entry, sl, tp, lots, comment)
         return ticket is not None
 
@@ -320,9 +321,9 @@ class OrderManager:
 
     def setup_shakeout_monitor(self, symbol: str, direction: str,
                                or_high: float, or_low: float, or_width: float,
-                               win_rate: float, session: str) -> bool:
+                               win_rate: float, session: str, context: str = "BASE") -> bool:
         """Register a SHAKEOUT monitor (3 stages)."""
-        key = f"{symbol}_{direction}_{session}"
+        key = f"{symbol}_{direction}_{session}_{context}"
         if self.has_traded_today(symbol, direction, session):
             return False
 
@@ -336,8 +337,9 @@ class OrderManager:
             "or_width": or_width,
             "win_rate": win_rate,
             "session": session,
+            "context": context,
         }
-        print(f"[SHAKEOUT] Monitor registrado: {key} stage=WAIT_BREAKOUT")
+        print(f"[SHAKEOUT] Monitor: {key} WAIT_BREAKOUT")
         return True
 
     # ─── Unified Monitor Check (called every 10s) ────────────────
@@ -377,6 +379,7 @@ class OrderManager:
         """Place the counter-direction order after breakout confirmation."""
         sym = mon["symbol"]
         session = mon["session"]
+        context = mon.get("context", "BASE")
 
         if not self.client.check_spread_friction(sym):
             return
@@ -385,20 +388,21 @@ class OrderManager:
         balance = self.client.get_account_balance()
 
         if side == "SELL":
-            # FADE_UP: sell at OR_HIGH, TP at OR_LOW, SL at OR_HIGH + width
             entry = mon["or_high"]
             sl = mon["or_high"] + mon["or_width"]
             tp = mon["or_low"]
             order_type = mt5.ORDER_TYPE_SELL_LIMIT
-            comment = f"FADE_UP_{session}"
+            # MT5 comment max ~31 chars, keep it concise but auditable
+            ctx_short = context[:8] if context != "BASE" else ""
+            comment = f"FU|{session}|{ctx_short}".rstrip("|")
             edge = "FADE_UP"
         else:
-            # FADE_DOWN: buy at OR_LOW, TP at OR_HIGH, SL at OR_LOW - width
             entry = mon["or_low"]
             sl = mon["or_low"] - mon["or_width"]
             tp = mon["or_high"]
             order_type = mt5.ORDER_TYPE_BUY_LIMIT
-            comment = f"FADE_DW_{session}"
+            ctx_short = context[:8] if context != "BASE" else ""
+            comment = f"FD|{session}|{ctx_short}".rstrip("|")
             edge = "FADE_DOWN"
 
         lots = self.allocator.calculate_lots(
@@ -434,22 +438,24 @@ class OrderManager:
         """Place re-entry STOP order after false breakout confirmed."""
         sym = mon["symbol"]
         session = mon["session"]
+        context = mon.get("context", "BASE")
 
         sym_info = self.client.get_symbol_info(sym)
         balance = self.client.get_account_balance()
 
+        ctx_short = context[:8] if context != "BASE" else ""
         if side == "BUY":
             entry = mon["or_high"]
             sl = mon["or_low"]
             tp = mon["or_high"] + mon["or_width"]
             order_type = mt5.ORDER_TYPE_BUY_STOP
-            comment = f"SHKO_UP_{session}"
+            comment = f"SU|{session}|{ctx_short}".rstrip("|")
         else:
             entry = mon["or_low"]
             sl = mon["or_high"]
             tp = mon["or_low"] - mon["or_width"]
             order_type = mt5.ORDER_TYPE_SELL_STOP
-            comment = f"SHKO_DW_{session}"
+            comment = f"SD|{session}|{ctx_short}".rstrip("|")
 
         lots = self.allocator.calculate_lots(
             account_balance=balance, entry_price=entry, sl_price=sl,

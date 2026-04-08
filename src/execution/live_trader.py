@@ -294,6 +294,7 @@ class LiveTraderEngine:
         duration = setup["duration"]
         win_rate = setup.get("win_rate", 0.60)
         session = setup.get("session", "")
+        context = setup.get("context", "BASE")
 
         if self.om.has_traded_today(sym, edge, session):
             return
@@ -316,25 +317,28 @@ class LiveTraderEngine:
 
         risk_pct = self.risk.get_risk_percent(win_rate)
         self.telegram.notify_orb_detected(sym, or_high, or_low, or_width)
-        print(f"[EXEC] {sym} {edge} {session} {duration}m | WR={win_rate:.1%} Risk={risk_pct:.1%}")
+
+        # Build audit tag: edge|session|duration|context|WR
+        audit_tag = f"{edge}|{session}|{duration}m|{context}|WR{win_rate:.0%}"
+        print(f"[EXEC] {sym} {audit_tag} | Risk={risk_pct:.1%}")
 
         # Route to correct order type
         # FADE: 2-stage monitor (wait breakout -> place counter-order) for backtest parity
         if edge == "FADE_UP":
-            self.om.setup_fade_monitor(sym, "FADE_UP", or_high, or_low, or_width, win_rate, session)
+            self.om.setup_fade_monitor(sym, "FADE_UP", or_high, or_low, or_width, win_rate, session, context)
 
         elif edge == "FADE_DOWN":
-            self.om.setup_fade_monitor(sym, "FADE_DOWN", or_high, or_low, or_width, win_rate, session)
+            self.om.setup_fade_monitor(sym, "FADE_DOWN", or_high, or_low, or_width, win_rate, session, context)
 
         # MOMENTUM: direct STOP orders (exact backtest parity — first break = entry)
         elif edge == "MOMENTUM_UP":
-            self.om.place_momentum_up(sym, or_high, or_low, or_width, win_rate, session)
+            self.om.place_momentum_up(sym, or_high, or_low, or_width, win_rate, session, context)
 
         elif edge == "MOMENTUM_DOWN":
-            self.om.place_momentum_down(sym, or_high, or_low, or_width, win_rate, session)
+            self.om.place_momentum_down(sym, or_high, or_low, or_width, win_rate, session, context)
 
         elif edge in ("SHAKEOUT_UP", "SHAKEOUT_DOWN"):
-            self.om.setup_shakeout_monitor(sym, edge, or_high, or_low, or_width, win_rate, session)
+            self.om.setup_shakeout_monitor(sym, edge, or_high, or_low, or_width, win_rate, session, context)
 
         else:
             print(f"[ERROR] Edge desconocido: {edge}")
