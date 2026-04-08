@@ -95,3 +95,139 @@ class TrackerEngine:
         ])
         
         return stats_df
+
+    @staticmethod
+    def track_post_fade_events(enriched_df: pl.DataFrame, stats_df: pl.DataFrame) -> pl.DataFrame:
+        """
+        For each day with a confirmed false breakout, tracks what happens AFTER the SL hit:
+        - How far does price extend in the continuation direction (same as fade)?
+        - How far does price reverse back (shakeout / re-breakout)?
+        - How long until re-breakout?
+        All measured from the SL hit time, within the active 8H session window.
+        """
+        post_or = enriched_df.filter(pl.col("is_post_or") == True)
+
+        # --- FALSE BREAKOUT UP: broke OR high, then hit OR low (SL) ---
+        false_up_days = stats_df.filter(
+            pl.col("time_sl_up").is_not_null() &
+            (pl.col("time_tp_up").is_null() | (pl.col("time_sl_up") < pl.col("time_tp_up")))
+        ).select(["trade_date", "time_sl_up", "or_high", "or_low", "or_width"])
+
+        post_fade_up_records = []
+        for row in false_up_days.iter_rows(named=True):
+            td = row["trade_date"]
+            sl_time = row["time_sl_up"]
+            or_high = row["or_high"]
+            or_low = row["or_low"]
+            or_w = row["or_width"]
+            if or_w is None or or_w <= 0:
+                continue
+
+            # Candles AFTER the SL hit, still in active session
+            post_sl = post_or.filter(
+                (pl.col("trade_date") == td) &
+                (pl.col("mins_from_midnight") > sl_time) &
+                (pl.col("is_active_session") == True)
+            )
+            if post_sl.height == 0:
+                continue
+
+            # Max reversal UP (shakeout): how far above OR high after touching OR low
+            max_high_after = post_sl.select(pl.col("high").max()).item()
+            max_reversal_up = max(0, max_high_after - or_high) / or_w
+
+            # Max continuation DOWN: how far below OR low after the fade
+            min_low_after = post_sl.select(pl.col("low").min()).item()
+            max_cont_down = max(0, or_low - min_low_after) / or_w
+
+            # Time to re-breakout: first candle after SL where high > or_high
+            re_break = post_sl.filter(pl.col("high") > or_high)
+            time_to_rebreak = None
+            if re_break.height > 0:
+                time_to_rebreak = re_break.select(pl.col("mins_from_midnight").min()).item() - sl_time
+
+            post_fade_up_records.append({
+                "trade_date": td,
+                "pf_up_max_reversal_up": max_reversal_up,
+                "pf_up_max_cont_down": max_cont_down,
+                "pf_up_time_to_rebreak": time_to_rebreak,
+                "pf_up_rebreak_1x": max_reversal_up >= 1.0,
+                "pf_up_rebreak_1_5x": max_reversal_up >= 1.5,
+                "pf_up_rebreak_2x": max_reversal_up >= 2.0,
+                "pf_up_cont_1x": max_cont_down >= 1.0,
+                "pf_up_cont_1_5x": max_cont_down >= 1.5,
+                "pf_up_cont_2x": max_cont_down >= 2.0,
+            })
+
+        # --- FALSE BREAKOUT DOWN: broke OR low, then hit OR high (SL) ---
+        false_down_days = stats_df.filter(
+            pl.col("time_sl_down").is_not_null() &
+            (pl.col("time_tp_down").is_null() | (pl.col("time_sl_down") < pl.col("time_tp_down")))
+        ).select(["trade_date", "time_sl_down", "or_high", "or_low", "or_width"])
+
+        post_fade_down_records = []
+        for row in false_down_days.iter_rows(named=True):
+            td = row["trade_date"]
+            sl_time = row["time_sl_down"]
+            or_high = row["or_high"]
+            or_low = row["or_low"]
+            or_w = row["or_width"]
+            if or_w is None or or_w <= 0:
+                continue
+
+            post_sl = post_or.filter(
+                (pl.col("trade_date") == td) &
+                (pl.col("mins_from_midnight") > sl_time) &
+                (pl.col("is_active_session") == True)
+            )
+            if post_sl.height == 0:
+                continue
+
+            # Max reversal DOWN (shakeout): how far below OR low after touching OR high
+            min_low_after = post_sl.select(pl.col("low").min()).item()
+            max_reversal_down = max(0, or_low - min_low_after) / or_w
+
+            # Max continuation UP: how far above OR high after the fade
+            max_high_after = post_sl.select(pl.col("high").max()).item()
+            max_cont_up = max(0, max_high_after - or_high) / or_w
+
+            # Time to re-breakout: first candle after SL where low < or_low
+            re_break = post_sl.filter(pl.col("low") < or_low)
+            time_to_rebreak = None
+            if re_break.height > 0:
+                time_to_rebreak = re_break.select(pl.col("mins_from_midnight").min()).item() - sl_time
+
+            post_fade_down_records.append({
+                "trade_date": td,
+                "pf_down_max_reversal_down": max_reversal_down,
+                "pf_down_max_cont_up": max_cont_up,
+                "pf_down_time_to_rebreak": time_to_rebreak,
+                "pf_down_rebreak_1x": max_reversal_down >= 1.0,
+                "pf_down_rebreak_1_5x": max_reversal_down >= 1.5,
+                "pf_down_rebreak_2x": max_reversal_down >= 2.0,
+                "pf_down_cont_1x": max_cont_up >= 1.0,
+                "pf_down_cont_1_5x": max_cont_up >= 1.5,
+                "pf_down_cont_2x": max_cont_up >= 2.0,
+            })
+
+        # Build DataFrames and join to stats_df
+        if post_fade_up_records:
+            pf_up_df = pl.DataFrame(post_fade_up_records)
+            stats_df = stats_df.join(pf_up_df, on="trade_date", how="left")
+        else:
+            # Add null columns
+            for col in ["pf_up_max_reversal_up", "pf_up_max_cont_down", "pf_up_time_to_rebreak",
+                         "pf_up_rebreak_1x", "pf_up_rebreak_1_5x", "pf_up_rebreak_2x",
+                         "pf_up_cont_1x", "pf_up_cont_1_5x", "pf_up_cont_2x"]:
+                stats_df = stats_df.with_columns(pl.lit(None).alias(col))
+
+        if post_fade_down_records:
+            pf_down_df = pl.DataFrame(post_fade_down_records)
+            stats_df = stats_df.join(pf_down_df, on="trade_date", how="left")
+        else:
+            for col in ["pf_down_max_reversal_down", "pf_down_max_cont_up", "pf_down_time_to_rebreak",
+                         "pf_down_rebreak_1x", "pf_down_rebreak_1_5x", "pf_down_rebreak_2x",
+                         "pf_down_cont_1x", "pf_down_cont_1_5x", "pf_down_cont_2x"]:
+                stats_df = stats_df.with_columns(pl.lit(None).alias(col))
+
+        return stats_df
