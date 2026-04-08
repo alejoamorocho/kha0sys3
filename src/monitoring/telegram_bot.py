@@ -567,6 +567,32 @@ class TelegramCommandBot:
         daily_pnl = f"${daily.realized_pnl:+,.2f}" if daily else "N/A"
         mt5_status = "🟢" if health.mt5_connected else "🔴"
 
+        # Pending orders summary
+        pending = self.reporter.get_pending_orders()
+        if pending:
+            orders_lines = []
+            for o in pending:
+                typ = "BUY_STOP" if o.type == 4 else "SELL_STOP" if o.type == 5 else f"T{o.type}"
+                exp = datetime.fromtimestamp(o.time_expiration, tz=timezone.utc)
+                remaining = (exp - datetime.now(timezone.utc)).total_seconds() / 3600
+                orders_lines.append(f"  {o.symbol} {typ} @{o.price_open} ({remaining:.1f}h)")
+            orders_block = "\n".join(orders_lines)
+            orders_section = f"  Ordenes   │ {len(pending)} pendiente(s)\n{orders_block}\n"
+        else:
+            orders_section = "  Ordenes   │ 0\n"
+
+        # Open positions summary
+        positions = self.reporter.get_open_positions()
+        if positions:
+            pos_lines = []
+            for p in positions:
+                emoji_p = "🟢" if p.direction == "LONG" else "🔴"
+                pos_lines.append(f"  {emoji_p} {p.symbol} {p.direction} {p.volume}lots P&L={p.profit:+.2f}")
+            pos_block = "\n".join(pos_lines)
+            pos_section = f"  Posiciones│ {len(positions)} abierta(s)\n{pos_block}\n"
+        else:
+            pos_section = "  Posiciones│ 0\n"
+
         msg = (
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             "   💓 <b>HEARTBEAT</b>\n"
@@ -577,6 +603,10 @@ class TelegramCommandBot:
             f"  Equity    │ {equity_str}\n"
             f"  P&L Hoy   │ {daily_pnl}\n"
             f"  MT5       │ {mt5_status}\n"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
+            f"{orders_section}"
+            f"{pos_section}"
+            "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  CPU       │ {health.cpu_percent:.1f}%\n"
             f"  RAM       │ {health.ram_percent:.1f}%\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
