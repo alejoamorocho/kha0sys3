@@ -85,8 +85,8 @@ class StrategyPipeline:
                             "time_start": sess["time_start"],
                             "duration": dur,
                         })
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[WARN] Building stats {symbol} {sess['name']} {dur}m: {e}")
 
         if not stats_by_combo:
             print(f"  No valid combos for {symbol}. Skipping.")
@@ -229,8 +229,8 @@ class StrategyPipeline:
                                     "time_start": sess["time_start"],
                                     "duration": dur,
                                 })
-                        except Exception:
-                            pass
+                        except Exception as e:
+                            print(f"[WARN] Discovery stats {symbol} {sess['name']} {dur}m: {e}")
 
                 if not stats_by_combo:
                     continue

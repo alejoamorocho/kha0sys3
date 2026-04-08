@@ -30,7 +30,8 @@ class EdgeOptimizer:
             try:
                 df_raw = self.loader.load_data(sym, "M15")
                 df_enr = DataEnricher.enrich_with_daily_context(df_raw, cfg["pd_start"], cfg["pd_end"])
-            except Exception:
+            except Exception as e:
+                print(f"[WARN] Loading data for {sym}: {e}")
                 continue
                 
             sessions = cfg.get("sessions", [])
@@ -59,8 +60,8 @@ class EdgeOptimizer:
                                 "max_edge_prob": max_local,
                                 "type_score": "UP_Ext" if max_local == p_up else "DW_Ext" if max_local == p_dw else "Fade_UP" if max_local == p_fup else "Fade_DW" if max_local == p_fdw else "PD_Close_Magnet"
                             })
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        print(f"[WARN] Evaluating {sym} {sess['name']} {d}m: {e}")
                         
             if valid_setups:
                 self.all_qualified_edges[sym] = valid_setups

@@ -1,7 +1,7 @@
 import os
 import json
 import polars as pl
-from typing import Dict, Any, List, Tuple
+from typing import List
 
 from src.infrastructure.data.polars_loader import CSVPolarsLoader
 from src.application.calculators import DataEnricher
@@ -49,7 +49,7 @@ class ReportGenerator:
                         }
                         combinations.append(combo_dict)
                 except Exception as e:
-                    pass
+                    print(f"[WARN] Evaluating combo {sym} {sess['name']} {d_min}m: {e}")
         
         if not combinations:
             print(f"No valid combos for {sym}.")

@@ -2,7 +2,7 @@ import os
 import json
 import polars as pl
 import numpy as np
-from datetime import datetime, date
+from datetime import date
 
 from src.infrastructure.data.polars_loader import CSVPolarsLoader
 from src.application.calculators import DataEnricher
@@ -98,8 +98,8 @@ class AlphaPortfolioSimulator:
                             "time_start": sess["time_start"],
                             "duration": d, "edge_type": "MAGNET_CLOSE", "prob": p_pdc
                         })
-                except Exception:
-                    pass
+                except Exception as e:
+                    print(f"[WARN] Scouting {sym} {sess.get('name','')} {d}m: {e}")
         return setups
 
     # ── Simulation ──────────────────────────────────────────────────
@@ -281,7 +281,8 @@ class AlphaPortfolioSimulator:
                     df_enr = self._load_enriched(sym, cfg)
                     setups = self._scout_single(df_enr, sym, cfg, train_filter)
                     fold_setups.extend(setups)
-                except Exception:
+                except Exception as e:
+                    print(f"[WARN] Walk-forward scouting {sym}: {e}")
                     continue
 
             # Track edge survival across folds

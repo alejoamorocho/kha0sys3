@@ -20,8 +20,6 @@ Comandos disponibles:
 import asyncio
 import threading
 import time
-import os
-import signal
 from datetime import datetime, timezone
 from typing import Optional, Callable
 from pathlib import Path

@@ -4,11 +4,9 @@ Monitorea el estado del sistema: CPU, RAM, disco, MT5, procesos Python.
 """
 
 import psutil
-import os
 import subprocess
 from datetime import datetime, timezone
 from dataclasses import dataclass
-from typing import Optional
 
 import MetaTrader5 as mt5
 
@@ -60,6 +58,7 @@ class SystemHealthMonitor:
                 mt5_connected = term_info.connected
                 mt5_trade_allowed = term_info.trade_allowed
         except Exception:
+            # MT5 terminal_info() may fail if MT5 is not initialized — non-critical
             pass
 
         uptime_seconds = (datetime.now().timestamp() - self._boot_time)
@@ -89,6 +88,7 @@ class SystemHealthMonitor:
             )
             return result.stdout.strip()
         except Exception:
+            # NSSM may not be installed or service may not exist — return UNKNOWN
             return "UNKNOWN"
 
     def get_critical_alerts(self) -> list[str]:
