@@ -122,6 +122,62 @@ class StrategyReporter:
         md += "\n---\n*Generado por KHA0SYS3 Strategy Pipeline*\n"
         return md
 
+    def write_discovery_report(self, results: List[Dict], total_scanned: int,
+                                deployed_count: int) -> str:
+        filepath = os.path.join(self.reports_dir, "DISCOVERY_New_Edges.md")
+
+        md = "# KHA0SYS3 - Edge Discovery Report\n\n"
+        md += f"**Total permutaciones escaneadas:** {total_scanned}\n"
+        md += f"**Estrategias desplegadas (excluidas):** {deployed_count}\n"
+        md += f"**Nuevos edges encontrados:** {len(results)}\n"
+        md += f"**Filtros:** WR >= 55%, PF > 1.0, N >= 30\n\n"
+
+        if not results:
+            md += "> No se encontraron nuevos edges con los criterios establecidos.\n"
+        else:
+            arch_counts = {}
+            for r in results:
+                arch_counts[r["archetype"]] = arch_counts.get(r["archetype"], 0) + 1
+            md += "## Distribucion por Arquetipo\n\n"
+            for arch, count in sorted(arch_counts.items(), key=lambda x: -x[1]):
+                md += f"- **{arch}**: {count} edges\n"
+            md += "\n"
+
+            asset_counts = {}
+            for r in results:
+                asset_counts[r["symbol"]] = asset_counts.get(r["symbol"], 0) + 1
+            md += "## Distribucion por Activo\n\n"
+            for sym, count in sorted(asset_counts.items(), key=lambda x: -x[1]):
+                md += f"- **{sym}**: {count} edges\n"
+            md += "\n"
+
+            filter_counts = {}
+            for r in results:
+                fl = r.get("context_label", "BASE")
+                filter_counts[fl] = filter_counts.get(fl, 0) + 1
+            md += "## Distribucion por Filtro\n\n"
+            for fl, count in sorted(filter_counts.items(), key=lambda x: -x[1]):
+                md += f"- **{fl}**: {count} edges\n"
+            md += "\n"
+
+            md += "## Top Edges (score = WR * log(N) * PF)\n\n"
+            md += "| # | Activo | Sesion | Dur | Arquetipo | Filtro | WR | N | T/Ano | PF | NetR | DD | Score |\n"
+            md += "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |\n"
+            for i, r in enumerate(results, 1):
+                md += (
+                    f"| {i} | {r['symbol']} | {r['session_name']} | {r['duration']}m | "
+                    f"{r['archetype']} | {r.get('context_label', 'BASE')} | "
+                    f"`{r['win_rate']:.1%}` | {r['n_trades']} | "
+                    f"`{r.get('trades_per_year', 0):.0f}` | "
+                    f"`{r.get('pf', 0):.2f}` | `{r.get('net_r', 0):.0f}R` | "
+                    f"`{r.get('max_dd', 0):.1f}R` | `{r.get('composite', 0):.2f}` |\n"
+                )
+
+        md += "\n---\n*Generado por KHA0SYS3 Discovery Pipeline*\n"
+        with open(filepath, "w", encoding="utf-8") as f:
+            f.write(md)
+        return filepath
+
     def _build_asset_summary_md(self, symbol: str, results: List[StrategyResult],
                                  group_result: StrategyResult,
                                  selection_explanation: str,

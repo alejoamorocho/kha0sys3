@@ -1,7 +1,9 @@
 import json
+import math
 import os
+import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 import polars as pl
 
@@ -13,6 +15,16 @@ from src.engine.strategy_scanner import StrategyScanner
 from src.engine.strategy_selector import StrategySelector
 from src.engine.strategy_backtester import StrategyBacktester
 from src.engine.strategy_reporter import StrategyReporter
+
+
+# MT5 symbol -> internal name mapping (for deployed strategy exclusion)
+MT5_TO_INTERNAL = {
+    "EURUSD+": "EURUSD", "GBPUSD+": "GBPUSD", "USDJPY+": "USDJPY",
+    "AUDUSD+": "AUDUSD", "GBPJPY+": "GBPJPY", "EURJPY+": "EURJPY",
+    "GBPAUD+": "GBPAUD", "XAUUSD+": "XAUUSD", "XAGUSD": "XAGUSD",
+    "USOUSD": "WTI", "UKOUSD": "BRENT", "NG-C": "NATGAS",
+    "SP500": "SP500", "NAS100": "NASDAQ100", "VIX": "VIX",
+}
 
 
 class StrategyPipeline:
@@ -152,7 +164,7 @@ class StrategyPipeline:
 
         agg_cols = [pl.col("or_open").first(), pl.col("pd_or_high").first(), pl.col("pd_or_low").first()]
         for col_name in ["rsi_at_or_close", "rsi_daily_14", "atr_change",
-                          "atr_percentile", "or_position_vs_pd"]:
+                          "atr_percentile", "or_position_vs_pd", "or_open_vs_pd_close"]:
             if col_name in df_or.columns:
                 agg_cols.append(pl.col(col_name).first())
 
@@ -160,7 +172,148 @@ class StrategyPipeline:
         expanded_stats = daily_base.join(stats_df, on="trade_date", how="left")
         expanded_stats = TrackerEngine.track_post_fade_events(df_or, expanded_stats)
 
+        # Add day_of_week
+        expanded_stats = expanded_stats.with_columns(
+            pl.col("trade_date").cast(pl.Date).dt.weekday().alias("day_of_week")
+        )
+
+        # Add OR width percentile booleans (relative to this combo)
+        if "or_width" in expanded_stats.columns:
+            q25 = expanded_stats.select(pl.col("or_width").quantile(0.25)).item()
+            q75 = expanded_stats.select(pl.col("or_width").quantile(0.75)).item()
+            if q25 is not None and q75 is not None:
+                expanded_stats = expanded_stats.with_columns([
+                    (pl.col("or_width") <= q25).alias("or_width_q1"),
+                    (pl.col("or_width") >= q75).alias("or_width_q4"),
+                ])
+
         return expanded_stats
+
+    # ─── Discovery Mode ──────────────────────────────────────────
+
+    def run_discovery(self, bot_config_path: str = "src/execution/bot_config.json",
+                      min_wr: float = 0.55, min_trades: int = 30):
+        """Scan all assets with expanded filters, exclude deployed strategies, report new edges."""
+
+        # Load deployed strategies
+        deployed_keys = self._load_deployed_keys(bot_config_path)
+        print(f"Deployed strategies to exclude: {len(deployed_keys)}")
+
+        all_discoveries = []
+        total_scanned = 0
+
+        for symbol in self.config:
+            print(f"\n{'='*60}")
+            print(f"  Discovery: {symbol}")
+            print(f"{'='*60}")
+
+            try:
+                cfg = self.config[symbol]
+                df_raw = self.loader.load_data(symbol, "M15")
+                df_raw = DataEnricher.enrich_with_rsi(df_raw)
+                df_enriched = DataEnricher.enrich_with_daily_context(df_raw, cfg["pd_start"], cfg["pd_end"])
+
+                sessions = cfg.get("sessions", [])
+                stats_by_combo = {}
+                combo_meta = []
+
+                for sess in sessions:
+                    for dur in self.DURATIONS:
+                        key = f"{sess['name']}_{dur}"
+                        try:
+                            stats_df = self._build_stats(df_enriched, sess["time_start"], dur)
+                            if stats_df is not None and stats_df.height > 0:
+                                stats_by_combo[key] = stats_df
+                                combo_meta.append({
+                                    "session_name": sess["name"],
+                                    "time_start": sess["time_start"],
+                                    "duration": dur,
+                                })
+                        except Exception:
+                            pass
+
+                if not stats_by_combo:
+                    continue
+
+                candidates = StrategyScanner.scan_asset(symbol, stats_by_combo, combo_meta)
+                total_scanned += len(candidates)
+
+                # Filter: WR >= min_wr, N >= min_trades, not deployed
+                for c in candidates:
+                    if c["win_rate"] < min_wr or c["n_trades"] < min_trades:
+                        continue
+                    ckey = self._candidate_key(c)
+                    if ckey in deployed_keys:
+                        continue
+
+                    # Backtest to get PF
+                    strat = StrategyDef(
+                        symbol=symbol,
+                        session_name=c["session_name"],
+                        time_start=c["time_start"],
+                        duration=c["duration"],
+                        archetype=c["archetype"],
+                        direction=c["direction"],
+                        context_filter=c.get("context_filter"),
+                        tp_multiplier=1.5 if "MOMENTUM" in c["archetype"] else 1.0,
+                    )
+                    combo_key = f"{c['session_name']}_{c['duration']}"
+                    result = StrategyBacktester.backtest(strat, stats_by_combo[combo_key], c.get("context_filter"))
+
+                    if result.profit_factor <= 1.0:
+                        continue
+
+                    composite = c["win_rate"] * math.log(max(c["n_trades"], 1)) * result.profit_factor
+                    all_discoveries.append({
+                        **c,
+                        "pf": result.profit_factor,
+                        "net_r": result.net_r,
+                        "trades_per_year": result.trades_per_year,
+                        "max_dd": result.max_drawdown,
+                        "composite": composite,
+                    })
+
+                n_new = sum(1 for d in all_discoveries if d["symbol"] == symbol)
+                print(f"  {symbol}: {len(candidates)} scanned, {n_new} new edges found")
+
+            except Exception as e:
+                print(f"  ERROR {symbol}: {e}")
+                import traceback
+                traceback.print_exc()
+
+        # Sort by composite score
+        all_discoveries.sort(key=lambda x: x["composite"], reverse=True)
+
+        # Generate report
+        report_path = self.reporter.write_discovery_report(all_discoveries, total_scanned, len(deployed_keys))
+        print(f"\n{'='*60}")
+        print(f"  DISCOVERY COMPLETE")
+        print(f"  Total scanned: {total_scanned}")
+        print(f"  New edges found: {len(all_discoveries)}")
+        print(f"  Report: {report_path}")
+        print(f"{'='*60}")
+
+    def _load_deployed_keys(self, bot_config_path: str) -> set:
+        try:
+            with open(bot_config_path, "r") as f:
+                bot_cfg = json.load(f)
+        except FileNotFoundError:
+            return set()
+
+        keys = set()
+        for entry in bot_cfg.get("portfolio", []):
+            sym_mt5 = entry["sym"]
+            sym_internal = MT5_TO_INTERNAL.get(sym_mt5, sym_mt5)
+            session = entry.get("session", "")
+            duration = entry["duration"]
+            edge = entry["edge"]
+            context = entry.get("context", "BASE")
+            keys.add(f"{sym_internal}|{session}|{duration}|{edge}|{context}")
+        return keys
+
+    @staticmethod
+    def _candidate_key(c: Dict) -> str:
+        return f"{c['symbol']}|{c['session_name']}|{c['duration']}|{c['archetype']}|{c.get('context_label', 'BASE')}"
 
     def _write_master_summary(self, all_results: List[Dict]):
         filepath = os.path.join(self.reports_dir, "MASTER_Strategy_Summary.md")
@@ -209,4 +362,8 @@ if __name__ == "__main__":
         config_path="c:/Proyectos/kha0sys3/src/infrastructure/config/asset_config.json",
         reports_dir="c:/Proyectos/kha0sys3/reports/strategies",
     )
-    pipeline.run_all()
+
+    if "--discover" in sys.argv:
+        pipeline.run_discovery()
+    else:
+        pipeline.run_all()
