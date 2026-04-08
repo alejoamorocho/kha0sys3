@@ -102,7 +102,149 @@ class StatisticalEngine:
              "p_false_breakup": false_breakup_days.height / max(1, break_up_days.height),
              "p_false_breakdown": false_breakdown_days.height / max(1, break_down_days.height)
         }
-        
+
+        # Post-Fade Analysis
+        post_fade_up = {}
+        if "pf_up_max_reversal_up" in valid_df.columns:
+            pf_up_days = valid_df.filter(pl.col("pf_up_max_reversal_up").is_not_null())
+            if pf_up_days.height >= 5:
+                post_fade_up = {
+                    "n_false_breakups": pf_up_days.height,
+                    "p_shakeout_rebreak_1x": pf_up_days.filter(pl.col("pf_up_rebreak_1x") == True).height / pf_up_days.height,
+                    "p_shakeout_rebreak_1_5x": pf_up_days.filter(pl.col("pf_up_rebreak_1_5x") == True).height / pf_up_days.height,
+                    "p_shakeout_rebreak_2x": pf_up_days.filter(pl.col("pf_up_rebreak_2x") == True).height / pf_up_days.height,
+                    "p_continuation_down_1x": pf_up_days.filter(pl.col("pf_up_cont_1x") == True).height / pf_up_days.height,
+                    "p_continuation_down_1_5x": pf_up_days.filter(pl.col("pf_up_cont_1_5x") == True).height / pf_up_days.height,
+                    "mean_reversal_up": pf_up_days.select(pl.col("pf_up_max_reversal_up").mean()).item(),
+                    "median_reversal_up": pf_up_days.select(pl.col("pf_up_max_reversal_up").median()).item(),
+                    "mean_cont_down": pf_up_days.select(pl.col("pf_up_max_cont_down").mean()).item(),
+                    "median_cont_down": pf_up_days.select(pl.col("pf_up_max_cont_down").median()).item(),
+                    "mean_time_to_rebreak": pf_up_days.filter(pl.col("pf_up_time_to_rebreak").is_not_null()).select(pl.col("pf_up_time_to_rebreak").mean()).item(),
+                    "median_time_to_rebreak": pf_up_days.filter(pl.col("pf_up_time_to_rebreak").is_not_null()).select(pl.col("pf_up_time_to_rebreak").median()).item(),
+                }
+
+        post_fade_down = {}
+        if "pf_down_max_reversal_down" in valid_df.columns:
+            pf_down_days = valid_df.filter(pl.col("pf_down_max_reversal_down").is_not_null())
+            if pf_down_days.height >= 5:
+                post_fade_down = {
+                    "n_false_breakdowns": pf_down_days.height,
+                    "p_shakeout_rebreak_1x": pf_down_days.filter(pl.col("pf_down_rebreak_1x") == True).height / pf_down_days.height,
+                    "p_shakeout_rebreak_1_5x": pf_down_days.filter(pl.col("pf_down_rebreak_1_5x") == True).height / pf_down_days.height,
+                    "p_shakeout_rebreak_2x": pf_down_days.filter(pl.col("pf_down_rebreak_2x") == True).height / pf_down_days.height,
+                    "p_continuation_up_1x": pf_down_days.filter(pl.col("pf_down_cont_1x") == True).height / pf_down_days.height,
+                    "p_continuation_up_1_5x": pf_down_days.filter(pl.col("pf_down_cont_1_5x") == True).height / pf_down_days.height,
+                    "mean_reversal_down": pf_down_days.select(pl.col("pf_down_max_reversal_down").mean()).item(),
+                    "median_reversal_down": pf_down_days.select(pl.col("pf_down_max_reversal_down").median()).item(),
+                    "mean_cont_up": pf_down_days.select(pl.col("pf_down_max_cont_up").mean()).item(),
+                    "median_cont_up": pf_down_days.select(pl.col("pf_down_max_cont_up").median()).item(),
+                    "mean_time_to_rebreak": pf_down_days.filter(pl.col("pf_down_time_to_rebreak").is_not_null()).select(pl.col("pf_down_time_to_rebreak").mean()).item(),
+                    "median_time_to_rebreak": pf_down_days.filter(pl.col("pf_down_time_to_rebreak").is_not_null()).select(pl.col("pf_down_time_to_rebreak").median()).item(),
+                }
+
+        # Timing to targets (in minutes from entry)
+        timing = {}
+        up_with_tp = break_up_days.filter(pl.col("time_tp_up").is_not_null() & pl.col("time_entry_up").is_not_null())
+        if up_with_tp.height > 0:
+            tp_times_up = up_with_tp.with_columns(
+                (pl.col("time_tp_up") - pl.col("time_entry_up")).alias("mins_to_tp")
+            )
+            timing["up_mean_mins_to_tp"] = tp_times_up.select(pl.col("mins_to_tp").mean()).item()
+            timing["up_median_mins_to_tp"] = tp_times_up.select(pl.col("mins_to_tp").median()).item()
+            timing["up_p80_mins_to_tp"] = tp_times_up.select(pl.col("mins_to_tp").quantile(0.80)).item()
+
+        down_with_tp = break_down_days.filter(pl.col("time_tp_down").is_not_null() & pl.col("time_entry_down").is_not_null())
+        if down_with_tp.height > 0:
+            tp_times_down = down_with_tp.with_columns(
+                (pl.col("time_tp_down") - pl.col("time_entry_down")).alias("mins_to_tp")
+            )
+            timing["down_mean_mins_to_tp"] = tp_times_down.select(pl.col("mins_to_tp").mean()).item()
+            timing["down_median_mins_to_tp"] = tp_times_down.select(pl.col("mins_to_tp").median()).item()
+            timing["down_p80_mins_to_tp"] = tp_times_down.select(pl.col("mins_to_tp").quantile(0.80)).item()
+
+        # Time from breakout to SL for false breaks
+        up_with_sl = false_breakup_days.filter(pl.col("time_entry_up").is_not_null())
+        if up_with_sl.height > 0:
+            sl_times_up = up_with_sl.with_columns(
+                (pl.col("time_sl_up") - pl.col("time_entry_up")).alias("mins_to_sl")
+            )
+            timing["up_mean_mins_to_sl"] = sl_times_up.select(pl.col("mins_to_sl").mean()).item()
+
+        down_with_sl = false_breakdown_days.filter(pl.col("time_entry_down").is_not_null())
+        if down_with_sl.height > 0:
+            sl_times_down = down_with_sl.with_columns(
+                (pl.col("time_sl_down") - pl.col("time_entry_down")).alias("mins_to_sl")
+            )
+            timing["down_mean_mins_to_sl"] = sl_times_down.select(pl.col("mins_to_sl").mean()).item()
+
+        # Feature-Conditional Edge Segmentation
+        feature_segments = {}
+
+        def _safe_edges(sub_df, label):
+            """Calculate core edges for a subset, return None if n < 20."""
+            n = sub_df.height
+            if n < 20:
+                return None
+            edges = _get_core_edges(sub_df, n)
+            edges["label"] = label
+            # Add post-fade shakeout rate if available
+            if "pf_up_max_reversal_up" in sub_df.columns:
+                pf_up = sub_df.filter(pl.col("pf_up_max_reversal_up").is_not_null())
+                if pf_up.height >= 5:
+                    edges["pf_shakeout_up"] = pf_up.filter(pl.col("pf_up_rebreak_1x") == True).height / pf_up.height
+            if "pf_down_max_reversal_down" in sub_df.columns:
+                pf_down = sub_df.filter(pl.col("pf_down_max_reversal_down").is_not_null())
+                if pf_down.height >= 5:
+                    edges["pf_shakeout_down"] = pf_down.filter(pl.col("pf_down_rebreak_1x") == True).height / pf_down.height
+            return edges
+
+        # RSI segments (only if column exists)
+        if "rsi_at_or_close" in valid_df.columns:
+            rsi_oversold = valid_df.filter(pl.col("rsi_at_or_close") < 30)
+            rsi_overbought = valid_df.filter(pl.col("rsi_at_or_close") > 70)
+            rsi_neutral = valid_df.filter(pl.col("rsi_at_or_close").is_between(30, 70))
+
+            r = _safe_edges(rsi_oversold, "RSI < 30 (Oversold)")
+            if r: feature_segments["rsi_oversold"] = r
+            r = _safe_edges(rsi_overbought, "RSI > 70 (Overbought)")
+            if r: feature_segments["rsi_overbought"] = r
+            r = _safe_edges(rsi_neutral, "RSI 30-70 (Neutro)")
+            if r: feature_segments["rsi_neutral"] = r
+
+        # OR Position segments
+        if "or_position_vs_pd" in valid_df.columns:
+            for pos in ["ABOVE_PD_HIGH", "BELOW_PD_LOW", "BETWEEN_CLOSE_AND_HIGH", "BETWEEN_LOW_AND_CLOSE"]:
+                sub = valid_df.filter(pl.col("or_position_vs_pd") == pos)
+                r = _safe_edges(sub, f"OR {pos}")
+                if r: feature_segments[f"or_pos_{pos.lower()}"] = r
+
+        # ATR change segments
+        if "atr_change" in valid_df.columns:
+            atr_growing = valid_df.filter(pl.col("atr_change") > 0.1)
+            atr_shrinking = valid_df.filter(pl.col("atr_change") < -0.1)
+            r = _safe_edges(atr_growing, "ATR Creciente (>10%)")
+            if r: feature_segments["atr_growing"] = r
+            r = _safe_edges(atr_shrinking, "ATR Decreciente (<-10%)")
+            if r: feature_segments["atr_shrinking"] = r
+
+        # ATR percentile segments
+        if "atr_percentile" in valid_df.columns:
+            atr_q1 = valid_df.filter(pl.col("atr_percentile") < 25)
+            atr_q4 = valid_df.filter(pl.col("atr_percentile") > 75)
+            r = _safe_edges(atr_q1, "ATR Q1 (Baja Vol Historica)")
+            if r: feature_segments["atr_q1"] = r
+            r = _safe_edges(atr_q4, "ATR Q4 (Alta Vol Historica)")
+            if r: feature_segments["atr_q4"] = r
+
+        # RSI Daily segments
+        if "rsi_daily_14" in valid_df.columns:
+            rsi_d_low = valid_df.filter(pl.col("rsi_daily_14") < 35)
+            rsi_d_high = valid_df.filter(pl.col("rsi_daily_14") > 65)
+            r = _safe_edges(rsi_d_low, "RSI Diario < 35")
+            if r: feature_segments["rsi_daily_low"] = r
+            r = _safe_edges(rsi_d_high, "RSI Diario > 65")
+            if r: feature_segments["rsi_daily_high"] = r
+
         # Previous Day Touches
         touches_up = break_up_days.filter(pl.col("touches_pd_high") > 0).height / max(1, break_up_days.height)
         touches_down = break_down_days.filter(pl.col("touches_pd_low") > 0).height / max(1, break_down_days.height)
@@ -183,7 +325,13 @@ class StatisticalEngine:
                 "DOWN": extensions_down
             },
             "false_breaks": false_breaks,
+            "post_fade": {
+                "UP": post_fade_up,
+                "DOWN": post_fade_down
+            },
+            "timing": timing,
             "pd_interactions": touch_stats,
             "day_of_week": dow_stats,
-            "advanced_crossing": adv
+            "advanced_crossing": adv,
+            "feature_segments": feature_segments
         }
