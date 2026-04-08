@@ -28,6 +28,7 @@ class ReportGenerator:
 
     def _explore_grid(self, sym: str, cfg: dict):
         df_raw = self.loader.load_data(sym, "M15")
+        df_raw = DataEnricher.enrich_with_rsi(df_raw)  # NEW: add RSI before daily context
         df_enriched = DataEnricher.enrich_with_daily_context(df_raw, cfg["pd_start"], cfg["pd_end"])
         
         durations = [15, 30, 45, 60]
@@ -59,14 +60,27 @@ class ReportGenerator:
     def _evaluate_combo(self, df_enriched: pl.DataFrame, t_start: str, d_min: int) -> dict:
         df_or = DataEnricher.enrich_with_opening_range(df_enriched, t_start, d_min)
         stats_df = TrackerEngine.track_events(df_or, tp_multiplier=1.5)
-        
-        daily_base = df_or.group_by("trade_date").agg([
+
+        # Collect new feature columns from OR-enriched data
+        agg_cols = [
             pl.col("or_open").first(),
             pl.col("pd_or_high").first(),
-            pl.col("pd_or_low").first()
-        ])
+            pl.col("pd_or_low").first(),
+        ]
+        # Conditionally add new columns if they exist
+        for col_name in ["rsi_at_or_close", "rsi_daily_14", "atr_change",
+                          "atr_percentile", "or_position_vs_pd",
+                          "or_open_vs_pd_close", "or_open_vs_pd_mid",
+                          "or_high_vs_pd_high", "or_low_vs_pd_low"]:
+            if col_name in df_or.columns:
+                agg_cols.append(pl.col(col_name).first())
 
+        daily_base = df_or.group_by("trade_date").agg(agg_cols)
         expanded_stats = daily_base.join(stats_df, on="trade_date", how="left")
+
+        # Post-fade tracking
+        expanded_stats = TrackerEngine.track_post_fade_events(df_or, expanded_stats)
+
         return StatisticalEngine.calculate_edges(expanded_stats)
         
     def _write_markdown(self, sym: str, cfg: dict, combos: List[dict]):
