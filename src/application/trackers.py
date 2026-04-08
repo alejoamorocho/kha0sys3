@@ -1,3 +1,5 @@
+"""Tracking vectorizado de eventos post-OR: breakouts, TP/SL hits, false breakouts."""
+
 import polars as pl
 
 class TrackerEngine:

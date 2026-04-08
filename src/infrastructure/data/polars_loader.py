@@ -1,3 +1,5 @@
+"""Cargador de datos historicos M15 desde CSV usando Polars."""
+
 import polars as pl
 from pathlib import Path
 from src.domain.interfaces import IDataLoader

@@ -1,3 +1,5 @@
+"""Enriquecimiento de datos M15 con contexto diario, Opening Range y RSI."""
+
 import polars as pl
 from datetime import datetime, time
 

@@ -20,6 +20,7 @@ class MT5Client:
         self.connected = False
 
     def connect(self) -> bool:
+        """Inicializa conexion con MetaTrader 5."""
         if not mt5.initialize():
             print("MT5Client: initialize() failed. Check MT5 Terminal.")
             mt5.shutdown()
@@ -49,6 +50,7 @@ class MT5Client:
         return False
 
     def disconnect(self):
+        """Cierra la conexion con MetaTrader 5."""
         if self.connected:
             mt5.shutdown()
             self.connected = False
@@ -68,6 +70,7 @@ class MT5Client:
         return info
 
     def get_symbol_info(self, symbol: str):
+        """Obtiene info del simbolo MT5. Activa el simbolo si no es visible."""
         info = mt5.symbol_info(symbol)
         if info is None:
             raise ValueError(f"Símbolo {symbol} no encontrado.")

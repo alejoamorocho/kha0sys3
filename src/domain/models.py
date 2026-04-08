@@ -1,3 +1,5 @@
+"""Modelos de dominio: configuracion de activos, senales de trading, metricas diarias."""
+
 from dataclasses import dataclass
 from typing import Optional, List, Dict
 from datetime import time, datetime

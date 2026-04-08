@@ -1,3 +1,5 @@
+"""Backtester de estrategias ORB: calcula metricas de rendimiento sobre datos historicos."""
+
 import polars as pl
 import numpy as np
 from typing import Dict, List, Optional
@@ -6,10 +8,12 @@ from src.engine.strategy_scanner import StrategyScanner
 
 
 class StrategyBacktester:
+    """Backtester que evalua estrategias MOMENTUM/FADE/SHAKEOUT sobre stats_df historico."""
 
     @classmethod
     def backtest(cls, strategy: StrategyDef, stats_df: pl.DataFrame,
                  context_filter: Optional[Dict] = None) -> StrategyResult:
+        """Ejecuta backtest de una estrategia individual y retorna metricas."""
         valid_df = stats_df.filter(
             pl.col("first_break_dir").is_not_null() &
             pl.col("or_atr_ratio").is_between(0.1, 0.8)
@@ -31,6 +35,7 @@ class StrategyBacktester:
     @classmethod
     def _compute_trades(cls, df: pl.DataFrame, archetype: str,
                         direction: str, tp_mult: float) -> pl.DataFrame:
+        """Despacha calculo de trades al metodo del arquetipo correspondiente."""
         if archetype == "MOMENTUM":
             return cls._trades_momentum(df, direction, tp_mult)
         elif archetype == "FADE":
@@ -41,6 +46,7 @@ class StrategyBacktester:
 
     @staticmethod
     def _trades_momentum(df: pl.DataFrame, direction: str, tp_mult: float) -> pl.DataFrame:
+        """Genera log de trades MOMENTUM: TP hit antes de SL = win."""
         if direction == "UP":
             trades = df.filter(pl.col("first_break_dir") == "UP")
             trades = trades.with_columns(
@@ -73,6 +79,7 @@ class StrategyBacktester:
 
     @staticmethod
     def _trades_fade(df: pl.DataFrame, direction: str) -> pl.DataFrame:
+        """Genera log de trades FADE: SL hit antes de TP = win (apuesta contra el breakout)."""
         if direction == "UP":
             trades = df.filter(pl.col("first_break_dir") == "UP")
             trades = trades.with_columns(
@@ -105,6 +112,7 @@ class StrategyBacktester:
 
     @staticmethod
     def _trades_shakeout(df: pl.DataFrame, direction: str) -> pl.DataFrame:
+        """Genera log de trades SHAKEOUT: re-breakout tras false break = win."""
         if direction == "UP":
             if "pf_up_rebreak_1x" not in df.columns:
                 return pl.DataFrame()
@@ -139,6 +147,7 @@ class StrategyBacktester:
 
     @classmethod
     def _compute_metrics(cls, strategy: StrategyDef, trade_log: pl.DataFrame) -> StrategyResult:
+        """Calcula metricas de rendimiento: WR, PF, Sharpe, drawdown, stats anuales."""
         trades = trade_log.sort("trade_date")
         r_vals = trades["r_multiple"].to_list()
         dates = trades["trade_date"].to_list()
@@ -230,6 +239,7 @@ class StrategyBacktester:
     def backtest_group(cls, strategies: List[StrategyDef],
                        stats_dfs: Dict[str, pl.DataFrame],
                        context_filters: List[Optional[Dict]]) -> StrategyResult:
+        """Backtest agrupado: combina trades de multiples estrategias en una curva unica."""
         all_trades = []
         for strat, ctx in zip(strategies, context_filters):
             key = f"{strat.session_name}_{strat.duration}"

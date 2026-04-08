@@ -1,3 +1,5 @@
+"""Interfaces abstractas: contratos para repositorios de config y cargadores de datos."""
+
 from abc import ABC, abstractmethod
 from typing import Dict, Any, List
 from src.domain.models import AssetConfig
