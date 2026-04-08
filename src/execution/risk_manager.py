@@ -60,6 +60,13 @@ class DynamicRiskAllocator:
         raw_lots = risk_money / loss_per_1_lot
         lots = math.floor(raw_lots / volume_step) * volume_step
 
+        # Si el calculo da menos del lote minimo, usar el lote minimo
+        # (acepta un leve over-risk en vez de rechazar el trade)
+        if lots < volume_step:
+            lots = volume_step
+            actual_risk = (lots * loss_per_1_lot) / account_balance
+            print(f"[RISK] Min lot override: {lots} lots | Target risk={risk_pct:.2%} | Actual risk={actual_risk:.2%}")
+
         return round(lots, 2)
 
 
