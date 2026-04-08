@@ -1,16 +1,16 @@
 """
-Order Manager — Kha0sys3 v2
-Ciclo de vida de ordenes para estrategias FADE, MOMENTUM y SHAKEOUT.
+Order Manager — Kha0sys3 v3
+Ciclo de vida de ordenes con paridad exacta al backtester.
+
+Paridad backtest-live:
+  FADE: Monitor 2 etapas — espera breakout, luego entra CONTRA el breakout
+  MOMENTUM: BUY_STOP/SELL_STOP en OR boundary (primera rotura = entry)
+  SHAKEOUT: Monitor 3 etapas — breakout, false break, re-entry
 
 Reglas:
   1. UN trade por (simbolo, edge, session) por dia
-  2. Expiracion hardware: ORDER_TIME_SPECIFIED a 8 horas
+  2. Expiracion hardware: 8 horas
   3. Position sizing sobre BALANCE con riesgo dinamico por WR
-  4. FADE_UP: SELL_LIMIT en OR_HIGH, TP=OR_LOW, SL=OR_HIGH+OR_WIDTH (R:R=1:1)
-  5. FADE_DOWN: BUY_LIMIT en OR_LOW, TP=OR_HIGH, SL=OR_LOW-OR_WIDTH (R:R=1:1)
-  6. MOMENTUM_UP: BUY_STOP en OR_HIGH, TP=OR_HIGH+1.5*OR_WIDTH, SL=OR_LOW
-  7. MOMENTUM_DOWN: SELL_STOP en OR_LOW, TP=OR_LOW-1.5*OR_WIDTH, SL=OR_HIGH
-  8. SHAKEOUT: monitoreo software multi-etapa
 """
 
 import MetaTrader5 as mt5
@@ -34,10 +34,9 @@ class OrderManager:
         self.telegram = telegram
         self._daily_trades: dict[str, str] = {}
         self._last_daily_reset: str = ""
-        # Shakeout monitors: {key: {stage, or_high, or_low, or_width, order_ticket}}
-        self._shakeout_monitors: dict[str, dict] = {}
-        # Fade monitors: {key: {or_high, or_low, order_ticket, cancel_level}}
-        self._fade_monitors: dict[str, dict] = {}
+        # Monitors: software-monitored multi-stage strategies
+        # {key: {stage, direction, symbol, or_high, or_low, or_width, win_rate, session}}
+        self._monitors: dict[str, dict] = {}
         self._load_state()
 
     STATE_FILE = "data/live_state/daily_trades.json"
@@ -66,8 +65,7 @@ class OrderManager:
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
         if today != self._last_daily_reset:
             self._daily_trades.clear()
-            self._shakeout_monitors.clear()
-            self._fade_monitors.clear()
+            self._monitors.clear()
             self._last_daily_reset = today
 
     def has_traded_today(self, symbol: str, edge: str, session: str = "") -> bool:
@@ -196,80 +194,80 @@ class OrderManager:
                 print(f"[WARN] Telegram notification failed: {e}")
 
         if success:
-            # Get the ticket of the placed order
             orders = self.client.get_pending_orders(symbol)
             for o in orders:
                 if o.magic == BOT_MAGIC_NUMBER and comment in (o.comment or ""):
                     return o.ticket
-            return -1  # Placed but couldn't find ticket
+            return -1
         return None
 
-    # ─── FADE Orders ──────────────────────────────────────────────
+    # ─── FADE Orders (2-stage monitor, backtest parity) ───────────
+    #
+    # Backtest: first_break_dir = UP -> trade activates -> wins if SL (OR_LOW) hit before TP
+    # Live parity:
+    #   Stage 1 (WAIT_BREAKOUT): Monitor price until it breaks OR boundary
+    #   Stage 2 (ORDER_PLACED): Place counter-direction STOP order at opposite OR boundary
+    #
+    # FADE_UP:  Wait for UP breakout (price >= OR_HIGH) -> place SELL_STOP at OR_LOW
+    #           SL = OR_HIGH + OR_WIDTH, TP = OR_LOW - OR_WIDTH...
+    #           No: TP is already at entry (OR_LOW). The "win" in backtest is price
+    #           reaching OR_LOW. So the SELL_STOP at OR_LOW IS the entry.
+    #           TP = OR_LOW - OR_WIDTH (profit = 1R beyond entry)? No...
+    #
+    # Actually rethinking: In backtest FADE, R:R is 1:1 where:
+    #   - Entry = at breakout level (OR_HIGH for UP break)
+    #   - TP = opposite OR boundary (OR_LOW) = 1x OR_WIDTH profit
+    #   - SL = entry + 1x OR_WIDTH = OR_HIGH + OR_WIDTH = 1x OR_WIDTH loss
+    #
+    # Live parity: After breakout UP confirmed, sell at market near OR_HIGH
+    #   - But we can't guarantee exact fill at OR_HIGH with a market order
+    #   - Better: SELL_LIMIT at OR_HIGH (price already broke up, will likely
+    #     retest OR_HIGH from above — common price action)
+    #   - This is actually the same as before BUT gated by breakout confirmation
+    #
+    # Final design:
+    #   Stage 1: Monitor until breakout confirmed (tick crosses OR boundary)
+    #   Stage 2: Place SELL_LIMIT at OR_HIGH (for FADE_UP) or BUY_LIMIT at OR_LOW (for FADE_DOWN)
+    #            with proper SL/TP. The limit order fills when price retests the level.
 
-    def place_fade_up(self, symbol: str, or_high: float, or_low: float,
-                      or_width: float, win_rate: float, session: str) -> bool:
-        """FADE_UP: SELL_LIMIT en OR_HIGH. Apostamos a falso breakout alcista.
-        TP = OR_LOW (1R). SL = OR_HIGH + OR_WIDTH (1R). R:R = 1:1.
+    def setup_fade_monitor(self, symbol: str, direction: str,
+                           or_high: float, or_low: float, or_width: float,
+                           win_rate: float, session: str) -> bool:
+        """Register a FADE monitor. Waits for breakout, then places counter-order.
+
+        FADE_UP: Wait for UP breakout -> SELL_LIMIT at OR_HIGH, TP=OR_LOW, SL=OR_HIGH+width
+        FADE_DOWN: Wait for DOWN breakout -> BUY_LIMIT at OR_LOW, TP=OR_HIGH, SL=OR_LOW-width
         """
-        if self.has_traded_today(symbol, "FADE_UP", session):
+        edge = f"FADE_{direction.split('_')[-1]}" if "FADE" in direction else direction
+        key = f"{symbol}_{direction}_{session}"
+
+        if self.has_traded_today(symbol, edge, session):
             return False
 
-        if not self.client.check_spread_friction(symbol):
-            return False
+        self._monitors[key] = {
+            "type": "FADE",
+            "stage": "WAIT_BREAKOUT",
+            "direction": direction,
+            "symbol": symbol,
+            "or_high": or_high,
+            "or_low": or_low,
+            "or_width": or_width,
+            "win_rate": win_rate,
+            "session": session,
+        }
+        print(f"[FADE] Monitor registrado: {key} stage=WAIT_BREAKOUT")
+        return True
 
-        sym_info = self.client.get_symbol_info(symbol)
-        balance = self.client.get_account_balance()
-
-        entry = or_high
-        sl = or_high + or_width
-        tp = or_low
-
-        lots = self.allocator.calculate_lots(
-            account_balance=balance, entry_price=entry, sl_price=sl,
-            tick_value=sym_info.trade_tick_value, tick_size=sym_info.trade_tick_size,
-            volume_step=sym_info.volume_step, win_rate=win_rate,
-        )
-
-        comment = f"FADE_UP_{session}"
-        ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_SELL_LIMIT, entry, sl, tp, lots, comment)
-        return ticket is not None
-
-    def place_fade_down(self, symbol: str, or_high: float, or_low: float,
-                        or_width: float, win_rate: float, session: str) -> bool:
-        """FADE_DOWN: BUY_LIMIT en OR_LOW. Apostamos a falso breakout bajista.
-        TP = OR_HIGH (1R). SL = OR_LOW - OR_WIDTH (1R). R:R = 1:1.
-        """
-        if self.has_traded_today(symbol, "FADE_DOWN", session):
-            return False
-
-        if not self.client.check_spread_friction(symbol):
-            return False
-
-        sym_info = self.client.get_symbol_info(symbol)
-        balance = self.client.get_account_balance()
-
-        entry = or_low
-        sl = or_low - or_width
-        tp = or_high
-
-        lots = self.allocator.calculate_lots(
-            account_balance=balance, entry_price=entry, sl_price=sl,
-            tick_value=sym_info.trade_tick_value, tick_size=sym_info.trade_tick_size,
-            volume_step=sym_info.volume_step, win_rate=win_rate,
-        )
-
-        comment = f"FADE_DW_{session}"
-        ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_BUY_LIMIT, entry, sl, tp, lots, comment)
-        return ticket is not None
-
-    # ─── MOMENTUM Orders ──────────────────────────────────────────
+    # ─── MOMENTUM Orders (direct STOP orders, backtest parity) ────
+    #
+    # Backtest: first_break_dir determines entry. BUY_STOP at OR_HIGH, SELL_STOP at OR_LOW.
+    # This is already exact parity — STOP order triggers on breakout.
 
     def place_momentum_up(self, symbol: str, or_high: float, or_low: float,
                           or_width: float, win_rate: float, session: str) -> bool:
         """MOMENTUM_UP: BUY_STOP en OR_HIGH. TP = 1.5R. SL = OR_LOW."""
         if self.has_traded_today(symbol, "MOMENTUM_UP", session):
             return False
-
         if not self.client.check_spread_friction(symbol):
             return False
 
@@ -295,7 +293,6 @@ class OrderManager:
         """MOMENTUM_DOWN: SELL_STOP en OR_LOW. TP = 1.5R. SL = OR_HIGH."""
         if self.has_traded_today(symbol, "MOMENTUM_DOWN", session):
             return False
-
         if not self.client.check_spread_friction(symbol):
             return False
 
@@ -316,22 +313,21 @@ class OrderManager:
         ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_SELL_STOP, entry, sl, tp, lots, comment)
         return ticket is not None
 
-    # ─── SHAKEOUT Orders (software-monitored) ────────────────────
+    # ─── SHAKEOUT Orders (3-stage monitor, backtest parity) ───────
+    #
+    # Backtest: false breakout (breakout + SL hit) -> re-entry in original direction
+    # Live: Stage 1 = wait breakout, Stage 2 = wait false break (SL level), Stage 3 = place re-entry STOP
 
     def setup_shakeout_monitor(self, symbol: str, direction: str,
                                or_high: float, or_low: float, or_width: float,
                                win_rate: float, session: str) -> bool:
-        """Registra un monitor de shakeout. No coloca orden inmediatamente.
-        Etapas: 1) Espera breakout, 2) Espera false breakout (SL hit), 3) Coloca re-entry.
-
-        SHAKEOUT_UP: Espera UP break -> espera regreso a OR_LOW -> BUY_STOP en OR_HIGH
-        SHAKEOUT_DOWN: Espera DOWN break -> espera regreso a OR_HIGH -> SELL_STOP en OR_LOW
-        """
+        """Register a SHAKEOUT monitor (3 stages)."""
         key = f"{symbol}_{direction}_{session}"
         if self.has_traded_today(symbol, direction, session):
             return False
 
-        self._shakeout_monitors[key] = {
+        self._monitors[key] = {
+            "type": "SHAKEOUT",
             "stage": "WAIT_BREAKOUT",
             "direction": direction,
             "symbol": symbol,
@@ -340,47 +336,109 @@ class OrderManager:
             "or_width": or_width,
             "win_rate": win_rate,
             "session": session,
-            "order_ticket": None,
         }
         print(f"[SHAKEOUT] Monitor registrado: {key} stage=WAIT_BREAKOUT")
         return True
 
-    def check_shakeout_monitors(self):
-        """Llamado cada 10s. Avanza los shakeout por sus etapas."""
-        for key in list(self._shakeout_monitors.keys()):
-            mon = self._shakeout_monitors[key]
+    # ─── Unified Monitor Check (called every 10s) ────────────────
+
+    def check_monitors(self):
+        """Process all active monitors (FADE + SHAKEOUT). Called from main loop."""
+        for key in list(self._monitors.keys()):
+            mon = self._monitors[key]
             sym = mon["symbol"]
             tick = mt5.symbol_info_tick(sym)
             if tick is None:
                 continue
 
-            if mon["stage"] == "WAIT_BREAKOUT":
-                if mon["direction"] == "SHAKEOUT_UP" and tick.ask >= mon["or_high"]:
-                    mon["stage"] = "WAIT_FALSE_BREAK"
-                    print(f"[SHAKEOUT] {key}: UP breakout detectado. Esperando false break...")
-                elif mon["direction"] == "SHAKEOUT_DOWN" and tick.bid <= mon["or_low"]:
-                    mon["stage"] = "WAIT_FALSE_BREAK"
-                    print(f"[SHAKEOUT] {key}: DOWN breakout detectado. Esperando false break...")
+            if mon["type"] == "FADE":
+                self._check_fade_monitor(key, mon, tick)
+            elif mon["type"] == "SHAKEOUT":
+                self._check_shakeout_monitor(key, mon, tick)
 
-            elif mon["stage"] == "WAIT_FALSE_BREAK":
-                if mon["direction"] == "SHAKEOUT_UP" and tick.bid <= mon["or_low"]:
-                    # False breakout confirmado, colocar re-entry BUY
-                    self._place_shakeout_reentry(mon, "BUY")
-                    del self._shakeout_monitors[key]
-                elif mon["direction"] == "SHAKEOUT_DOWN" and tick.ask >= mon["or_high"]:
-                    # False breakout confirmado, colocar re-entry SELL
-                    self._place_shakeout_reentry(mon, "SELL")
-                    del self._shakeout_monitors[key]
+    def _check_fade_monitor(self, key: str, mon: dict, tick):
+        """FADE 2-stage: WAIT_BREAKOUT -> place counter-order."""
+        if mon["stage"] != "WAIT_BREAKOUT":
+            return
 
-    def _place_shakeout_reentry(self, mon: dict, direction: str):
-        """Coloca la orden de re-entry del shakeout."""
+        if mon["direction"] == "FADE_UP" and tick.ask >= mon["or_high"]:
+            # UP breakout confirmed -> place SELL_LIMIT at OR_HIGH
+            print(f"[FADE] {key}: UP breakout confirmed @ {tick.ask:.5f}. Placing SELL_LIMIT...")
+            self._place_fade_order(mon, "SELL")
+            del self._monitors[key]
+
+        elif mon["direction"] == "FADE_DOWN" and tick.bid <= mon["or_low"]:
+            # DOWN breakout confirmed -> place BUY_LIMIT at OR_LOW
+            print(f"[FADE] {key}: DOWN breakout confirmed @ {tick.bid:.5f}. Placing BUY_LIMIT...")
+            self._place_fade_order(mon, "BUY")
+            del self._monitors[key]
+
+    def _place_fade_order(self, mon: dict, side: str):
+        """Place the counter-direction order after breakout confirmation."""
+        sym = mon["symbol"]
+        session = mon["session"]
+
+        if not self.client.check_spread_friction(sym):
+            return
+
+        sym_info = self.client.get_symbol_info(sym)
+        balance = self.client.get_account_balance()
+
+        if side == "SELL":
+            # FADE_UP: sell at OR_HIGH, TP at OR_LOW, SL at OR_HIGH + width
+            entry = mon["or_high"]
+            sl = mon["or_high"] + mon["or_width"]
+            tp = mon["or_low"]
+            order_type = mt5.ORDER_TYPE_SELL_LIMIT
+            comment = f"FADE_UP_{session}"
+            edge = "FADE_UP"
+        else:
+            # FADE_DOWN: buy at OR_LOW, TP at OR_HIGH, SL at OR_LOW - width
+            entry = mon["or_low"]
+            sl = mon["or_low"] - mon["or_width"]
+            tp = mon["or_high"]
+            order_type = mt5.ORDER_TYPE_BUY_LIMIT
+            comment = f"FADE_DW_{session}"
+            edge = "FADE_DOWN"
+
+        lots = self.allocator.calculate_lots(
+            account_balance=balance, entry_price=entry, sl_price=sl,
+            tick_value=sym_info.trade_tick_value, tick_size=sym_info.trade_tick_size,
+            volume_step=sym_info.volume_step, win_rate=mon["win_rate"],
+        )
+
+        ticket = self._send_pending_order(sym, order_type, entry, sl, tp, lots, comment)
+        if ticket:
+            self.mark_traded_today(sym, edge, session)
+            print(f"[FADE] Orden colocada: {sym} {comment}")
+
+    def _check_shakeout_monitor(self, key: str, mon: dict, tick):
+        """SHAKEOUT 3-stage: WAIT_BREAKOUT -> WAIT_FALSE_BREAK -> place re-entry."""
+        if mon["stage"] == "WAIT_BREAKOUT":
+            if mon["direction"] == "SHAKEOUT_UP" and tick.ask >= mon["or_high"]:
+                mon["stage"] = "WAIT_FALSE_BREAK"
+                print(f"[SHAKEOUT] {key}: UP breakout. Esperando false break...")
+            elif mon["direction"] == "SHAKEOUT_DOWN" and tick.bid <= mon["or_low"]:
+                mon["stage"] = "WAIT_FALSE_BREAK"
+                print(f"[SHAKEOUT] {key}: DOWN breakout. Esperando false break...")
+
+        elif mon["stage"] == "WAIT_FALSE_BREAK":
+            if mon["direction"] == "SHAKEOUT_UP" and tick.bid <= mon["or_low"]:
+                self._place_shakeout_reentry(mon, "BUY")
+                del self._monitors[key]
+            elif mon["direction"] == "SHAKEOUT_DOWN" and tick.ask >= mon["or_high"]:
+                self._place_shakeout_reentry(mon, "SELL")
+                del self._monitors[key]
+
+    def _place_shakeout_reentry(self, mon: dict, side: str):
+        """Place re-entry STOP order after false breakout confirmed."""
         sym = mon["symbol"]
         session = mon["session"]
 
         sym_info = self.client.get_symbol_info(sym)
         balance = self.client.get_account_balance()
 
-        if direction == "BUY":
+        if side == "BUY":
             entry = mon["or_high"]
             sl = mon["or_low"]
             tp = mon["or_high"] + mon["or_width"]
@@ -401,5 +459,5 @@ class OrderManager:
 
         ticket = self._send_pending_order(sym, order_type, entry, sl, tp, lots, comment)
         if ticket:
-            print(f"[SHAKEOUT] Re-entry colocada: {sym} {comment}")
             self.mark_traded_today(sym, mon["direction"], session)
+            print(f"[SHAKEOUT] Re-entry colocada: {sym} {comment}")

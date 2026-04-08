@@ -189,8 +189,8 @@ class LiveTraderEngine:
             return
         self._last_position_check = now
 
-        # Check shakeout monitors
-        self.om.check_shakeout_monitors()
+        # Check all monitors (FADE + SHAKEOUT)
+        self.om.check_monitors()
 
         current_positions = mt5.positions_get()
         if current_positions is None:
@@ -319,12 +319,14 @@ class LiveTraderEngine:
         print(f"[EXEC] {sym} {edge} {session} {duration}m | WR={win_rate:.1%} Risk={risk_pct:.1%}")
 
         # Route to correct order type
+        # FADE: 2-stage monitor (wait breakout -> place counter-order) for backtest parity
         if edge == "FADE_UP":
-            self.om.place_fade_up(sym, or_high, or_low, or_width, win_rate, session)
+            self.om.setup_fade_monitor(sym, "FADE_UP", or_high, or_low, or_width, win_rate, session)
 
         elif edge == "FADE_DOWN":
-            self.om.place_fade_down(sym, or_high, or_low, or_width, win_rate, session)
+            self.om.setup_fade_monitor(sym, "FADE_DOWN", or_high, or_low, or_width, win_rate, session)
 
+        # MOMENTUM: direct STOP orders (exact backtest parity — first break = entry)
         elif edge == "MOMENTUM_UP":
             self.om.place_momentum_up(sym, or_high, or_low, or_width, win_rate, session)
 
