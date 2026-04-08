@@ -34,6 +34,47 @@ class QuantTeam:
             if metrics['pd_interactions']['p_touch_pd_mid'] >= 0.60:
                 edges_found.append(f"- **[EDGE MAGNET PD_MID] {sess}**: Regreso estricto al Fair-value. Toca el punto medio 50% de liquidez del día previo un `{metrics['pd_interactions']['p_touch_pd_mid']:.2%}` de los eventos evaluados.")
 
+            # --- Arquetipo 4: Shakeout-Reversal (Post-False Breakout Re-entry) ---
+            pf_up = metrics.get('post_fade', {}).get('UP', {})
+            pf_down = metrics.get('post_fade', {}).get('DOWN', {})
+
+            if pf_up and pf_up.get('p_shakeout_rebreak_1x', 0) >= 0.60:
+                t_info = f" | Tiempo medio al re-breakout: {pf_up.get('mean_time_to_rebreak', 0):.0f} min" if pf_up.get('mean_time_to_rebreak') else ""
+                edges_found.append(f"- **[EDGE SHAKEOUT-REVERSAL UP] {sess}**: Despues de un falso rompimiento alcista, el `{pf_up['p_shakeout_rebreak_1x']:.2%}` de las veces el precio retoma la direccion UP con extension >=1x OR. Media reversal: `{pf_up.get('mean_reversal_up', 0):.2f}x OR`{t_info}. Sugerencia Algo: Orden limite de COMPRA en OR_Low tras primer rompimiento UP. El mercado barre stops y luego arranca.")
+
+            if pf_down and pf_down.get('p_shakeout_rebreak_1x', 0) >= 0.60:
+                t_info = f" | Tiempo medio al re-breakout: {pf_down.get('mean_time_to_rebreak', 0):.0f} min" if pf_down.get('mean_time_to_rebreak') else ""
+                edges_found.append(f"- **[EDGE SHAKEOUT-REVERSAL DOWN] {sess}**: Despues de un falso rompimiento bajista, el `{pf_down['p_shakeout_rebreak_1x']:.2%}` retoma direccion DOWN con extension >=1x OR. Media reversal: `{pf_down.get('mean_reversal_down', 0):.2f}x OR`{t_info}. Sugerencia Algo: Orden limite de VENTA en OR_High tras primer rompimiento DOWN.")
+
+            # --- Arquetipo 5: Feature-Conditional Boosts ---
+            feat_segs = metrics.get('feature_segments', {})
+            # Get baseline false break rates for comparison
+            base_f_up = metrics['false_breaks']['p_false_breakup']
+            base_f_dw = metrics['false_breaks']['p_false_breakdown']
+            base_ext_up = metrics['extensions']['UP']['up_gt_1.5_or']
+            base_ext_dw = metrics['extensions']['DOWN']['down_gt_1.5_or']
+
+            for seg_key, seg in feat_segs.items():
+                label = seg.get('label', seg_key)
+                n = seg.get('n_days', 0)
+                if n < 20:
+                    continue
+
+                # Check if any metric beats baseline by >= 10pp AND exceeds 60%
+                ext_up_seg = seg.get('up_ext_1.5', 0)
+                if ext_up_seg >= 0.60 and (ext_up_seg - base_ext_up) >= 0.10:
+                    edges_found.append(f"- **[EDGE CONTEXT-BOOST UP] {sess} | {label}**: Extension 1.5x UP sube a `{ext_up_seg:.2%}` (base: `{base_ext_up:.2%}`, +{(ext_up_seg - base_ext_up):.0%}pp). N={n}. Sugerencia: Filtrar entradas UP cuando se cumple esta condicion.")
+
+                ext_dw_seg = seg.get('dw_ext_1.5', 0) if 'dw_ext_1.5' in seg else 0
+                if ext_dw_seg >= 0.60 and (ext_dw_seg - base_ext_dw) >= 0.10:
+                    edges_found.append(f"- **[EDGE CONTEXT-BOOST DOWN] {sess} | {label}**: Extension 1.5x DOWN sube a `{ext_dw_seg:.2%}` (base: `{base_ext_dw:.2%}`, +{(ext_dw_seg - base_ext_dw):.0%}pp). N={n}.")
+
+                # RSI-conditional edges
+                if 'rsi' in seg_key.lower():
+                    shk = seg.get('pf_shakeout_up', 0)
+                    if shk >= 0.60:
+                        edges_found.append(f"- **[EDGE RSI-CONDITIONAL] {sess} | {label}**: Shakeout UP post-fade al `{shk:.2%}`. Cuando el RSI esta en esta zona, los false breakouts tienden a revertir con fuerza. N={n}.")
+
         # Eliminar Edges duplicados usando set si es necesario, pero mantenemos por sesión para fidelidad
         md += "### 🏆 Lógica Mecánica Revelada (> 60% Fidelidad Operativa)\n"
         if not edges_found:
