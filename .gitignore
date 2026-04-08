@@ -7,3 +7,10 @@ logs/
 data/live_state/
 .env
 *.db
+
+# Generated artifacts
+err*.txt
+optuna_*.txt
+extract_*.txt
+*.png
+*.docx
