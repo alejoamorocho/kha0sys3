@@ -1,9 +1,12 @@
 """
-Order Manager — Kha0sys3 v3
+Order Manager — Kha0sys3 v4
 Ciclo de vida de ordenes con paridad exacta al backtester.
 
 Paridad backtest-live:
-  FADE: Monitor 2 etapas — espera breakout, luego entra CONTRA el breakout
+  FADE: SELL_LIMIT/BUY_LIMIT en OR boundary al cierre del OR (entry inmediata)
+        TP y SL configurables por estrategia (tp_mult, sl_mult en bot_config)
+        Guard de direccion: cancela si la direccion opuesta rompe primero
+        (= filtro first_break_dir del backtest)
   MOMENTUM: BUY_STOP/SELL_STOP en OR boundary (primera rotura = entry)
   SHAKEOUT: Monitor 3 etapas — breakout, false break, re-entry
 
@@ -207,59 +210,108 @@ class OrderManager:
             return -1
         return None
 
-    # ─── FADE Orders (2-stage monitor, backtest parity) ───────────
+    # ─── FADE Orders (immediate LIMIT + direction guard, backtest parity) ──
     #
-    # Backtest: first_break_dir = UP -> trade activates -> wins if SL (OR_LOW) hit before TP
-    # Live parity:
-    #   Stage 1 (WAIT_BREAKOUT): Monitor price until it breaks OR boundary
-    #   Stage 2 (ORDER_PLACED): Place counter-direction STOP order at opposite OR boundary
+    # Backtest parity:
+    #   1. Entry: SELL_LIMIT at OR_HIGH / BUY_LIMIT at OR_LOW, placed at OR close
+    #      (fills the instant price touches the boundary = same as backtest entry)
+    #   2. SL: OR_HIGH + OR_WIDTH (FADE_UP) / OR_LOW - OR_WIDTH (FADE_DOWN)
+    #      R:R 1:1 — 1R risk, 1R reward
+    #   3. TP: OR_LOW (FADE_UP) / OR_HIGH (FADE_DOWN)
+    #   4. Direction guard: if opposite boundary breaks BEFORE our limit fills,
+    #      cancel the order (matches first_break_dir filter in backtest)
     #
-    # FADE_UP:  Wait for UP breakout (price >= OR_HIGH) -> place SELL_STOP at OR_LOW
-    #           SL = OR_HIGH + OR_WIDTH, TP = OR_LOW - OR_WIDTH...
-    #           No: TP is already at entry (OR_LOW). The "win" in backtest is price
-    #           reaching OR_LOW. So the SELL_STOP at OR_LOW IS the entry.
-    #           TP = OR_LOW - OR_WIDTH (profit = 1R beyond entry)? No...
-    #
-    # Actually rethinking: In backtest FADE, R:R is 1:1 where:
-    #   - Entry = at breakout level (OR_HIGH for UP break)
-    #   - TP = opposite OR boundary (OR_LOW) = 1x OR_WIDTH profit
-    #   - SL = entry + 1x OR_WIDTH = OR_HIGH + OR_WIDTH = 1x OR_WIDTH loss
-    #
-    # Live parity: After breakout UP confirmed, sell at market near OR_HIGH
-    #   - But we can't guarantee exact fill at OR_HIGH with a market order
-    #   - Better: SELL_LIMIT at OR_HIGH (price already broke up, will likely
-    #     retest OR_HIGH from above — common price action)
-    #   - This is actually the same as before BUT gated by breakout confirmation
-    #
-    # Final design:
-    #   Stage 1: Monitor until breakout confirmed (tick crosses OR boundary)
-    #   Stage 2: Place SELL_LIMIT at OR_HIGH (for FADE_UP) or BUY_LIMIT at OR_LOW (for FADE_DOWN)
-    #            with proper SL/TP. The limit order fills when price retests the level.
+    # Note: backtest loss boundary is at 1.5*OR_WIDTH (MOMENTUM TP reused as FADE
+    # loss condition). Live SL at 1*OR_WIDTH is more conservative but gives clean
+    # 1:1 R:R matching the backtest's +1R/-1R accounting.
 
-    def setup_fade_monitor(self, symbol: str, direction: str,
-                           or_high: float, or_low: float, or_width: float,
-                           win_rate: float, session: str, context: str = "BASE") -> bool:
-        """Register a FADE monitor. Waits for breakout, then places counter-order."""
-        edge = f"FADE_{direction.split('_')[-1]}" if "FADE" in direction else direction
-        key = f"{symbol}_{direction}_{session}_{context}"
-
-        if self.has_traded_today(symbol, edge, session):
+    def place_fade_up(self, symbol: str, or_high: float, or_low: float,
+                      or_width: float, win_rate: float, session: str,
+                      context: str = "BASE",
+                      tp_mult: float = 1.0, sl_mult: float = 1.5) -> bool:
+        """FADE_UP: SELL_LIMIT at OR_HIGH. TP/SL configurable por estrategia."""
+        if self.has_traded_today(symbol, "FADE_UP", session):
+            return False
+        if not self.client.check_spread_friction(symbol):
             return False
 
-        self._monitors[key] = {
-            "type": "FADE",
-            "stage": "WAIT_BREAKOUT",
-            "direction": direction,
-            "symbol": symbol,
-            "or_high": or_high,
-            "or_low": or_low,
-            "or_width": or_width,
-            "win_rate": win_rate,
-            "session": session,
-            "context": context,
-        }
-        print(f"[FADE] Monitor: {key} WAIT_BREAKOUT")
-        return True
+        sym_info = self.client.get_symbol_info(symbol)
+        balance = self.client.get_account_balance()
+
+        entry = or_high
+        sl = or_high + (or_width * sl_mult)
+        tp = or_high - (or_width * tp_mult)
+
+        lots = self.allocator.calculate_lots(
+            account_balance=balance, entry_price=entry, sl_price=sl,
+            tick_value=sym_info.trade_tick_value, tick_size=sym_info.trade_tick_size,
+            volume_step=sym_info.volume_step, win_rate=win_rate,
+        )
+
+        ctx_short = context[:8] if context != "BASE" else ""
+        comment = f"FU|{session}|{ctx_short}".rstrip("|")
+        ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_SELL_LIMIT, entry, sl, tp, lots, comment)
+
+        if ticket:
+            self.mark_traded_today(symbol, "FADE_UP", session)
+            # Direction guard: cancel if OR_LOW breaks first (first_break_dir != UP)
+            key = f"{symbol}_FADE_UP_{session}_{context}"
+            self._monitors[key] = {
+                "type": "FADE_GUARD",
+                "direction": "FADE_UP",
+                "symbol": symbol,
+                "ticket": ticket,
+                "cancel_level": or_low,  # cancel if bid <= or_low
+                "or_high": or_high,
+                "session": session,
+            }
+            print(f"[FADE] SELL_LIMIT colocada: {symbol} @ {entry:.5f} | SL={sl:.5f} TP={tp:.5f}")
+            return True
+        return False
+
+    def place_fade_down(self, symbol: str, or_high: float, or_low: float,
+                        or_width: float, win_rate: float, session: str,
+                        context: str = "BASE",
+                        tp_mult: float = 1.0, sl_mult: float = 1.5) -> bool:
+        """FADE_DOWN: BUY_LIMIT at OR_LOW. TP/SL configurable por estrategia."""
+        if self.has_traded_today(symbol, "FADE_DOWN", session):
+            return False
+        if not self.client.check_spread_friction(symbol):
+            return False
+
+        sym_info = self.client.get_symbol_info(symbol)
+        balance = self.client.get_account_balance()
+
+        entry = or_low
+        sl = or_low - (or_width * sl_mult)
+        tp = or_low + (or_width * tp_mult)
+
+        lots = self.allocator.calculate_lots(
+            account_balance=balance, entry_price=entry, sl_price=sl,
+            tick_value=sym_info.trade_tick_value, tick_size=sym_info.trade_tick_size,
+            volume_step=sym_info.volume_step, win_rate=win_rate,
+        )
+
+        ctx_short = context[:8] if context != "BASE" else ""
+        comment = f"FD|{session}|{ctx_short}".rstrip("|")
+        ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_BUY_LIMIT, entry, sl, tp, lots, comment)
+
+        if ticket:
+            self.mark_traded_today(symbol, "FADE_DOWN", session)
+            # Direction guard: cancel if OR_HIGH breaks first (first_break_dir != DOWN)
+            key = f"{symbol}_FADE_DOWN_{session}_{context}"
+            self._monitors[key] = {
+                "type": "FADE_GUARD",
+                "direction": "FADE_DOWN",
+                "symbol": symbol,
+                "ticket": ticket,
+                "cancel_level": or_high,  # cancel if ask >= or_high
+                "or_low": or_low,
+                "session": session,
+            }
+            print(f"[FADE] BUY_LIMIT colocada: {symbol} @ {entry:.5f} | SL={sl:.5f} TP={tp:.5f}")
+            return True
+        return False
 
     # ─── MOMENTUM Orders (direct STOP orders, backtest parity) ────
     #
@@ -351,7 +403,7 @@ class OrderManager:
     # ─── Unified Monitor Check (called every 10s) ────────────────
 
     def check_monitors(self):
-        """Process all active monitors (FADE + SHAKEOUT). Called from main loop."""
+        """Process all active monitors (FADE_GUARD + SHAKEOUT). Called from main loop."""
         for key in list(self._monitors.keys()):
             mon = self._monitors[key]
             sym = mon["symbol"]
@@ -359,68 +411,46 @@ class OrderManager:
             if tick is None:
                 continue
 
-            if mon["type"] == "FADE":
-                self._check_fade_monitor(key, mon, tick)
+            if mon["type"] == "FADE_GUARD":
+                self._check_fade_guard(key, mon, tick)
             elif mon["type"] == "SHAKEOUT":
                 self._check_shakeout_monitor(key, mon, tick)
 
-    def _check_fade_monitor(self, key: str, mon: dict, tick):
-        """FADE 2-stage: WAIT_BREAKOUT -> place counter-order."""
-        if mon["stage"] != "WAIT_BREAKOUT":
+    def _check_fade_guard(self, key: str, mon: dict, tick):
+        """FADE direction guard: cancel limit order if wrong direction breaks first.
+
+        Backtest parity: FADE_UP only activates when first_break_dir == UP.
+        If OR_LOW breaks before the SELL_LIMIT at OR_HIGH fills, cancel it.
+        """
+        ticket = mon["ticket"]
+
+        # Check if the pending order still exists
+        orders = self.client.get_pending_orders(mon["symbol"])
+        order_exists = any(o.ticket == ticket and o.magic == MAGIC_NUMBER for o in (orders or []))
+
+        if not order_exists:
+            # Order filled or was already cancelled — guard no longer needed
+            del self._monitors[key]
             return
 
-        if mon["direction"] == "FADE_UP" and tick.ask >= mon["or_high"]:
-            # UP breakout confirmed -> place SELL_LIMIT at OR_HIGH
-            print(f"[FADE] {key}: UP breakout confirmed @ {tick.ask:.5f}. Placing SELL_LIMIT...")
-            self._place_fade_order(mon, "SELL")
+        # Check if wrong direction broke first
+        if mon["direction"] == "FADE_UP" and tick.bid <= mon["cancel_level"]:
+            # OR_LOW broke first → first_break_dir would be DOWN → cancel SELL_LIMIT
+            self.cancel_order_by_ticket(ticket, mon["symbol"])
             del self._monitors[key]
+            print(f"[FADE_GUARD] {key}: DOWN broke first, SELL_LIMIT cancelada")
+            if self.telegram:
+                self.telegram.notify_order_rejected(
+                    mon["symbol"], "FADE_UP cancelada: breakout DOWN primero")
 
-        elif mon["direction"] == "FADE_DOWN" and tick.bid <= mon["or_low"]:
-            # DOWN breakout confirmed -> place BUY_LIMIT at OR_LOW
-            print(f"[FADE] {key}: DOWN breakout confirmed @ {tick.bid:.5f}. Placing BUY_LIMIT...")
-            self._place_fade_order(mon, "BUY")
+        elif mon["direction"] == "FADE_DOWN" and tick.ask >= mon["cancel_level"]:
+            # OR_HIGH broke first → first_break_dir would be UP → cancel BUY_LIMIT
+            self.cancel_order_by_ticket(ticket, mon["symbol"])
             del self._monitors[key]
-
-    def _place_fade_order(self, mon: dict, side: str):
-        """Place the counter-direction order after breakout confirmation."""
-        sym = mon["symbol"]
-        session = mon["session"]
-        context = mon.get("context", "BASE")
-
-        if not self.client.check_spread_friction(sym):
-            return
-
-        sym_info = self.client.get_symbol_info(sym)
-        balance = self.client.get_account_balance()
-
-        if side == "SELL":
-            entry = mon["or_high"]
-            sl = mon["or_high"] + mon["or_width"]
-            tp = mon["or_low"]
-            order_type = mt5.ORDER_TYPE_SELL_LIMIT
-            # MT5 comment max ~31 chars, keep it concise but auditable
-            ctx_short = context[:8] if context != "BASE" else ""
-            comment = f"FU|{session}|{ctx_short}".rstrip("|")
-            edge = "FADE_UP"
-        else:
-            entry = mon["or_low"]
-            sl = mon["or_low"] - mon["or_width"]
-            tp = mon["or_high"]
-            order_type = mt5.ORDER_TYPE_BUY_LIMIT
-            ctx_short = context[:8] if context != "BASE" else ""
-            comment = f"FD|{session}|{ctx_short}".rstrip("|")
-            edge = "FADE_DOWN"
-
-        lots = self.allocator.calculate_lots(
-            account_balance=balance, entry_price=entry, sl_price=sl,
-            tick_value=sym_info.trade_tick_value, tick_size=sym_info.trade_tick_size,
-            volume_step=sym_info.volume_step, win_rate=mon["win_rate"],
-        )
-
-        ticket = self._send_pending_order(sym, order_type, entry, sl, tp, lots, comment)
-        if ticket:
-            self.mark_traded_today(sym, edge, session)
-            print(f"[FADE] Orden colocada: {sym} {comment}")
+            print(f"[FADE_GUARD] {key}: UP broke first, BUY_LIMIT cancelada")
+            if self.telegram:
+                self.telegram.notify_order_rejected(
+                    mon["symbol"], "FADE_DOWN cancelada: breakout UP primero")
 
     def _check_shakeout_monitor(self, key: str, mon: dict, tick):
         """SHAKEOUT 3-stage: WAIT_BREAKOUT -> WAIT_FALSE_BREAK -> place re-entry."""

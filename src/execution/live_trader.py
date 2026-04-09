@@ -307,6 +307,8 @@ class LiveTraderEngine:
         win_rate = setup.get("win_rate", 0.60)
         session = setup.get("session", "")
         context = setup.get("context", "BASE")
+        tp_mult = setup.get("tp_mult", 1.0)
+        sl_mult = setup.get("sl_mult", 1.5)
 
         if self.om.has_traded_today(sym, edge, session):
             return
@@ -330,17 +332,19 @@ class LiveTraderEngine:
         risk_pct = self.risk.get_risk_percent(win_rate)
         self.telegram.notify_orb_detected(sym, or_high, or_low, or_width)
 
-        # Build audit tag: edge|session|duration|context|WR
-        audit_tag = f"{edge}|{session}|{duration}m|{context}|WR{win_rate:.0%}"
+        # Build audit tag: edge|session|duration|context|WR|TP|SL
+        audit_tag = f"{edge}|{session}|{duration}m|{context}|WR{win_rate:.0%}|TP{tp_mult}:SL{sl_mult}"
         print(f"[EXEC] {sym} {audit_tag} | Risk={risk_pct:.1%}")
 
         # Route to correct order type
-        # FADE: 2-stage monitor (wait breakout -> place counter-order) for backtest parity
+        # FADE: immediate LIMIT at OR boundary + direction guard
         if edge == "FADE_UP":
-            self.om.setup_fade_monitor(sym, "FADE_UP", or_high, or_low, or_width, win_rate, session, context)
+            self.om.place_fade_up(sym, or_high, or_low, or_width, win_rate, session, context,
+                                  tp_mult=tp_mult, sl_mult=sl_mult)
 
         elif edge == "FADE_DOWN":
-            self.om.setup_fade_monitor(sym, "FADE_DOWN", or_high, or_low, or_width, win_rate, session, context)
+            self.om.place_fade_down(sym, or_high, or_low, or_width, win_rate, session, context,
+                                    tp_mult=tp_mult, sl_mult=sl_mult)
 
         # MOMENTUM: direct STOP orders (exact backtest parity — first break = entry)
         elif edge == "MOMENTUM_UP":

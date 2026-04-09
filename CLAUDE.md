@@ -26,7 +26,7 @@ monitoring/      Telegram bot, system health, MT5 reporting
 | `src/engine/run_portfolio_backtest.py` | Portfolio-level backtest with dedup |
 | `src/engine/run_robustness_test.py` | Walk-forward validation + Monte Carlo + decay analysis |
 | `src/execution/live_trader.py` | LiveTraderEngine: main trading loop (NSSM service entry) |
-| `src/execution/order_manager.py` | Order lifecycle, multi-stage monitors (FADE 2-stage, SHAKEOUT 3-stage) |
+| `src/execution/order_manager.py` | Order lifecycle: FADE immediate LIMIT + direction guard, SHAKEOUT 3-stage |
 | `src/execution/risk_manager.py` | DynamicRiskAllocator: 1-6% risk by WR, SLGuardian |
 | `src/execution/mt5_client.py` | MetaTrader5 API wrapper |
 | `src/execution/bot_config.json` | 108 active strategies (live portfolio definition) |
@@ -63,12 +63,13 @@ NSSM Service → scripts/run_bot_supervisor.py → LiveTraderEngine.run()
 - **Dedup:** 1 trade per (symbol, edge, session) per day
 - **ATR filter:** OR/ATR ratio must be in [0.1, 0.8]
 - **Friction:** 0.1R (forex), 0.2R (indices/commodities)
+- **R:R:** Per-strategy tp_mult/sl_mult in bot_config.json (optimized via R:R exploration)
 - **Constants:** All magic numbers in `src/domain/constants.py`
 - **Config secrets:** `config/broker.yaml`, `config/telegram.yaml` (never commit)
 
 ## Active Archetypes
 
-- **FADE:** 2-stage monitor (wait breakout → counter-order). Main live strategy.
+- **FADE:** Immediate LIMIT at OR boundary + direction guard. TP/SL optimized per strategy.
 - **MOMENTUM:** Direct STOP orders. Dormant — ready for reactivation.
 - **SHAKEOUT:** 3-stage monitor (breakout → false break → re-entry). Dormant — ready for reactivation.
 
