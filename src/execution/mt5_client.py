@@ -18,6 +18,7 @@ class MT5Client:
 
     def __init__(self):
         self.connected = False
+        self._spread_cache: dict[str, tuple[str, float]] = {}  # {symbol: (date, avg_spread)}
 
     def connect(self) -> bool:
         """Inicializa conexion con MetaTrader 5."""
@@ -84,13 +85,25 @@ class MT5Client:
         info = self.get_symbol_info(symbol)
         return info.spread
 
-    def get_average_spread(self, symbol: str, lookback_bars: int = 10) -> float:
-        """Calcula el spread promedio reciente basándose en barras M15."""
-        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M15, 0, lookback_bars)
+    def get_average_spread(self, symbol: str, lookback_days: int = 30) -> float:
+        """Calcula el spread promedio de los ultimos N dias usando barras H1.
+
+        Usa H1 para tener ~720 barras en 30 dias. Cache diario para no
+        consultar MT5 108 veces por ciclo.
+        """
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        cached = self._spread_cache.get(symbol)
+        if cached and cached[0] == today:
+            return cached[1]
+
+        bars = lookback_days * 24
+        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_H1, 0, bars)
         if rates is None or len(rates) == 0:
             return float("inf")
         spreads = [r["spread"] for r in rates]
-        return sum(spreads) / len(spreads)
+        avg = sum(spreads) / len(spreads)
+        self._spread_cache[symbol] = (today, avg)
+        return avg
 
     def check_spread_friction(self, symbol: str, threshold_multiplier: float = 1.5,
                               min_spread_floor: float = 5.0) -> bool:
