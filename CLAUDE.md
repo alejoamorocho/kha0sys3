@@ -29,7 +29,10 @@ monitoring/      Telegram bot, system health, MT5 reporting
 | `src/execution/order_manager.py` | Order lifecycle: FADE immediate LIMIT + direction guard, SHAKEOUT 3-stage |
 | `src/execution/risk_manager.py` | DynamicRiskAllocator: 1-6% risk by WR, SLGuardian |
 | `src/execution/mt5_client.py` | MetaTrader5 API wrapper |
-| `src/execution/bot_config.json` | 108 active strategies (live portfolio definition) |
+| `src/execution/bot_config.json` | 108 active strategies with per-strategy R:R (tp_mult/sl_mult) |
+| `src/engine/run_portfolio_backtest_rr.py` | Portfolio backtest using per-strategy R:R from bot_config |
+| `src/engine/run_rr_exploration_v2.py` | R:R grid search optimizer (TP x SL per strategy) |
+| `src/engine/run_mc_global_vs_individual.py` | Monte Carlo comparison: global vs individual R:R |
 
 ## Data Flow
 
@@ -43,16 +46,20 @@ CSV (48 files: 15 symbols x 3 TF) → CSVPolarsLoader → DataEnricher (RSI, ATR
 
 ```
 NSSM Service → scripts/run_bot_supervisor.py → LiveTraderEngine.run()
-  → Load 108 strategies from bot_config.json
-  → Every 10s: check monitors (FADE/SHAKEOUT), detect fills, SL Guardian
-  → At OR close time: evaluate setup, place orders via OrderManager
+  → Load 108 strategies from bot_config.json (each with tp_mult/sl_mult)
+  → Every 10s: check FADE_GUARD + SHAKEOUT monitors, detect fills, SL Guardian
+  → At OR close time: place SELL_LIMIT/BUY_LIMIT at OR boundary with per-strategy TP/SL
+  → Direction guard: cancel order if wrong direction breaks first
   → Every 15min: heartbeat → Telegram
 ```
 
 ## Running
 
 - **Live bot:** `python scripts/run_bot_supervisor.py` (on VPS as service)
-- **Backtest:** `python -m src.engine.run_portfolio_backtest`
+- **Backtest (R:R):** `python -m src.engine.run_portfolio_backtest_rr`
+- **Backtest (legacy 1:1):** `python -m src.engine.run_portfolio_backtest`
+- **R:R exploration:** `python -m src.engine.run_rr_exploration_v2`
+- **MC comparison:** `python -m src.engine.run_mc_global_vs_individual`
 - **Robustness:** `python -m src.engine.run_robustness_test`
 - **Strategy discovery:** `python -m src.engine.run_strategy_pipeline`
 
@@ -63,9 +70,32 @@ NSSM Service → scripts/run_bot_supervisor.py → LiveTraderEngine.run()
 - **Dedup:** 1 trade per (symbol, edge, session) per day
 - **ATR filter:** OR/ATR ratio must be in [0.1, 0.8]
 - **Friction:** 0.1R (forex), 0.2R (indices/commodities)
-- **R:R:** Per-strategy tp_mult/sl_mult in bot_config.json (optimized via R:R exploration)
+- **R:R:** Per-strategy tp_mult/sl_mult in bot_config.json (see R:R Design below)
 - **Constants:** All magic numbers in `src/domain/constants.py`
 - **Config secrets:** `config/broker.yaml`, `config/telegram.yaml` (never commit)
+
+## R:R Design (Individual per Strategy)
+
+Each strategy in `bot_config.json` has its own `tp_mult` and `sl_mult` (multiples of OR_WIDTH):
+
+| R:R Config | Count | Description |
+|-----------|-------|-------------|
+| TP=0.50 SL=2.50 | 59 | Take profit at half OR width, wide stop |
+| TP=0.75 SL=2.50 | 37 | Take profit at 3/4 OR width, wide stop |
+| TP=0.50 SL=2.00 | 5 | Slightly tighter stop |
+| TP=0.75 SL=2.00 | 4 | Mid-range |
+| TP=0.75 SL=1.25-1.50 | 3 | Tight stop (XAGUSD London DOWN, SP500 Pre-Market) |
+
+**Why individual R:R:** Grid search (48 combos per strategy) found that 49 strategies
+perform better with TP=0.75 instead of the global TP=0.50. The individual approach
+yields +$85k (+7.7%) more profit, -1.9% less drawdown, and +209R more Net R vs global.
+Validated: MC ruina 0.0%, WF OOS WR 91.5%, decay MEJORANDO. See `reports/RR_Exploration_v2.md`.
+
+**FADE order mechanics (backtest parity):**
+- Entry: SELL_LIMIT at OR_HIGH (FADE_UP) / BUY_LIMIT at OR_LOW (FADE_DOWN) placed at OR close
+- TP: entry - tp_mult * OR_WIDTH (FADE_UP) / entry + tp_mult * OR_WIDTH (FADE_DOWN)
+- SL: entry + sl_mult * OR_WIDTH (FADE_UP) / entry - sl_mult * OR_WIDTH (FADE_DOWN)
+- Direction guard: cancels order if opposite OR boundary breaks first (= first_break_dir filter)
 
 ## Active Archetypes
 
