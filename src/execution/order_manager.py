@@ -237,6 +237,13 @@ class OrderManager:
             return False
         if not self.client.check_spread_friction(symbol):
             return False
+        tp_distance = or_width * tp_mult
+        if not self.client.check_spread_vs_tp(symbol, tp_distance):
+            if self.telegram:
+                spread = self.client.get_spread_in_price(symbol)
+                self.telegram.notify_order_rejected(
+                    symbol, f"Spread {spread:.5f} > 30% del TP ({tp_distance:.5f})")
+            return False
 
         sym_info = self.client.get_symbol_info(symbol)
         balance = self.client.get_account_balance()
@@ -283,6 +290,13 @@ class OrderManager:
         if self.has_traded_today(symbol, "FADE_DOWN", session):
             return False
         if not self.client.check_spread_friction(symbol):
+            return False
+        tp_distance = or_width * tp_mult
+        if not self.client.check_spread_vs_tp(symbol, tp_distance):
+            if self.telegram:
+                spread = self.client.get_spread_in_price(symbol)
+                self.telegram.notify_order_rejected(
+                    symbol, f"Spread {spread:.5f} > 30% del TP ({tp_distance:.5f})")
             return False
 
         sym_info = self.client.get_symbol_info(symbol)

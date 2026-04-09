@@ -106,6 +106,38 @@ class MT5Client:
             print(f"Spread {symbol}: Actual={current} | Baseline={baseline:.1f} | Rechazado.")
         return safe
 
+    def get_spread_in_price(self, symbol: str) -> float:
+        """Devuelve el spread actual en unidades de precio (ask - bid)."""
+        tick = mt5.symbol_info_tick(symbol)
+        if tick is None:
+            return float("inf")
+        return tick.ask - tick.bid
+
+    def check_spread_vs_tp(self, symbol: str, tp_distance: float,
+                           max_spread_pct: float = 0.30) -> bool:
+        """Valida que el spread no supere max_spread_pct del TP distance.
+
+        Protege contra spreads que se comen la ganancia.
+        Con TP=0.5*OR_WIDTH, un spread del 30% del TP = 15% del OR_WIDTH.
+
+        Args:
+            symbol: Simbolo MT5.
+            tp_distance: Distancia en precio del entry al TP (tp_mult * or_width).
+            max_spread_pct: Maximo % del TP que el spread puede representar.
+
+        Returns:
+            True si el spread es aceptable, False si es demasiado alto.
+        """
+        if tp_distance <= 0:
+            return False
+        spread = self.get_spread_in_price(symbol)
+        pct = spread / tp_distance
+        safe = pct <= max_spread_pct
+        if not safe:
+            print(f"[SPREAD] {symbol}: spread={spread:.5f} | TP_dist={tp_distance:.5f} | "
+                  f"{pct:.1%} del TP (max {max_spread_pct:.0%}) | Rechazado.")
+        return safe
+
     def get_open_positions(self, symbol: str):
         """Posiciones activas para un símbolo."""
         positions = mt5.positions_get(symbol=symbol)
