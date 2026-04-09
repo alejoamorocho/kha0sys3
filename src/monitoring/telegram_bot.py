@@ -489,23 +489,37 @@ class TelegramCommandBot:
 
     def notify_order_placed(self, symbol: str, direction: str,
                             entry: float, sl: float, tp: float, lots: float,
-                            comment: str = ""):
+                            comment: str = "", win_rate: float = 0.0,
+                            risk_pct: float = 0.0):
         emoji = "🟢" if "BUY" in direction else "🔴"
         risk_pips = abs(entry - sl)
         reward_pips = abs(tp - entry)
         rr = reward_pips / risk_pips if risk_pips > 0 else 0
-        edge_label = f"\n  Edge      │ {comment}" if comment else ""
+        loss_rate = 1.0 - win_rate if win_rate > 0 else 0
+        edge_label = f"\n  Edge      | {comment}" if comment else ""
+
+        # Probability line
+        if win_rate > 0:
+            prob_line = (
+                f"\n  Prob Win  | <b>{win_rate:.1%}</b>"
+                f"\n  Prob Loss | {loss_rate:.1%}"
+                f"\n  Riesgo    | {risk_pct:.1%} del balance"
+            )
+        else:
+            prob_line = ""
 
         msg = (
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"   {emoji} <b>ORDEN: {symbol}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            f"  Tipo      │ {direction}\n"
-            f"  Entry     │ {entry:.5f}\n"
-            f"  Stop Loss │ {sl:.5f}\n"
-            f"  Take Prof │ {tp:.5f}\n"
-            f"  Volumen   │ {lots:.2f} lots\n"
-            f"  R:R       │ 1:{rr:.1f}{edge_label}\n"
+            f"  Tipo      | {direction}\n"
+            f"  Entry     | {entry:.5f}\n"
+            f"  Stop Loss | {sl:.5f}\n"
+            f"  Take Prof | {tp:.5f}\n"
+            f"  Volumen   | {lots:.2f} lots\n"
+            f"  R:R       | 1:{rr:.1f}"
+            f"{edge_label}"
+            f"{prob_line}\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  <i>{datetime.now(timezone.utc).strftime('%H:%M')} UTC</i>"
         )

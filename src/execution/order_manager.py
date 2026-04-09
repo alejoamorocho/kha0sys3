@@ -150,7 +150,8 @@ class OrderManager:
 
     def _send_pending_order(self, symbol: str, order_type, price: float,
                             sl: float, tp: float, volume: float,
-                            comment: str) -> Optional[int]:
+                            comment: str, win_rate: float = 0.0,
+                            risk_pct: float = 0.0) -> Optional[int]:
         """Envia orden pendiente. Retorna ticket si exitoso, None si fallo."""
         sym_info = self.client.get_symbol_info(symbol)
 
@@ -194,7 +195,9 @@ class OrderManager:
             try:
                 direction = type_names.get(order_type, str(order_type))
                 if success:
-                    self.telegram.notify_order_placed(symbol, direction, price, sl, tp, volume, comment)
+                    self.telegram.notify_order_placed(
+                        symbol, direction, price, sl, tp, volume, comment,
+                        win_rate=win_rate, risk_pct=risk_pct)
                 else:
                     self.telegram.notify_order_rejected(
                         symbol, f"{direction} retcode {res.get('retcode', '?')}"
@@ -248,9 +251,12 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
+        risk_pct = self.allocator.get_risk_percent(win_rate)
         ctx_short = context[:8] if context != "BASE" else ""
         comment = f"FU|{session}|{ctx_short}".rstrip("|")
-        ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_SELL_LIMIT, entry, sl, tp, lots, comment)
+        ticket = self._send_pending_order(
+            symbol, mt5.ORDER_TYPE_SELL_LIMIT, entry, sl, tp, lots, comment,
+            win_rate=win_rate, risk_pct=risk_pct)
 
         if ticket:
             self.mark_traded_today(symbol, "FADE_UP", session)
@@ -292,9 +298,12 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
+        risk_pct = self.allocator.get_risk_percent(win_rate)
         ctx_short = context[:8] if context != "BASE" else ""
         comment = f"FD|{session}|{ctx_short}".rstrip("|")
-        ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_BUY_LIMIT, entry, sl, tp, lots, comment)
+        ticket = self._send_pending_order(
+            symbol, mt5.ORDER_TYPE_BUY_LIMIT, entry, sl, tp, lots, comment,
+            win_rate=win_rate, risk_pct=risk_pct)
 
         if ticket:
             self.mark_traded_today(symbol, "FADE_DOWN", session)
@@ -340,9 +349,12 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
+        risk_pct = self.allocator.get_risk_percent(win_rate)
         ctx_short = context[:8] if context != "BASE" else ""
         comment = f"MU|{session}|{ctx_short}".rstrip("|")
-        ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_BUY_STOP, entry, sl, tp, lots, comment)
+        ticket = self._send_pending_order(
+            symbol, mt5.ORDER_TYPE_BUY_STOP, entry, sl, tp, lots, comment,
+            win_rate=win_rate, risk_pct=risk_pct)
         return ticket is not None
 
     def place_momentum_down(self, symbol: str, or_high: float, or_low: float,
@@ -367,9 +379,12 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
+        risk_pct = self.allocator.get_risk_percent(win_rate)
         ctx_short = context[:8] if context != "BASE" else ""
         comment = f"MD|{session}|{ctx_short}".rstrip("|")
-        ticket = self._send_pending_order(symbol, mt5.ORDER_TYPE_SELL_STOP, entry, sl, tp, lots, comment)
+        ticket = self._send_pending_order(
+            symbol, mt5.ORDER_TYPE_SELL_STOP, entry, sl, tp, lots, comment,
+            win_rate=win_rate, risk_pct=risk_pct)
         return ticket is not None
 
     # ─── SHAKEOUT Orders (3-stage monitor, backtest parity) ───────
