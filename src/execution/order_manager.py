@@ -236,13 +236,19 @@ class OrderManager:
         if self.has_traded_today(symbol, "FADE_UP", session):
             return False
         if not self.client.check_spread_friction(symbol):
+            if self.telegram:
+                cur = self.client.get_current_spread(symbol)
+                avg = self.client.get_average_spread(symbol)
+                self.telegram.notify_order_rejected(
+                    symbol, f"Spread anomalo: {cur:.0f} pts (avg {avg:.0f}, max 1.5x)")
             return False
         tp_distance = or_width * tp_mult
         if not self.client.check_spread_vs_tp(symbol, tp_distance):
             if self.telegram:
                 spread = self.client.get_spread_in_price(symbol)
+                pct = spread / tp_distance * 100 if tp_distance > 0 else 0
                 self.telegram.notify_order_rejected(
-                    symbol, f"Spread {spread:.5f} > 30% del TP ({tp_distance:.5f})")
+                    symbol, f"Spread {spread:.5f} = {pct:.0f}% del TP (max 30%)")
             return False
 
         sym_info = self.client.get_symbol_info(symbol)
@@ -290,13 +296,19 @@ class OrderManager:
         if self.has_traded_today(symbol, "FADE_DOWN", session):
             return False
         if not self.client.check_spread_friction(symbol):
+            if self.telegram:
+                cur = self.client.get_current_spread(symbol)
+                avg = self.client.get_average_spread(symbol)
+                self.telegram.notify_order_rejected(
+                    symbol, f"Spread anomalo: {cur:.0f} pts (avg {avg:.0f}, max 1.5x)")
             return False
         tp_distance = or_width * tp_mult
         if not self.client.check_spread_vs_tp(symbol, tp_distance):
             if self.telegram:
                 spread = self.client.get_spread_in_price(symbol)
+                pct = spread / tp_distance * 100 if tp_distance > 0 else 0
                 self.telegram.notify_order_rejected(
-                    symbol, f"Spread {spread:.5f} > 30% del TP ({tp_distance:.5f})")
+                    symbol, f"Spread {spread:.5f} = {pct:.0f}% del TP (max 30%)")
             return False
 
         sym_info = self.client.get_symbol_info(symbol)
