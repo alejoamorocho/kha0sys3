@@ -80,6 +80,20 @@ class MT5Client:
             info = mt5.symbol_info(symbol)
         return info
 
+    def normalize_price(self, symbol: str, price: float) -> float:
+        """Alinea un precio al trade_tick_size del simbolo.
+
+        La aritmetica or_high + or_width * sl_mult puede producir precios con
+        mas decimales de los permitidos por el broker, lo que dispara
+        TRADE_RETCODE_INVALID_PRICE (10015). Esta funcion redondea al tick mas
+        cercano y trunca a los digits del simbolo.
+        """
+        info = self.get_symbol_info(symbol)
+        tick = info.trade_tick_size
+        if tick <= 0:
+            return round(price, info.digits)
+        return round(round(price / tick) * tick, info.digits)
+
     def get_current_spread(self, symbol: str) -> float:
         """Devuelve el spread actual en puntos reales del broker."""
         info = self.get_symbol_info(symbol)

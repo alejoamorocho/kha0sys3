@@ -148,6 +148,45 @@ class OrderManager:
             return mt5.ORDER_FILLING_IOC
         return mt5.ORDER_FILLING_RETURN
 
+    def _validate_limit_price(self, symbol: str, order_type,
+                              limit_price: float) -> tuple[bool, str]:
+        """Valida que un precio LIMIT cumpla las reglas del broker.
+
+        Regla MT5:
+          SELL_LIMIT: limit_price >= ask + stops_level * point
+          BUY_LIMIT:  limit_price <= bid - stops_level * point
+
+        Si no se cumple, el broker rechaza con TRADE_RETCODE_INVALID_PRICE (10015).
+        Esto pasa cuando el precio ya cruzo el OR boundary antes de poder enviar
+        la orden (carrera entre OR close y exec time, o broker con stops_level alto
+        como oil/indices).
+
+        Returns (ok, reason). reason="" si ok=True.
+        """
+        tick = mt5.symbol_info_tick(symbol)
+        info = mt5.symbol_info(symbol)
+        if tick is None or info is None:
+            return False, "sin tick/symbol_info disponible"
+
+        min_dist = info.trade_stops_level * info.point
+        d = info.digits
+
+        if order_type == mt5.ORDER_TYPE_SELL_LIMIT:
+            required = tick.ask + min_dist
+            if limit_price < required:
+                return False, (
+                    f"ask={tick.ask:.{d}f} ya cruzo OR_HIGH={limit_price:.{d}f} "
+                    f"(min_dist={min_dist:.{d}f})"
+                )
+        elif order_type == mt5.ORDER_TYPE_BUY_LIMIT:
+            required = tick.bid - min_dist
+            if limit_price > required:
+                return False, (
+                    f"bid={tick.bid:.{d}f} ya cruzo OR_LOW={limit_price:.{d}f} "
+                    f"(min_dist={min_dist:.{d}f})"
+                )
+        return True, ""
+
     def _send_pending_order(self, symbol: str, order_type, price: float,
                             sl: float, tp: float, volume: float,
                             comment: str, win_rate: float = 0.0,
@@ -173,14 +212,20 @@ class OrderManager:
             mt5.ORDER_TYPE_SELL_LIMIT: "SELL_LIMIT",
         }
 
+        # Normalizar precios al trade_tick_size del simbolo para evitar 10015
+        # por desalineacion aritmetica (ej: or_high + or_width * 2.5 con JPY).
+        norm_price = self.client.normalize_price(symbol, price)
+        norm_sl = self.client.normalize_price(symbol, sl)
+        norm_tp = self.client.normalize_price(symbol, tp)
+
         req = {
             "action": mt5.TRADE_ACTION_PENDING,
             "symbol": symbol,
             "volume": float(volume),
             "type": order_type,
-            "price": float(price),
-            "sl": float(sl),
-            "tp": float(tp),
+            "price": norm_price,
+            "sl": norm_sl,
+            "tp": norm_tp,
             "deviation": 10,
             "magic": MAGIC_NUMBER,
             "comment": comment,
@@ -258,6 +303,16 @@ class OrderManager:
         sl = or_high + (or_width * sl_mult)
         tp = or_high - (or_width * tp_mult)
 
+        # Valida que el SELL_LIMIT se pueda colocar: el precio no debe haber
+        # cruzado OR_HIGH todavia. Previene retcode 10015 por carrera entre
+        # OR close y exec time (especialmente en oil/indices con stops_level 50).
+        ok, reason = self._validate_limit_price(symbol, mt5.ORDER_TYPE_SELL_LIMIT, entry)
+        if not ok:
+            print(f"[FADE_UP] {symbol}: {reason}")
+            if self.telegram:
+                self.telegram.notify_order_rejected(symbol, f"FADE_UP: {reason}")
+            return False
+
         lots = self.allocator.calculate_lots(
             account_balance=balance, entry_price=entry, sl_price=sl,
             tick_value=sym_info.trade_tick_value, tick_size=sym_info.trade_tick_size,
@@ -317,6 +372,15 @@ class OrderManager:
         entry = or_low
         sl = or_low - (or_width * sl_mult)
         tp = or_low + (or_width * tp_mult)
+
+        # Valida que el BUY_LIMIT se pueda colocar: el precio no debe haber
+        # cruzado OR_LOW todavia.
+        ok, reason = self._validate_limit_price(symbol, mt5.ORDER_TYPE_BUY_LIMIT, entry)
+        if not ok:
+            print(f"[FADE_DOWN] {symbol}: {reason}")
+            if self.telegram:
+                self.telegram.notify_order_rejected(symbol, f"FADE_DOWN: {reason}")
+            return False
 
         lots = self.allocator.calculate_lots(
             account_balance=balance, entry_price=entry, sl_price=sl,
