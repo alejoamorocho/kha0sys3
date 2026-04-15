@@ -33,13 +33,19 @@ class LiveTraderEngine:
         with open(config_path, "r") as f:
             cfg = json.load(f)
 
-        # Risk scaling from config
+        # Risk scaling from config (balance-tiered)
         rs = cfg.get("risk_scaling", {})
+        tiers_cfg = rs.get("tiers")
+        risk_tiers = None
+        if tiers_cfg:
+            risk_tiers = [
+                (t.get("max_balance"), t["min_risk"], t["max_risk"])
+                for t in tiers_cfg
+            ]
         self.risk = DynamicRiskAllocator(
-            min_risk=rs.get("min_risk", 0.01),
-            max_risk=rs.get("max_risk", 0.06),
             min_wr=rs.get("min_wr", 0.57),
             max_wr=rs.get("max_wr", 0.91),
+            risk_tiers=risk_tiers,
         )
 
         self.setups = cfg.get("portfolio", [])
@@ -242,7 +248,8 @@ class LiveTraderEngine:
                 else:
                     result_text, emoji = "PERDIDA", "💥"
 
-                risk_pct = self.risk.get_risk_percent(0.60)  # approximate
+                bal = self.client.get_account_balance()
+                risk_pct = self.risk.get_risk_percent(0.60, balance=bal)  # approximate
                 msg = (
                     f"{emoji*10}\n"
                     "━━━━━━━━━━━━━━━━━━━━━━\n"

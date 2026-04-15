@@ -1,8 +1,23 @@
 {
-    "_doc": "Kha0sys3 v4 -- 108 estrategias, R:R optimizado por estrategia, riesgo dinamico 1-6%",
+    "_doc": "Kha0sys3 v5 -- 77 estrategias (sin XAGUSD/SP500), riesgo escalonado por balance",
     "risk_scaling": {
-        "min_risk": 0.01,
-        "max_risk": 0.06,
+        "tiers": [
+            {
+                "max_balance": 2000,
+                "min_risk": 0.025,
+                "max_risk": 0.15
+            },
+            {
+                "max_balance": 8000,
+                "min_risk": 0.0167,
+                "max_risk": 0.1
+            },
+            {
+                "max_balance": null,
+                "min_risk": 0.01,
+                "max_risk": 0.06
+            }
+        ],
         "min_wr": 0.57,
         "max_wr": 0.91
     },
@@ -98,36 +113,6 @@
             "sl_mult": 2.5
         },
         {
-            "sym": "XAGUSD",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.935,
-            "session": "NY",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_DOWN",
-            "duration": 60,
-            "win_rate": 0.92,
-            "session": "London",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 60,
-            "win_rate": 0.952,
-            "session": "NY",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
             "sym": "USOUSD",
             "magic_time": "13:00",
             "edge": "FADE_UP",
@@ -168,16 +153,6 @@
             "sl_mult": 2.5
         },
         {
-            "sym": "SP500",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.916,
-            "session": "NY Cash",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
             "sym": "VIX",
             "magic_time": "13:30",
             "edge": "FADE_DOWN",
@@ -186,39 +161,6 @@
             "session": "NY Cash",
             "tp_mult": 0.75,
             "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 60,
-            "win_rate": 0.948,
-            "session": "NY",
-            "context": "GapSmall",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.937,
-            "session": "NY",
-            "context": "GapSmall",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "SP500",
-            "magic_time": "12:00",
-            "edge": "FADE_DOWN",
-            "duration": 45,
-            "win_rate": 0.847,
-            "session": "Pre-Market",
-            "context": "BtwCloseHigh",
-            "tp_mult": 0.75,
-            "sl_mult": 2.0
         },
         {
             "sym": "EURJPY+",
@@ -241,17 +183,6 @@
             "context": "OR_Q1_Tight",
             "tp_mult": 0.5,
             "sl_mult": 2.0
-        },
-        {
-            "sym": "SP500",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.924,
-            "session": "NY Cash",
-            "context": "GapSmall",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
         },
         {
             "sym": "VIX",
@@ -286,17 +217,6 @@
             "sl_mult": 2.5
         },
         {
-            "sym": "XAGUSD",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 30,
-            "win_rate": 0.945,
-            "session": "NY",
-            "context": "RSI_50-70",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
             "sym": "GBPUSD+",
             "magic_time": "13:30",
             "edge": "FADE_DOWN",
@@ -316,17 +236,6 @@
             "context": "RSI_30-50",
             "tp_mult": 0.5,
             "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 30,
-            "win_rate": 0.85,
-            "session": "London",
-            "context": "OR_Q4_Wide",
-            "tp_mult": 0.75,
-            "sl_mult": 2.0
         },
         {
             "sym": "USOUSD",
@@ -349,17 +258,6 @@
             "context": "BtwLowClose",
             "tp_mult": 0.5,
             "sl_mult": 2.0
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 30,
-            "win_rate": 0.897,
-            "session": "NY",
-            "context": "GapSmall",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
         },
         {
             "sym": "UKOUSD",
@@ -394,17 +292,6 @@
             "sl_mult": 2.5
         },
         {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 60,
-            "win_rate": 0.927,
-            "session": "London",
-            "context": "OR_Q4_Wide",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
             "sym": "EURUSD+",
             "magic_time": "07:00",
             "edge": "FADE_UP",
@@ -427,16 +314,6 @@
             "sl_mult": 2.5
         },
         {
-            "sym": "XAGUSD",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 30,
-            "win_rate": 0.892,
-            "session": "NY",
-            "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
             "sym": "UKOUSD",
             "magic_time": "07:00",
             "edge": "FADE_DOWN",
@@ -444,27 +321,6 @@
             "win_rate": 0.927,
             "session": "London",
             "context": "GapSmall",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 15,
-            "win_rate": 0.936,
-            "session": "London",
-            "context": "OR_Q4_Wide",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 60,
-            "win_rate": 0.943,
-            "session": "London",
             "tp_mult": 0.5,
             "sl_mult": 2.5
         },
@@ -479,16 +335,6 @@
             "sl_mult": 2.5
         },
         {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.933,
-            "session": "London",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
             "sym": "EURUSD+",
             "magic_time": "07:00",
             "edge": "FADE_UP",
@@ -498,17 +344,6 @@
             "context": "GapSmall",
             "tp_mult": 0.5,
             "sl_mult": 2.5
-        },
-        {
-            "sym": "SP500",
-            "magic_time": "12:00",
-            "edge": "FADE_DOWN",
-            "duration": 45,
-            "win_rate": 0.813,
-            "session": "Pre-Market",
-            "context": "GapSmall",
-            "tp_mult": 0.75,
-            "sl_mult": 2.0
         },
         {
             "sym": "EURUSD+",
@@ -543,17 +378,6 @@
             "sl_mult": 2.0
         },
         {
-            "sym": "SP500",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.948,
-            "session": "NY Cash",
-            "context": "RSI_50-70",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
             "sym": "USOUSD",
             "magic_time": "13:00",
             "edge": "FADE_UP",
@@ -584,16 +408,6 @@
             "session": "NY",
             "context": "GapSmall",
             "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_DOWN",
-            "duration": 15,
-            "win_rate": 0.925,
-            "session": "London",
-            "tp_mult": 0.5,
             "sl_mult": 2.5
         },
         {
@@ -635,28 +449,6 @@
             "duration": 60,
             "win_rate": 0.946,
             "session": "London",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 60,
-            "win_rate": 0.939,
-            "session": "London",
-            "context": "GapSmall",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 60,
-            "win_rate": 0.934,
-            "session": "London",
-            "context": "RSI_50-70",
             "tp_mult": 0.5,
             "sl_mult": 2.5
         },
@@ -779,17 +571,6 @@
             "sl_mult": 2.5
         },
         {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.93,
-            "session": "London",
-            "context": "GapSmall",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
             "sym": "AUDUSD+",
             "magic_time": "07:00",
             "edge": "FADE_UP",
@@ -834,27 +615,6 @@
             "sl_mult": 2.5
         },
         {
-            "sym": "SP500",
-            "magic_time": "12:00",
-            "edge": "FADE_DOWN",
-            "duration": 45,
-            "win_rate": 0.812,
-            "session": "Pre-Market",
-            "tp_mult": 0.75,
-            "sl_mult": 2.0
-        },
-        {
-            "sym": "SP500",
-            "magic_time": "12:00",
-            "edge": "FADE_DOWN",
-            "duration": 60,
-            "win_rate": 0.794,
-            "session": "Pre-Market",
-            "context": "BtwCloseHigh",
-            "tp_mult": 0.75,
-            "sl_mult": 1.5
-        },
-        {
             "sym": "NAS100",
             "magic_time": "13:30",
             "edge": "FADE_DOWN",
@@ -863,17 +623,6 @@
             "session": "NY Cash",
             "context": "RSI_30-50",
             "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.944,
-            "session": "London",
-            "context": "OR_Q4_Wide",
-            "tp_mult": 0.5,
             "sl_mult": 2.5
         },
         {
@@ -895,28 +644,6 @@
             "win_rate": 0.916,
             "session": "London",
             "context": "RSI_30-50",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "13:30",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.954,
-            "session": "NY",
-            "context": "RSI_50-70",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_DOWN",
-            "duration": 15,
-            "win_rate": 0.923,
-            "session": "London",
-            "context": "GapSmall",
             "tp_mult": 0.5,
             "sl_mult": 2.5
         },
@@ -973,17 +700,6 @@
             "session": "NY",
             "context": "GapSmall",
             "tp_mult": 0.75,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_UP",
-            "duration": 45,
-            "win_rate": 0.957,
-            "session": "London",
-            "context": "RSI_30-50",
-            "tp_mult": 0.5,
             "sl_mult": 2.5
         },
         {
@@ -1048,27 +764,6 @@
             "context": "GapSmall",
             "tp_mult": 0.5,
             "sl_mult": 2.5
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_DOWN",
-            "duration": 30,
-            "win_rate": 0.733,
-            "session": "London",
-            "context": "OR_Q4_Wide",
-            "tp_mult": 0.75,
-            "sl_mult": 1.25
-        },
-        {
-            "sym": "XAGUSD",
-            "magic_time": "07:00",
-            "edge": "FADE_DOWN",
-            "duration": 30,
-            "win_rate": 0.844,
-            "session": "London",
-            "tp_mult": 0.5,
-            "sl_mult": 1.25
         },
         {
             "sym": "AUDUSD+",
@@ -1140,17 +835,6 @@
             "duration": 45,
             "win_rate": 0.918,
             "session": "London",
-            "context": "GapSmall",
-            "tp_mult": 0.5,
-            "sl_mult": 2.5
-        },
-        {
-            "sym": "SP500",
-            "magic_time": "13:30",
-            "edge": "FADE_DOWN",
-            "duration": 30,
-            "win_rate": 0.928,
-            "session": "NY Cash",
             "context": "GapSmall",
             "tp_mult": 0.5,
             "sl_mult": 2.5

@@ -66,7 +66,7 @@ NSSM Service → scripts/run_bot_supervisor.py → LiveTraderEngine.run()
 ## Conventions
 
 - **Data processing:** Polars (vectorized, no row-level loops)
-- **Risk:** Balance-based (not free_margin), dynamic 1-6% by WR
+- **Risk:** Balance-based (not free_margin), dynamic tiered by balance (<$2k: 2.5-15%, $2k-$8k: 1.67-10%, >$8k: 1-6%)
 - **Dedup:** 1 trade per (symbol, edge, session) per day
 - **ATR filter:** OR/ATR ratio must be in [0.1, 0.8]
 - **Friction:** 0.1R (forex), 0.2R (indices/commodities)

@@ -6,28 +6,55 @@ Rango: 1% (WR=57%) a 6% (WR=91%), interpolacion lineal.
 
 import math
 
-from src.domain.constants import RISK_MIN_PCT, RISK_MAX_PCT, WR_MIN, WR_MAX, MAGIC_NUMBER, DEFAULT_WIN_RATE
+from src.domain.constants import RISK_MIN_PCT, RISK_MAX_PCT, RISK_TIERS, WR_MIN, WR_MAX, MAGIC_NUMBER, DEFAULT_WIN_RATE
 
 
 class DynamicRiskAllocator:
-    """Calcula volumen de lotes con riesgo dinamico basado en WR del setup."""
+    """Calcula volumen de lotes con riesgo dinamico basado en WR del setup.
+
+    Riesgo escalonado por balance:
+      < $2k  → 2.5% – 15%  (growth)
+      $2k–8k → 1.67% – 10% (consolidation)
+      > $8k  → 1% – 6%     (preservation)
+    """
 
     def __init__(self, min_risk: float = RISK_MIN_PCT, max_risk: float = RISK_MAX_PCT,
-                 min_wr: float = WR_MIN, max_wr: float = WR_MAX):
+                 min_wr: float = WR_MIN, max_wr: float = WR_MAX,
+                 risk_tiers: list | None = None, tiers: list | None = None):
         self.min_risk = min_risk
         self.max_risk = max_risk
         self.min_wr = min_wr
         self.max_wr = max_wr
+        # Accept 'tiers' from bot_config.json (list of dicts) or 'risk_tiers' (list of tuples)
+        if risk_tiers:
+            self.risk_tiers = risk_tiers
+        elif tiers:
+            self.risk_tiers = [
+                (t.get("max_balance"), t["min_risk"], t["max_risk"])
+                for t in tiers
+            ]
+        else:
+            self.risk_tiers = RISK_TIERS
 
-    def get_risk_percent(self, win_rate: float) -> float:
-        """Calcula el % de riesgo basado en el win rate historico del setup."""
+    def _get_tier_limits(self, balance: float | None) -> tuple[float, float]:
+        """Retorna (min_risk, max_risk) para el tier correspondiente al balance."""
+        if balance is None:
+            return self.min_risk, self.max_risk
+        for max_bal, tier_min, tier_max in self.risk_tiers:
+            if max_bal is None or balance < max_bal:
+                return tier_min, tier_max
+        return self.min_risk, self.max_risk
+
+    def get_risk_percent(self, win_rate: float, balance: float = None) -> float:
+        """Calcula el % de riesgo basado en WR y tier de balance."""
+        min_r, max_r = self._get_tier_limits(balance)
         if win_rate <= self.min_wr:
-            return self.min_risk
+            return min_r
         if win_rate >= self.max_wr:
-            return self.max_risk
+            return max_r
         # Interpolacion lineal
         ratio = (win_rate - self.min_wr) / (self.max_wr - self.min_wr)
-        return self.min_risk + ratio * (self.max_risk - self.min_risk)
+        return min_r + ratio * (max_r - min_r)
 
     def calculate_lots(self, account_balance: float, entry_price: float,
                        sl_price: float, tick_value: float, tick_size: float,
@@ -46,7 +73,7 @@ class DynamicRiskAllocator:
         if tick_value <= 0 or tick_size <= 0 or volume_step <= 0:
             return 0.0
 
-        risk_pct = self.get_risk_percent(win_rate)
+        risk_pct = self.get_risk_percent(win_rate, balance=account_balance)
         risk_money = account_balance * risk_pct
 
         price_diff = abs(entry_price - sl_price)

@@ -319,7 +319,7 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
-        risk_pct = self.allocator.get_risk_percent(win_rate)
+        risk_pct = self.allocator.get_risk_percent(win_rate, balance=balance)
         ctx_short = context[:8] if context != "BASE" else ""
         comment = f"FU|{session}|{ctx_short}".rstrip("|")
         ticket = self._send_pending_order(
@@ -388,7 +388,7 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
-        risk_pct = self.allocator.get_risk_percent(win_rate)
+        risk_pct = self.allocator.get_risk_percent(win_rate, balance=balance)
         ctx_short = context[:8] if context != "BASE" else ""
         comment = f"FD|{session}|{ctx_short}".rstrip("|")
         ticket = self._send_pending_order(
@@ -439,7 +439,7 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
-        risk_pct = self.allocator.get_risk_percent(win_rate)
+        risk_pct = self.allocator.get_risk_percent(win_rate, balance=balance)
         ctx_short = context[:8] if context != "BASE" else ""
         comment = f"MU|{session}|{ctx_short}".rstrip("|")
         ticket = self._send_pending_order(
@@ -469,7 +469,7 @@ class OrderManager:
             volume_step=sym_info.volume_step, win_rate=win_rate,
         )
 
-        risk_pct = self.allocator.get_risk_percent(win_rate)
+        risk_pct = self.allocator.get_risk_percent(win_rate, balance=balance)
         ctx_short = context[:8] if context != "BASE" else ""
         comment = f"MD|{session}|{ctx_short}".rstrip("|")
         ticket = self._send_pending_order(
