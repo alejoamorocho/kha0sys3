@@ -149,17 +149,20 @@ class OrderManager:
         return mt5.ORDER_FILLING_RETURN
 
     def _validate_limit_price(self, symbol: str, order_type,
-                              limit_price: float) -> tuple[bool, str]:
-        """Valida que un precio LIMIT cumpla las reglas del broker.
+                              limit_price: float,
+                              sl: float = 0.0, tp: float = 0.0) -> tuple[bool, str]:
+        """Valida que un precio LIMIT y sus SL/TP cumplan las reglas del broker.
 
-        Regla MT5:
-          SELL_LIMIT: limit_price >= ask + stops_level * point
-          BUY_LIMIT:  limit_price <= bid - stops_level * point
+        Reglas MT5:
+          - Mercado debe estar en modo FULL (si no => retcode 10018)
+          - SELL_LIMIT: limit_price >= ask + stops_level * point
+          - BUY_LIMIT:  limit_price <= bid - stops_level * point
+          - SL/TP deben estar a >= stops_level * point del entry
+            * SELL_LIMIT: SL >= entry + min_dist, TP <= entry - min_dist
+            * BUY_LIMIT:  SL <= entry - min_dist, TP >= entry + min_dist
 
-        Si no se cumple, el broker rechaza con TRADE_RETCODE_INVALID_PRICE (10015).
-        Esto pasa cuando el precio ya cruzo el OR boundary antes de poder enviar
-        la orden (carrera entre OR close y exec time, o broker con stops_level alto
-        como oil/indices).
+        Si no se cumple, el broker rechaza con TRADE_RETCODE_INVALID_PRICE (10015)
+        o TRADE_RETCODE_MARKET_CLOSED (10018).
 
         Returns (ok, reason). reason="" si ok=True.
         """
@@ -168,22 +171,56 @@ class OrderManager:
         if tick is None or info is None:
             return False, "sin tick/symbol_info disponible"
 
-        min_dist = info.trade_stops_level * info.point
+        # Market-mode guard (10018 prevention)
+        if info.trade_mode != mt5.SYMBOL_TRADE_MODE_FULL:
+            mode_names = {
+                mt5.SYMBOL_TRADE_MODE_DISABLED: "DISABLED",
+                mt5.SYMBOL_TRADE_MODE_LONGONLY: "LONGONLY",
+                mt5.SYMBOL_TRADE_MODE_SHORTONLY: "SHORTONLY",
+                mt5.SYMBOL_TRADE_MODE_CLOSEONLY: "CLOSEONLY",
+            }
+            mode_str = mode_names.get(info.trade_mode, f"mode={info.trade_mode}")
+            return False, f"mercado no disponible ({mode_str})"
+
+        # Algunos brokers reportan stops_level=0 pero igual rechazan <= spread.
+        # Usamos max(stops_level, spread) como piso conservador para SL/TP dist.
+        min_dist_pts = max(info.trade_stops_level, info.spread)
+        min_dist = min_dist_pts * info.point
         d = info.digits
 
         if order_type == mt5.ORDER_TYPE_SELL_LIMIT:
-            required = tick.ask + min_dist
+            required = tick.ask + info.trade_stops_level * info.point
             if limit_price < required:
                 return False, (
                     f"ask={tick.ask:.{d}f} ya cruzo OR_HIGH={limit_price:.{d}f} "
-                    f"(min_dist={min_dist:.{d}f})"
+                    f"(min_dist={info.trade_stops_level * info.point:.{d}f})"
+                )
+            if sl and (sl - limit_price) < min_dist:
+                return False, (
+                    f"SL={sl:.{d}f} muy cerca de entry={limit_price:.{d}f} "
+                    f"(dist={sl - limit_price:.{d}f} < min={min_dist:.{d}f})"
+                )
+            if tp and (limit_price - tp) < min_dist:
+                return False, (
+                    f"TP={tp:.{d}f} muy cerca de entry={limit_price:.{d}f} "
+                    f"(dist={limit_price - tp:.{d}f} < min={min_dist:.{d}f})"
                 )
         elif order_type == mt5.ORDER_TYPE_BUY_LIMIT:
-            required = tick.bid - min_dist
+            required = tick.bid - info.trade_stops_level * info.point
             if limit_price > required:
                 return False, (
                     f"bid={tick.bid:.{d}f} ya cruzo OR_LOW={limit_price:.{d}f} "
-                    f"(min_dist={min_dist:.{d}f})"
+                    f"(min_dist={info.trade_stops_level * info.point:.{d}f})"
+                )
+            if sl and (limit_price - sl) < min_dist:
+                return False, (
+                    f"SL={sl:.{d}f} muy cerca de entry={limit_price:.{d}f} "
+                    f"(dist={limit_price - sl:.{d}f} < min={min_dist:.{d}f})"
+                )
+            if tp and (tp - limit_price) < min_dist:
+                return False, (
+                    f"TP={tp:.{d}f} muy cerca de entry={limit_price:.{d}f} "
+                    f"(dist={tp - limit_price:.{d}f} < min={min_dist:.{d}f})"
                 )
         return True, ""
 
@@ -306,7 +343,8 @@ class OrderManager:
         # Valida que el SELL_LIMIT se pueda colocar: el precio no debe haber
         # cruzado OR_HIGH todavia. Previene retcode 10015 por carrera entre
         # OR close y exec time (especialmente en oil/indices con stops_level 50).
-        ok, reason = self._validate_limit_price(symbol, mt5.ORDER_TYPE_SELL_LIMIT, entry)
+        ok, reason = self._validate_limit_price(
+            symbol, mt5.ORDER_TYPE_SELL_LIMIT, entry, sl=sl, tp=tp)
         if not ok:
             print(f"[FADE_UP] {symbol}: {reason}")
             if self.telegram:
@@ -375,7 +413,8 @@ class OrderManager:
 
         # Valida que el BUY_LIMIT se pueda colocar: el precio no debe haber
         # cruzado OR_LOW todavia.
-        ok, reason = self._validate_limit_price(symbol, mt5.ORDER_TYPE_BUY_LIMIT, entry)
+        ok, reason = self._validate_limit_price(
+            symbol, mt5.ORDER_TYPE_BUY_LIMIT, entry, sl=sl, tp=tp)
         if not ok:
             print(f"[FADE_DOWN] {symbol}: {reason}")
             if self.telegram:

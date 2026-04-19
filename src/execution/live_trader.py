@@ -306,6 +306,10 @@ class LiveTraderEngine:
         if not self._should_execute(setup):
             return
 
+        # Permite desactivar setups sin borrarlos del config (A/B, losers).
+        if setup.get("enabled", True) is False:
+            return
+
         self._mark_fired(setup)
 
         sym = setup["sym"]

@@ -1,5 +1,5 @@
 {
-    "_doc": "Kha0sys3 v5 -- 77 estrategias (sin XAGUSD/SP500), riesgo escalonado por balance",
+    "_doc": "Kha0sys3 v5.1 -- 77 entradas (2 desactivadas por PnL live 30d: EURUSD+ FU London, USDJPY+ FU Tokyo)",
     "risk_scaling": {
         "tiers": [
             {
@@ -30,7 +30,9 @@
             "win_rate": 0.935,
             "session": "London",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "GBPUSD+",
@@ -60,7 +62,9 @@
             "win_rate": 0.927,
             "session": "Tokyo",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "AUDUSD+",
@@ -182,7 +186,9 @@
             "session": "London",
             "context": "OR_Q1_Tight",
             "tp_mult": 0.5,
-            "sl_mult": 2.0
+            "sl_mult": 2.0,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "VIX",
@@ -300,7 +306,9 @@
             "session": "London",
             "context": "BtwCloseHigh",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "USOUSD",
@@ -343,7 +351,9 @@
             "session": "London",
             "context": "GapSmall",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "EURUSD+",
@@ -364,7 +374,9 @@
             "session": "London",
             "context": "RSI_50-70",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "USOUSD",
@@ -429,7 +441,9 @@
             "win_rate": 0.922,
             "session": "London",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "GBPAUD+",
@@ -483,7 +497,9 @@
             "session": "London",
             "context": "GapSmall",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "GBPAUD+",
@@ -525,7 +541,9 @@
             "session": "London",
             "context": "RSI_50-70",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "EURJPY+",
@@ -547,7 +565,9 @@
             "session": "London",
             "context": "BtwCloseHigh",
             "tp_mult": 0.75,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "EURUSD+",
@@ -558,7 +578,9 @@
             "session": "London",
             "context": "RSI_50-70",
             "tp_mult": 0.5,
-            "sl_mult": 2.5
+            "sl_mult": 2.5,
+            "enabled": false,
+            "disabled_reason": "live_pnl_negative_30d"
         },
         {
             "sym": "AUDUSD+",
