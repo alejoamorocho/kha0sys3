@@ -17,6 +17,9 @@ SIGNAL_TYPES = (
     "ZSCORE_REV", "VELOCITY_REV", "ACCEL_SHOCK", "KALMAN_INNOV_REV", "OLS_RESIDUAL_REV",
     "CURVATURE_PEAK", "VWAP_AREA_EXTREME", "MEANREV_AREA_EXTREME", "REGRESSION_BREAKOUT",
     "SKEW_REGIME_REV",
+    # v2 math signals (fractional diff, entropy, Hurst R/S, spectral, KAMA, GARCH-z)
+    "FRAC_DIFF_REV", "SHANNON_DROP_TREND", "HURST_MEANREV", "HURST_TREND",
+    "SPECTRAL_TREND", "KAMA_CROSS", "GARCH_SPIKE_FADE",
 )
 
 CONFLUENCE_FILTERS = ("RSI_ZONE", "ADX_REGIME", "BB_POSITION", "MACD_ALIGN")
@@ -130,6 +133,43 @@ class SignalGenerator:
             # ret_skew_50 > 1.5 AND zscore_30 > 1 → SHORT; ret_skew_50 < -1.5 AND zscore_30 < -1 → LONG
             long_cond = (pl.col("ret_skew_50") < -1.5) & (pl.col("zscore_30") < -1.0)
             short_cond = (pl.col("ret_skew_50") > 1.5) & (pl.col("zscore_30") > 1.0)
+        # ── v2 math signals ──────────────────────────────────────────────
+        elif signal_type == "FRAC_DIFF_REV":
+            # Fractionally-differentiated series crosses ±2 — stationary mean reversion
+            long_cond = (pl.col("frac_diff_z_50").shift(1) <= -2.0) & (pl.col("frac_diff_z_50") > -2.0)
+            short_cond = (pl.col("frac_diff_z_50").shift(1) >= 2.0) & (pl.col("frac_diff_z_50") < 2.0)
+        elif signal_type == "SHANNON_DROP_TREND":
+            # Entropy drop (regime contraction) + directional bias from OLS slope
+            drop = pl.col("shannon_entropy_drop_50") < -0.5
+            long_cond = drop & (pl.col("ols_slope_30") > 0)
+            short_cond = drop & (pl.col("ols_slope_30") < 0)
+        elif signal_type == "HURST_MEANREV":
+            # Hurst < 0.4 (strongly mean-reverting regime) + z-score extremes
+            mr_regime = pl.col("hurst_rs_100") < 0.4
+            long_cond = mr_regime & (pl.col("zscore_30") < -1.5)
+            short_cond = mr_regime & (pl.col("zscore_30") > 1.5)
+        elif signal_type == "HURST_TREND":
+            # Hurst > 0.6 (persistent/trending) + OLS slope direction
+            tr_regime = pl.col("hurst_rs_100") > 0.6
+            long_cond = tr_regime & (pl.col("ols_slope_30") > 0) & (pl.col("velocity_10") > 0)
+            short_cond = tr_regime & (pl.col("ols_slope_30") < 0) & (pl.col("velocity_10") < 0)
+        elif signal_type == "SPECTRAL_TREND":
+            # Rising spectral ratio (low-freq power dominating) = trend; direction from velocity
+            rising = pl.col("spectral_ratio_64") > pl.col("spectral_ratio_64").shift(5)
+            strong = pl.col("spectral_ratio_64") > 2.0
+            long_cond = rising & strong & (pl.col("velocity_10") > 0)
+            short_cond = rising & strong & (pl.col("velocity_10") < 0)
+        elif signal_type == "KAMA_CROSS":
+            # Price crosses KAMA line; slope direction confirms trend
+            above = pl.col("close") > pl.col("kama_10")
+            above_prev = pl.col("close").shift(1) > pl.col("kama_10").shift(1)
+            long_cond = (~above_prev) & above & (pl.col("kama_slope_10") > 0)
+            short_cond = above_prev & (~above) & (pl.col("kama_slope_10") < 0)
+        elif signal_type == "GARCH_SPIKE_FADE":
+            # Vol z-score spike > 2 AND price over-extended → fade in opposite direction
+            spike = pl.col("garch_vol_z_50") > 2.0
+            long_cond = spike & (pl.col("zscore_30") < -1.5)
+            short_cond = spike & (pl.col("zscore_30") > 1.5)
         else:
             raise ValueError(f"Unknown signal_type: {signal_type}")
 

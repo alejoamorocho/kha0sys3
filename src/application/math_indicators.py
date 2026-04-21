@@ -5,8 +5,14 @@ indicators. All functions are look-ahead-safe: bar i depends only on bars 0..i.
 
 Kalman is the exception — inherently sequential, implemented as a Python scan,
 applied once per symbol on the cached enriched parquet.
+
+v2 adds six new families: fractional differentiation (Lopez de Prado), Shannon
+entropy of returns, R/S Hurst, FFT spectral power ratio, Kaufman Adaptive MA
+slope, and EWMA volatility z-score. All look-ahead-safe.
 """
 from __future__ import annotations
+import math
+import numpy as np
 import polars as pl
 
 
@@ -237,11 +243,216 @@ class MathIndicatorEnricher:
         )
         return df.drop(["_r", "_rl", "_rm", "_rlm", "_cov", "_var"])
 
+    # ── v2: Fractional differentiation (Lopez de Prado) ────────────────
+
+    @staticmethod
+    def _ffd_weights(d: float, thres: float = 1e-4, max_k: int = 200) -> np.ndarray:
+        """Fixed-width fractional differentiation weights (Lopez de Prado 2018)."""
+        w = [1.0]
+        for k in range(1, max_k):
+            w_k = -w[-1] * (d - k + 1) / k
+            if abs(w_k) < thres:
+                break
+            w.append(w_k)
+        return np.array(w, dtype=np.float64)
+
+    @staticmethod
+    def add_frac_diff_z(df: pl.DataFrame, d: float = 0.4, window: int = 50) -> pl.DataFrame:
+        """Fractionally-differentiated close (d=0.4) z-scored over `window` bars.
+        Preserves long memory while producing stationary series. Column: frac_diff_z_{window}.
+        """
+        closes = df["close"].to_numpy().astype(np.float64)
+        n = len(closes)
+        w = MathIndicatorEnricher._ffd_weights(d)
+        k = len(w)
+        ffd = np.full(n, np.nan)
+        if n >= k:
+            # conv: ffd[i] = sum_j w[j] * close[i-j]  for i >= k-1
+            for i in range(k - 1, n):
+                ffd[i] = np.dot(w, closes[i - k + 1 : i + 1][::-1])
+        s = pl.Series("_ffd", ffd)
+        df2 = df.with_columns(s)
+        z = (
+            (pl.col("_ffd") - pl.col("_ffd").rolling_mean(window_size=window)) /
+            pl.col("_ffd").rolling_std(window_size=window)
+        )
+        return df2.with_columns(z.alias(f"frac_diff_z_{window}")).drop("_ffd")
+
+    # ── v2: Shannon entropy of returns ─────────────────────────────────
+
+    @staticmethod
+    def add_shannon_entropy(df: pl.DataFrame, window: int = 50, bins: int = 8) -> pl.DataFrame:
+        """Rolling Shannon entropy of binned returns. Information theory regime detector.
+        A drop in entropy means returns are concentrating (trend/regime change).
+        Columns: shannon_entropy_{window}, shannon_entropy_drop_{window}.
+        """
+        closes = df["close"].to_numpy().astype(np.float64)
+        n = len(closes)
+        rets = np.zeros(n)
+        rets[1:] = np.diff(closes) / np.where(closes[:-1] != 0, closes[:-1], 1.0)
+        ent = np.full(n, np.nan)
+        if n >= window + 1:
+            for i in range(window, n):
+                w_ret = rets[i - window + 1 : i + 1]
+                if np.nanstd(w_ret) < 1e-12:
+                    ent[i] = 0.0
+                    continue
+                hist, _ = np.histogram(w_ret, bins=bins)
+                p = hist / hist.sum()
+                p = p[p > 0]
+                ent[i] = float(-np.sum(p * np.log2(p)))
+        df2 = df.with_columns(pl.Series(f"shannon_entropy_{window}", ent))
+        # drop = entropy - rolling_mean(entropy, 20)  (negative = contraction)
+        ent_mean = pl.col(f"shannon_entropy_{window}").rolling_mean(window_size=20)
+        return df2.with_columns(
+            (pl.col(f"shannon_entropy_{window}") - ent_mean).alias(f"shannon_entropy_drop_{window}")
+        )
+
+    # ── v2: Hurst R/S exponent ─────────────────────────────────────────
+
+    @staticmethod
+    def _hurst_rs(series: np.ndarray) -> float:
+        """Classic rescaled-range Hurst estimator. Returns H in (0, 1)."""
+        n = len(series)
+        if n < 20:
+            return float("nan")
+        # Build chunks of size 10, 20, 40... up to n/2
+        lags = []
+        rs_vals = []
+        for lag in (10, 20, 40, min(80, n // 2)):
+            if lag >= n:
+                break
+            chunks = n // lag
+            rs_chunk = []
+            for c in range(chunks):
+                seg = series[c * lag : (c + 1) * lag]
+                mean = seg.mean()
+                dev = seg - mean
+                cum = np.cumsum(dev)
+                R = cum.max() - cum.min()
+                S = seg.std()
+                if S > 1e-12 and R > 0:
+                    rs_chunk.append(R / S)
+            if rs_chunk:
+                lags.append(lag)
+                rs_vals.append(np.mean(rs_chunk))
+        if len(lags) < 2:
+            return float("nan")
+        # log-log regression slope
+        lx = np.log(lags)
+        ly = np.log(rs_vals)
+        slope = np.polyfit(lx, ly, 1)[0]
+        return float(slope)
+
+    @staticmethod
+    def add_hurst_rs(df: pl.DataFrame, window: int = 100) -> pl.DataFrame:
+        """Proper R/S Hurst exponent on log-returns. Column: hurst_rs_{window}.
+        H < 0.5 mean-reverting; H > 0.5 trending; H ~ 0.5 random walk.
+        """
+        closes = df["close"].to_numpy().astype(np.float64)
+        n = len(closes)
+        log_ret = np.zeros(n)
+        log_ret[1:] = np.diff(np.log(np.where(closes > 0, closes, 1e-9)))
+        h = np.full(n, np.nan)
+        if n >= window + 1:
+            for i in range(window, n):
+                h[i] = MathIndicatorEnricher._hurst_rs(log_ret[i - window + 1 : i + 1])
+        return df.with_columns(pl.Series(f"hurst_rs_{window}", h))
+
+    # ── v2: FFT spectral power ratio ───────────────────────────────────
+
+    @staticmethod
+    def add_spectral_power_ratio(df: pl.DataFrame, window: int = 64) -> pl.DataFrame:
+        """FFT on last `window` returns. ratio = low-freq power / high-freq power.
+        Rising ratio = trending regime; falling = choppy. Column: spectral_ratio_{window}.
+        """
+        closes = df["close"].to_numpy().astype(np.float64)
+        n = len(closes)
+        rets = np.zeros(n)
+        rets[1:] = np.diff(closes)
+        sr = np.full(n, np.nan)
+        if n >= window + 1:
+            half = window // 2
+            low_hi = half // 2  # split at quarter-Nyquist
+            for i in range(window, n):
+                seg = rets[i - window + 1 : i + 1]
+                seg = seg - seg.mean()
+                spec = np.abs(np.fft.rfft(seg)) ** 2
+                low = spec[1 : low_hi + 1].sum()
+                high = spec[low_hi + 1 :].sum()
+                if high > 1e-12:
+                    sr[i] = float(low / high)
+        return df.with_columns(pl.Series(f"spectral_ratio_{window}", sr))
+
+    # ── v2: Kaufman Adaptive MA slope ──────────────────────────────────
+
+    @staticmethod
+    def add_kama_slope(df: pl.DataFrame, window: int = 10,
+                        fast: int = 2, slow: int = 30) -> pl.DataFrame:
+        """KAMA: adaptive MA using efficient ratio. Slope = KAMA[i] - KAMA[i-1].
+        Columns: kama_{window}, kama_slope_{window}.
+        """
+        closes = df["close"].to_numpy().astype(np.float64)
+        n = len(closes)
+        change = np.zeros(n)
+        if n > window:
+            change[window:] = np.abs(closes[window:] - closes[:-window])
+        volatility = np.zeros(n)
+        abs_diff = np.zeros(n)
+        abs_diff[1:] = np.abs(np.diff(closes))
+        # rolling sum of abs_diff over `window` bars
+        if n >= window:
+            csum = np.cumsum(abs_diff)
+            volatility[window:] = csum[window:] - csum[:-window]
+        with np.errstate(invalid="ignore", divide="ignore"):
+            er = np.where(volatility > 1e-12, change / volatility, 0.0)
+        fast_sc = 2.0 / (fast + 1)
+        slow_sc = 2.0 / (slow + 1)
+        sc = (er * (fast_sc - slow_sc) + slow_sc) ** 2
+        kama = np.full(n, np.nan)
+        if n > window:
+            kama[window] = closes[window]
+            for i in range(window + 1, n):
+                kama[i] = kama[i - 1] + sc[i] * (closes[i] - kama[i - 1])
+        slope = np.full(n, np.nan)
+        slope[1:] = np.diff(kama)
+        return df.with_columns([
+            pl.Series(f"kama_{window}", kama),
+            pl.Series(f"kama_slope_{window}", slope),
+        ])
+
+    # ── v2: EWMA volatility spike (GARCH proxy) ────────────────────────
+
+    @staticmethod
+    def add_garch_vol_spike(df: pl.DataFrame, alpha: float = 0.06,
+                             window: int = 50) -> pl.DataFrame:
+        """EWMA variance of returns, then z-score over `window` bars.
+        Captures volatility clustering without full GARCH fit.
+        Column: garch_vol_z_{window}.
+        """
+        closes = df["close"].to_numpy().astype(np.float64)
+        n = len(closes)
+        rets = np.zeros(n)
+        rets[1:] = np.diff(np.log(np.where(closes > 0, closes, 1e-9)))
+        ewvar = np.zeros(n)
+        if n > 0:
+            ewvar[0] = rets[0] ** 2
+            for i in range(1, n):
+                ewvar[i] = (1 - alpha) * ewvar[i - 1] + alpha * rets[i] ** 2
+        vol = np.sqrt(ewvar)
+        s = pl.Series("_ewvol", vol)
+        df2 = df.with_columns(s)
+        z = (
+            (pl.col("_ewvol") - pl.col("_ewvol").rolling_mean(window_size=window)) /
+            pl.col("_ewvol").rolling_std(window_size=window)
+        )
+        return df2.with_columns(z.alias(f"garch_vol_z_{window}")).drop("_ewvol")
+
     # ── Composite ──────────────────────────────────────────────────────
 
     @staticmethod
     def enrich_all_math(df: pl.DataFrame) -> pl.DataFrame:
-        """Apply all 10 math indicators in order."""
+        """Apply all 10 v1 + 6 v2 math indicators in order."""
         df = MathIndicatorEnricher.add_velocity(df)
         df = MathIndicatorEnricher.add_acceleration(df)
         df = MathIndicatorEnricher.add_curvature(df)
@@ -252,4 +463,11 @@ class MathIndicatorEnricher:
         df = MathIndicatorEnricher.add_zscore(df)
         df = MathIndicatorEnricher.add_skew_kurt(df)
         df = MathIndicatorEnricher.add_hurst(df)
+        # v2 additions
+        df = MathIndicatorEnricher.add_frac_diff_z(df)
+        df = MathIndicatorEnricher.add_shannon_entropy(df)
+        df = MathIndicatorEnricher.add_hurst_rs(df)
+        df = MathIndicatorEnricher.add_spectral_power_ratio(df)
+        df = MathIndicatorEnricher.add_kama_slope(df)
+        df = MathIndicatorEnricher.add_garch_vol_spike(df)
         return df

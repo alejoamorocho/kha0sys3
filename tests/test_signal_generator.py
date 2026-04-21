@@ -23,7 +23,8 @@ def enriched_df():
 
 
 def test_all_20_signal_types_registered():
-    assert len(SIGNAL_TYPES) == 20
+    # v2 extended: 20 original + 7 new = 27. Test keeps name for CI continuity.
+    assert len(SIGNAL_TYPES) == 27
     original = {
         "RSI_OB_REV", "BB_TOUCH_REV", "FRACTAL_REV", "MACD_DIVERGENCE", "BB_RSI_CONFLUENCE",
         "MACD_CROSS", "ADX_BREAKOUT", "BB_BREAKOUT", "RSI_50_CROSS", "FRACTAL_TREND",
@@ -33,7 +34,11 @@ def test_all_20_signal_types_registered():
         "CURVATURE_PEAK", "VWAP_AREA_EXTREME", "MEANREV_AREA_EXTREME", "REGRESSION_BREAKOUT",
         "SKEW_REGIME_REV",
     }
-    assert set(SIGNAL_TYPES) == original | math_signals
+    math_v2 = {
+        "FRAC_DIFF_REV", "SHANNON_DROP_TREND", "HURST_MEANREV", "HURST_TREND",
+        "SPECTRAL_TREND", "KAMA_CROSS", "GARCH_SPIKE_FADE",
+    }
+    assert set(SIGNAL_TYPES) == original | math_signals | math_v2
 
 
 def test_4_confluence_filters_registered():
