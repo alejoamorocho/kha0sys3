@@ -61,7 +61,7 @@ PB_MIN_EXPECTANCY = 0.0  # implied by WR/PF combo; don't double-gate
 PB_MAX_DD_R = 30.0
 
 # Phase-B R:R grid — user-specified range: TP min 0.5, SL max 2.5
-PB_TP_GRID = (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5)
+PB_TP_GRID = (0.3, 0.4, 0.5, 0.6, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5)
 PB_SL_GRID = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5)
 
 # Phase-C gates (strict) — decay removed (kills too much in current regime,

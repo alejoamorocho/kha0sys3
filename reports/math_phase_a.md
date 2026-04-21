@@ -1,10 +1,40 @@
 # Math Discovery — Phase A Report
 
 - Combos evaluated: **750**
-- Passed loose gates: **0**
-- Gates: trades/year >= 30, WR >= 0.45, PF >= 1.05, expectancy >= 0.0R
+- Passed loose gates: **736**
+- Gates: trades/year >= 30, WR >= 0.0, PF >= 0.0, expectancy >= -999.0R
 
 ## Top 30 survivors (by expectancy)
 
 | Symbol | Session | Signal | Trades | WR | PF | Exp (R) | MaxDD (R) |
 |---|---|---|---|---|---|---|---|
+| USDJPY | NY | ACCEL_SHOCK | 688 | 0.656 | 0.90 | -0.029 | 30.7 |
+| GBPUSD | ASIA | VWAP_AREA_EXTREME | 261 | 0.674 | 0.88 | -0.036 | 13.2 |
+| EURUSD | ASIA | MEANREV_AREA_EXTREME | 950 | 0.694 | 0.88 | -0.038 | 52.5 |
+| EURUSD | ALL_DAY | KALMAN_INNOV_REV | 2183 | 0.705 | 0.88 | -0.038 | 86.3 |
+| USDJPY | LONDON | ACCEL_SHOCK | 346 | 0.624 | 0.86 | -0.038 | 18.7 |
+| USDJPY | LONDON_NY | ACCEL_SHOCK | 921 | 0.668 | 0.87 | -0.038 | 47.4 |
+| GBPUSD | NY | SKEW_REGIME_REV | 455 | 0.675 | 0.87 | -0.040 | 26.3 |
+| XAGUSD | ASIA | ACCEL_SHOCK | 250 | 0.612 | 0.85 | -0.041 | 12.5 |
+| USDJPY | ALL_DAY | ACCEL_SHOCK | 1292 | 0.693 | 0.87 | -0.043 | 63.2 |
+| EURJPY | LONDON_NY | ACCEL_SHOCK | 989 | 0.675 | 0.85 | -0.048 | 49.7 |
+| GBPJPY | LONDON | ACCEL_SHOCK | 773 | 0.649 | 0.84 | -0.048 | 40.7 |
+| USDJPY | ASIA | ACCEL_SHOCK | 357 | 0.636 | 0.84 | -0.048 | 18.4 |
+| EURUSD | NY | ACCEL_SHOCK | 836 | 0.658 | 0.84 | -0.050 | 50.3 |
+| EURJPY | LONDON | ACCEL_SHOCK | 629 | 0.631 | 0.83 | -0.051 | 42.5 |
+| EURUSD | ASIA | VELOCITY_REV | 2060 | 0.677 | 0.84 | -0.051 | 117.4 |
+| EURUSD | ASIA | KALMAN_INNOV_REV | 1055 | 0.607 | 0.82 | -0.052 | 58.3 |
+| XAGUSD | LONDON_NY | KALMAN_INNOV_REV | 1996 | 0.688 | 0.83 | -0.056 | 110.1 |
+| GBPUSD | LONDON | MEANREV_AREA_EXTREME | 576 | 0.655 | 0.82 | -0.056 | 38.1 |
+| GBPUSD | ASIA | KALMAN_INNOV_REV | 1121 | 0.602 | 0.80 | -0.056 | 63.0 |
+| GBPUSD | ASIA | MEANREV_AREA_EXTREME | 920 | 0.674 | 0.82 | -0.057 | 63.8 |
+| EURJPY | NY | REGRESSION_BREAKOUT | 1281 | 0.632 | 0.81 | -0.058 | 77.7 |
+| EURUSD | LONDON | KALMAN_INNOV_REV | 1903 | 0.672 | 0.82 | -0.058 | 114.6 |
+| GBPAUD | ALL_DAY | KALMAN_INNOV_REV | 2241 | 0.687 | 0.82 | -0.060 | 141.3 |
+| GBPAUD | ALL_DAY | SKEW_REGIME_REV | 892 | 0.680 | 0.82 | -0.061 | 54.6 |
+| EURJPY | ALL_DAY | ACCEL_SHOCK | 1301 | 0.676 | 0.82 | -0.061 | 84.4 |
+| AUDUSD | NY | ACCEL_SHOCK | 516 | 0.614 | 0.79 | -0.062 | 33.5 |
+| XAGUSD | ASIA | SKEW_REGIME_REV | 694 | 0.640 | 0.80 | -0.062 | 46.9 |
+| GBPJPY | LONDON_NY | ACCEL_SHOCK | 1114 | 0.670 | 0.81 | -0.062 | 70.1 |
+| EURJPY | NY | ACCEL_SHOCK | 510 | 0.627 | 0.79 | -0.062 | 43.5 |
+| USDJPY | LONDON | MEANREV_AREA_EXTREME | 679 | 0.636 | 0.79 | -0.064 | 47.1 |
