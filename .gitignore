@@ -8,6 +8,12 @@ data/live_state/
 .env
 *.db
 
+# Indicator discovery: enriched cache + generated parquets
+data/enriched/
+reports/indicator_phase1_all.parquet
+reports/indicator_survivors_phase1.parquet
+reports/indicator_survivors.parquet
+
 # Generated artifacts
 err*.txt
 optuna_*.txt
