@@ -39,3 +39,56 @@ MT5_TO_INTERNAL = {
 
 # ── Strategy scanning ──────────────────────────────────────────
 MIN_STRATEGY_DAYS = 20    # Minimum sample size for strategy evaluation
+
+# ── Indicator parameters (fixed; optimization out of scope) ────
+RSI_PERIOD = 14
+MACD_FAST = 12
+MACD_SLOW = 26
+MACD_SIGNAL = 9
+BB_PERIOD = 20
+BB_STD = 2.0
+FRACTAL_WINDOW = 5  # 2 left + pivot + 2 right
+ADX_PERIOD = 14
+ADX_TREND_THRESHOLD = 25.0
+ADX_TREND_SOFT = 20.0
+
+# ── Indicator discovery: Phase-1 gates (loose) ─────────────────
+PHASE1_MIN_TRADES_PER_YEAR = 100
+PHASE1_MIN_WR = 0.60
+PHASE1_MIN_PF = 1.2
+PHASE1_MIN_EXPECTANCY_R = 0.0
+
+# ── Indicator discovery: Phase-2 gates (strict) ────────────────
+PHASE2_MIN_TRADES_PER_YEAR = 100
+PHASE2_MIN_WR = 0.80
+PHASE2_MIN_PF = 1.3
+PHASE2_MIN_EXPECTANCY_R = 0.10
+PHASE2_MAX_DD_R = 20.0
+PHASE2_WF_OOS_RATIO = 0.85
+PHASE2_MC_MAX_RUIN_PCT = 0.01
+PHASE2_DECAY_MIN_RATIO = 0.70
+
+# ── Indicator R:R ATR grid (Phase-2) ───────────────────────────
+INDICATOR_TP_ATR_GRID = (1.0, 1.5, 2.0, 2.5, 3.0)
+INDICATOR_SL_ATR_GRID = (0.75, 1.0, 1.5, 2.0)
+
+# ── Session definitions (UTC hours) for indicator discovery ────
+INDICATOR_SESSIONS = {
+    "ASIA":        (0, 7),
+    "LONDON":      (7, 12),
+    "NY":          (12, 17),
+    "LONDON_NY":   (7, 17),
+    "ALL_DAY":     (0, 24),
+}
+
+# ── Walk-forward windows ──────────────────────────────────────
+WF_IS_MONTHS = 6
+WF_OOS_MONTHS = 2
+
+# Universe of 15 assets (original set, includes XAGUSD + SP500)
+INDICATOR_UNIVERSE = (
+    "EURUSD", "GBPUSD", "USDJPY", "AUDUSD", "GBPJPY", "EURJPY", "GBPAUD",
+    "XAUUSD", "XAGUSD", "WTI", "BRENT", "NATGAS",
+    "SP500", "NASDAQ100", "VIX",
+)
+INDICATOR_TIMEFRAMES = ("M15", "H1")
