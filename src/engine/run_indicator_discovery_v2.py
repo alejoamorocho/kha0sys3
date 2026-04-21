@@ -40,13 +40,17 @@ REPORTS_DIR = Path("reports")
 P1_MIN_TRADES = 60
 P1_MIN_WR = 0.60
 
-# Phase-2 v2 gates (validate)
+# Phase-2 v2 gates (validate — realistic edge, not fantasy WR)
+# Rationale: WR>=0.85 with positive expectancy is vanishingly rare. Real edge
+# in indicator systems comes from WR 55-70% with PF 1.3+. Validation enforces
+# edge persists on FULL history via WF/MC/decay.
 P2_MIN_TRADES_PER_YEAR = 60
-P2_MIN_WR = 0.85
+P2_MIN_WR = 0.55
+P2_MIN_PF = 1.30
 P2_MIN_EXPECTANCY_R = 0.05
-P2_MAX_DD_R = 20.0
+P2_MAX_DD_R = 25.0
 P2_WF_OOS_RATIO = 0.85
-P2_MC_MAX_RUIN = 0.01
+P2_MC_MAX_RUIN = 0.02
 P2_DECAY_MIN = 0.70
 
 LAST_YEAR_DAYS = 365
@@ -163,6 +167,14 @@ def run_phase2_v2() -> pl.DataFrame:
     if len(survivors) == 0:
         print("[P2v2] no Phase-1 survivors; nothing to do")
         return pl.DataFrame()
+    # Pre-filter: only candidates with real edge on last-year screen (PF>=1.2, exp>=0.03R).
+    # The 1-year screen let through 14k combos via WR>=0.60, but most had PF<1 (high-WR
+    # trap: tight TP, wide SL, negative expectancy).
+    before = len(survivors)
+    survivors = survivors.filter(
+        (pl.col("pf") >= 1.20) & (pl.col("expectancy_r") >= 0.03)
+    )
+    print(f"[P2v2] pre-filter {before} -> {len(survivors)} candidates with real P1 edge")
     print(f"[P2v2] validating {len(survivors)} candidates on full history")
 
     rows = []
@@ -192,6 +204,8 @@ def run_phase2_v2() -> pl.DataFrame:
         if m.trades_per_year < P2_MIN_TRADES_PER_YEAR:
             continue
         if m.wr < P2_MIN_WR:
+            continue
+        if m.profit_factor < P2_MIN_PF:
             continue
         if m.expectancy_r < P2_MIN_EXPECTANCY_R:
             continue
