@@ -49,9 +49,9 @@ TF = "M15"
 PA_DEFAULT_TP = 1.0
 PA_DEFAULT_SL = 2.0
 PA_MIN_TRADES_PER_YEAR = 30
-PA_MIN_WR = 0.50   # signals must show some baseline tendency to win with tight TP
-PA_MIN_PF = 0.90   # allow slightly negative — Phase-B will tune R:R up
-PA_MIN_EXPECTANCY = -0.05  # tolerate slight drag — Phase-B fixes via R:R sweep
+PA_MIN_WR = 0.0    # pass-through — Phase-B R:R sweep determines WR
+PA_MIN_PF = 0.0    # pass-through
+PA_MIN_EXPECTANCY = -999.0  # pass-through
 
 # Phase-B gates — user's target profile (high WR via tight TP + wide SL)
 PB_MIN_TRADES_PER_YEAR = 30
