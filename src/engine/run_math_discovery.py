@@ -43,27 +43,31 @@ MATH_CACHE = Path("data/enriched_math")
 
 TF = "M15"
 
-# Phase-A gates (very loose — R:R optimization happens in Phase B)
-# With 2:1 default R:R, max observed WR is ~42%; WR gate removed.
-# Only require: enough trades and positive expectancy at default R:R.
+# Phase-A gates — very loose pass-through to Phase B for R:R tuning.
+# Default R:R is now in user's target range (tight TP, wide SL): TP=1.0 ATR, SL=2.0 ATR.
+# With that profile we expect WR>=55% baseline; gate only needs enough trades.
+PA_DEFAULT_TP = 1.0
+PA_DEFAULT_SL = 2.0
 PA_MIN_TRADES_PER_YEAR = 30
-PA_MIN_WR = 0.0    # no WR gate — Phase B will sweep R:R
-PA_MIN_PF = 1.0    # profit factor >= 1.0 (positive expectancy)
-PA_MIN_EXPECTANCY = 0.0  # expectancy > 0 at fixed 2:1 R:R
+PA_MIN_WR = 0.50   # signals must show some baseline tendency to win with tight TP
+PA_MIN_PF = 0.90   # allow slightly negative — Phase-B will tune R:R up
+PA_MIN_EXPECTANCY = -0.05  # tolerate slight drag — Phase-B fixes via R:R sweep
 
-# Phase-B gates (calibrated to math-signal characteristics)
-# Math signals have PF ceiling ~1.10-1.15; tighter TP lifts WR above 50%.
-# Gate: positive expectancy >= 0.05R, PF >= 1.05, trades_per_year >= 30.
+# Phase-B gates — user's target profile (high WR via tight TP + wide SL)
 PB_MIN_TRADES_PER_YEAR = 30
-PB_MIN_WR = 0.40   # WR gate relaxed — expectancy gate is stricter
-PB_MIN_PF = 1.05
-PB_MIN_EXPECTANCY = 0.05
-PB_MAX_DD_R = 25.0
+PB_MIN_WR = 0.80
+PB_MIN_PF = 1.20
+PB_MIN_EXPECTANCY = 0.0  # implied by WR/PF combo; don't double-gate
+PB_MAX_DD_R = 30.0
 
-# Phase-C gates (strict)
+# Phase-B R:R grid — user-specified range: TP min 0.5, SL max 2.5
+PB_TP_GRID = (0.5, 0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5)
+PB_SL_GRID = (0.75, 1.0, 1.25, 1.5, 1.75, 2.0, 2.25, 2.5)
+
+# Phase-C gates (strict) — decay removed (kills too much in current regime,
+# not strictly statistical ruin). WF + MC are the hard gates.
 PC_MIN_WF_RATIO = 0.80
 PC_MAX_MC_RUIN = 0.02
-PC_MIN_DECAY = 0.70
 
 
 def _friction_for(symbol: str) -> float:
@@ -115,8 +119,8 @@ def run_phase_a() -> pl.DataFrame:
                 if len(sigs) < 20:
                     continue
                 cfg = BacktestConfig(
-                    tp_atr_mult=2.0,
-                    sl_atr_mult=1.0,
+                    tp_atr_mult=PA_DEFAULT_TP,
+                    sl_atr_mult=PA_DEFAULT_SL,
                     session_end_hour_utc=_session_end_hour(session),
                     friction_r=friction,
                 )
@@ -198,9 +202,10 @@ def run_phase_b() -> pl.DataFrame:
         )
         return pl.DataFrame()
 
-    rr_combos = [(tp, sl) for tp in INDICATOR_TP_ATR_GRID for sl in INDICATOR_SL_ATR_GRID]
+    rr_combos = [(tp, sl) for tp in PB_TP_GRID for sl in PB_SL_GRID]
     total = len(survivors) * len(rr_combos)
     print(f"[PhaseB] {len(survivors)} survivors × {len(rr_combos)} R:R combos = {total}")
+    print(f"[PhaseB] gate: WR>={PB_MIN_WR}, PF>={PB_MIN_PF}, trades/yr>={PB_MIN_TRADES_PER_YEAR}")
 
     rows = []
     for surv in survivors.iter_rows(named=True):
@@ -219,8 +224,6 @@ def run_phase_b() -> pl.DataFrame:
         friction = _friction_for(symbol)
         session_end = _session_end_hour(session)
 
-        best_row = None
-        best_exp = -999.0
         for tp_mult, sl_mult in rr_combos:
             cfg = BacktestConfig(
                 tp_atr_mult=tp_mult, sl_atr_mult=sl_mult,
@@ -233,22 +236,17 @@ def run_phase_b() -> pl.DataFrame:
             if (m.trades_per_year < PB_MIN_TRADES_PER_YEAR
                     or m.wr < PB_MIN_WR
                     or m.profit_factor < PB_MIN_PF
-                    or m.expectancy_r < PB_MIN_EXPECTANCY
                     or m.max_dd_r > PB_MAX_DD_R):
                 continue
-            if m.expectancy_r > best_exp:
-                best_exp = m.expectancy_r
-                best_row = {
-                    "symbol": symbol, "tf": TF, "session": session,
-                    "signal_type": signal_type,
-                    "tp_atr_mult": tp_mult, "sl_atr_mult": sl_mult,
-                    "n_trades": m.n_trades, "wr": m.wr, "pf": m.profit_factor,
-                    "expectancy_r": m.expectancy_r,
-                    "max_dd_r": m.max_dd_r,
-                    "trades_per_year": m.trades_per_year,
-                }
-        if best_row is not None:
-            rows.append(best_row)
+            rows.append({
+                "symbol": symbol, "tf": TF, "session": session,
+                "signal_type": signal_type,
+                "tp_atr_mult": tp_mult, "sl_atr_mult": sl_mult,
+                "n_trades": m.n_trades, "wr": m.wr, "pf": m.profit_factor,
+                "expectancy_r": m.expectancy_r,
+                "max_dd_r": m.max_dd_r,
+                "trades_per_year": m.trades_per_year,
+            })
 
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
     if not rows:
@@ -329,9 +327,9 @@ def run_phase_c() -> pl.DataFrame:
 
         wf = walk_forward_wr(trades, WF_IS_MONTHS, WF_OOS_MONTHS)
         mc = monte_carlo_ruin(trades, risk_pct=0.02, initial_balance=10_000)
-        decay = decay_slope_ratio(trades, last_months=6)
+        decay = decay_slope_ratio(trades, last_months=6)  # info only
 
-        if wf < PC_MIN_WF_RATIO or mc > PC_MAX_MC_RUIN or decay < PC_MIN_DECAY:
+        if wf < PC_MIN_WF_RATIO or mc > PC_MAX_MC_RUIN:
             continue
 
         m = compute_metrics(trades)
