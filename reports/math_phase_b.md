@@ -1,3 +1,3 @@
 # Math Discovery Phase B
 
-No Phase-A survivors.
+0 survivors passed R:R gates.

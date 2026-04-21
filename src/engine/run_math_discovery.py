@@ -43,15 +43,15 @@ MATH_CACHE = Path("data/enriched_math")
 
 TF = "M15"
 
-# Phase-A gates — very loose pass-through to Phase B for R:R tuning.
-# Default R:R is now in user's target range (tight TP, wide SL): TP=1.0 ATR, SL=2.0 ATR.
-# With that profile we expect WR>=55% baseline; gate only needs enough trades.
-PA_DEFAULT_TP = 1.0
-PA_DEFAULT_SL = 2.0
+# Phase-A gates — screen at EXTREME tight-TP/wide-SL profile (min TP, max SL from user's grid).
+# Only patterns that achieve WR>80% AND positive expectancy at TP=0.3/SL=2.5 survive.
+# Phase-B then tunes R:R for the survivors.
+PA_DEFAULT_TP = 0.3
+PA_DEFAULT_SL = 2.5
 PA_MIN_TRADES_PER_YEAR = 30
-PA_MIN_WR = 0.0    # pass-through — Phase-B R:R sweep determines WR
-PA_MIN_PF = 0.0    # pass-through
-PA_MIN_EXPECTANCY = -999.0  # pass-through
+PA_MIN_WR = 0.80
+PA_MIN_PF = 1.00
+PA_MIN_EXPECTANCY = 0.0
 
 # Phase-B gates — user's target profile (high WR via tight TP + wide SL)
 PB_MIN_TRADES_PER_YEAR = 30
