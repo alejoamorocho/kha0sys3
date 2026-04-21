@@ -43,21 +43,25 @@ MATH_CACHE = Path("data/enriched_math")
 
 TF = "M15"
 
-# Phase-A gates — screen at EXTREME tight-TP/wide-SL profile (min TP, max SL from user's grid).
-# Only patterns that achieve WR>80% AND positive expectancy at TP=0.3/SL=2.5 survive.
-# Phase-B then tunes R:R for the survivors.
+# Phase-A — WR-ONLY filter at extreme R:R (TP=0.3, SL=2.5).
+# A high WR here means the pattern is directionally biased: when the signal fires,
+# price moves 0.3 ATR in the intended direction before moving 2.5 ATR against — 80%+
+# of the time. That's a pure hit-rate test, no profitability claim yet. Phase-B finds
+# the R:R that converts this hit rate into PF>1.2.
 PA_DEFAULT_TP = 0.3
 PA_DEFAULT_SL = 2.5
 PA_MIN_TRADES_PER_YEAR = 30
 PA_MIN_WR = 0.80
-PA_MIN_PF = 1.00
-PA_MIN_EXPECTANCY = 0.0
+PA_MIN_PF = 0.0        # no PF gate at screen stage
+PA_MIN_EXPECTANCY = -999.0  # no expectancy gate
 
-# Phase-B gates — user's target profile (high WR via tight TP + wide SL)
+# Phase-B gates — gestion optima. PF is the hard gate; WR is no longer required
+# (Phase-A already pre-filtered by WR). We let R:R grid push WR down if needed
+# in exchange for PF>=1.2.
 PB_MIN_TRADES_PER_YEAR = 30
-PB_MIN_WR = 0.80
+PB_MIN_WR = 0.0      # no WR gate — Phase A already filtered
 PB_MIN_PF = 1.20
-PB_MIN_EXPECTANCY = 0.0  # implied by WR/PF combo; don't double-gate
+PB_MIN_EXPECTANCY = 0.05
 PB_MAX_DD_R = 30.0
 
 # Phase-B R:R grid — user-specified range: TP min 0.5, SL max 2.5
