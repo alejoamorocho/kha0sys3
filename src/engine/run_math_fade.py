@@ -581,8 +581,10 @@ def run_phase_c() -> pl.DataFrame:
     (REPORTS_DIR / "Math_Fade_Final.md").write_text(_render_final_md(final), encoding="utf-8")
     _export_json(final, REPORTS_DIR / "math_fade_strategies.json")
     print(f"[FADE-PhaseC] {len(final)} passed ALL gates")
-    print(final.select(["symbol", "session", "setup_type", "tp_atr_mult", "sl_atr_mult",
-                        "wr", "pf", "expectancy_r"]).head(10))
+    for r in final.head(10).iter_rows(named=True):
+        print(f"  {r['symbol']:8s} {r['session']:9s} {r['setup_type']:22s} "
+              f"TP={r['tp_atr_mult']} SL={r['sl_atr_mult']} "
+              f"WR={r['wr']:.3f} PF={r['pf']:.2f} Exp={r['expectancy_r']:.3f}R")
     return final
 
 
