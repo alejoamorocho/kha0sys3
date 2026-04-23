@@ -47,3 +47,9 @@ class DailyMetrics:
     breakout_down_count: int
     touches_pd_high: int
     touches_pd_low: int
+
+# ── Archetype string constants ─────────────────────────────────
+ARCHETYPE_FADE = "FADE"
+ARCHETYPE_MOMENTUM = "MOMENTUM"
+ARCHETYPE_SHAKEOUT = "SHAKEOUT"
+ARCHETYPE_INDICATOR = "INDICATOR"

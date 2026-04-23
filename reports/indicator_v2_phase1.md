@@ -1,0 +1,60 @@
+# Indicator Discovery V2 - Phase 1 Report (1-year screen)
+
+- Survivors: **14254**
+- Gate: trades >= 60 AND WR >= 0.6
+- Data window: last 365 days
+
+## Top 50 by WR
+
+| Symbol | TF | Session | Signal | TP x ATR | SL x ATR | Trades | WR | PF | Exp (R) |
+|---|---|---|---|---|---|---|---|---|---|
+| XAUUSD | M15 | LONDON_NY | BB_BREAKOUT | 0.3 | 2.5 | 252 | 0.940 | 0.32 | -0.040 |
+| EURJPY | M15 | LONDON_NY | BB_RSI_CONFLUENCE | 0.3 | 2.5 | 186 | 0.935 | 0.29 | -0.047 |
+| AUDUSD | M15 | ALL_DAY | BB_RSI_CONFLUENCE | 0.3 | 2.5 | 235 | 0.932 | 0.30 | -0.043 |
+| XAGUSD | M15 | NY | RSI_50_CROSS | 0.3 | 2.5 | 217 | 0.931 | 0.30 | -0.044 |
+| GBPUSD | M15 | ASIA | MACD_CROSS | 0.3 | 2.5 | 245 | 0.927 | 0.28 | -0.048 |
+| GBPUSD | M15 | ASIA | RSI_50_CROSS | 0.3 | 2.5 | 230 | 0.926 | 0.32 | -0.039 |
+| AUDUSD | M15 | ASIA | BB_RSI_CONFLUENCE | 0.3 | 2.5 | 134 | 0.925 | 0.31 | -0.042 |
+| XAUUSD | M15 | ALL_DAY | ADX_BREAKOUT | 0.3 | 2.5 | 240 | 0.925 | 0.31 | -0.041 |
+| EURJPY | M15 | LONDON_NY | BB_RSI_CONFLUENCE | 0.3 | 2.0 | 186 | 0.925 | 0.60 | -0.031 |
+| XAUUSD | M15 | LONDON_NY | MACD_DIVERGENCE | 0.3 | 2.5 | 247 | 0.923 | 0.22 | -0.066 |
+| EURUSD | M15 | LONDON_NY | MACD_CROSS | 0.3 | 2.5 | 258 | 0.922 | 0.22 | -0.067 |
+| GBPAUD | M15 | ALL_DAY | MACD_DIVERGENCE | 0.3 | 2.5 | 296 | 0.922 | 0.22 | -0.064 |
+| GBPJPY | M15 | LONDON_NY | RSI_50_CROSS | 0.3 | 2.5 | 238 | 0.920 | 0.24 | -0.058 |
+| GBPUSD | M15 | ALL_DAY | MACD_CROSS | 0.3 | 2.5 | 288 | 0.920 | 0.25 | -0.056 |
+| GBPAUD | M15 | ALL_DAY | BB_TOUCH_REV | 0.3 | 2.5 | 310 | 0.919 | 0.22 | -0.064 |
+| AUDUSD | M15 | LONDON_NY | BB_TOUCH_REV | 0.3 | 2.5 | 260 | 0.919 | 0.21 | -0.070 |
+| XAUUSD | M15 | LONDON_NY | BB_TOUCH_REV | 0.3 | 2.5 | 258 | 0.919 | 0.21 | -0.071 |
+| AUDUSD | M15 | ALL_DAY | MACD_DIVERGENCE | 0.3 | 2.5 | 294 | 0.918 | 0.21 | -0.069 |
+| GBPJPY | M15 | LONDON_NY | MACD_CROSS | 0.3 | 2.5 | 256 | 0.918 | 0.24 | -0.058 |
+| EURUSD | M15 | ASIA | FRACTAL_REV | 0.3 | 2.5 | 260 | 0.915 | 0.20 | -0.071 |
+| XAGUSD | M15 | ASIA | RSI_50_CROSS | 0.3 | 2.5 | 224 | 0.915 | 0.21 | -0.068 |
+| XAUUSD | M15 | LONDON_NY | MACD_DIVERGENCE | 0.3 | 2.0 | 247 | 0.915 | 0.49 | -0.048 |
+| AUDUSD | M15 | ALL_DAY | BB_RSI_CONFLUENCE | 0.3 | 2.0 | 235 | 0.915 | 0.57 | -0.035 |
+| XAUUSD | M15 | LONDON_NY | BB_BREAKOUT | 0.3 | 2.0 | 252 | 0.913 | 0.50 | -0.046 |
+| GBPJPY | M15 | ALL_DAY | RSI_OB_REV | 0.3 | 2.5 | 250 | 0.912 | 0.20 | -0.075 |
+| EURJPY | M15 | LONDON | ADX_BREAKOUT | 0.3 | 2.5 | 102 | 0.912 | 0.34 | -0.036 |
+| EURUSD | M15 | ASIA | FRACTAL_REV | 0.3 | 2.0 | 260 | 0.912 | 0.47 | -0.052 |
+| GBPUSD | M15 | ASIA | FRACTAL_REV | 0.3 | 2.5 | 260 | 0.912 | 0.19 | -0.078 |
+| EURJPY | M15 | LONDON_NY | BB_TOUCH_REV | 0.3 | 2.5 | 260 | 0.912 | 0.19 | -0.078 |
+| GBPAUD | M15 | ASIA | BB_TOUCH_REV | 0.3 | 2.5 | 257 | 0.911 | 0.20 | -0.075 |
+| EURUSD | M15 | ASIA | MACD_CROSS | 0.3 | 2.5 | 245 | 0.910 | 0.24 | -0.059 |
+| GBPJPY | M15 | LONDON_NY | MACD_CROSS | 0.3 | 2.0 | 256 | 0.910 | 0.53 | -0.040 |
+| EURJPY | M15 | NY | BB_RSI_CONFLUENCE | 0.3 | 2.5 | 111 | 0.910 | 0.23 | -0.061 |
+| USDJPY | M15 | LONDON_NY | MACD_CROSS | 0.3 | 2.5 | 255 | 0.910 | 0.19 | -0.077 |
+| GBPJPY | M15 | LONDON_NY | RSI_OB_REV | 0.3 | 2.5 | 188 | 0.910 | 0.25 | -0.056 |
+| AUDUSD | M15 | ALL_DAY | BB_TOUCH_REV | 0.3 | 2.5 | 307 | 0.909 | 0.19 | -0.080 |
+| USDJPY | M15 | LONDON_NY | MACD_DIVERGENCE | 0.3 | 2.5 | 241 | 0.909 | 0.20 | -0.071 |
+| GBPUSD | M15 | ASIA | RSI_50_CROSS | 0.3 | 2.0 | 230 | 0.909 | 0.57 | -0.034 |
+| EURJPY | M15 | ALL_DAY | BB_RSI_CONFLUENCE | 0.3 | 2.5 | 251 | 0.908 | 0.18 | -0.083 |
+| USDJPY | M15 | LONDON | BB_TOUCH_REV | 0.3 | 2.5 | 239 | 0.908 | 0.21 | -0.067 |
+| USDJPY | M15 | LONDON_NY | BB_TOUCH_REV | 0.3 | 2.5 | 260 | 0.908 | 0.18 | -0.083 |
+| USDJPY | M15 | LONDON_NY | FRACTAL_REV | 0.3 | 2.5 | 260 | 0.908 | 0.18 | -0.083 |
+| AUDUSD | M15 | LONDON_NY | MACD_DIVERGENCE | 0.3 | 2.5 | 249 | 0.908 | 0.20 | -0.073 |
+| GBPJPY | M15 | LONDON_NY | RSI_50_CROSS | 0.3 | 2.0 | 238 | 0.908 | 0.50 | -0.046 |
+| EURUSD | M15 | LONDON_NY | MACD_CROSS | 0.3 | 2.0 | 258 | 0.907 | 0.44 | -0.057 |
+| XAUUSD | M15 | LONDON_NY | BB_TOUCH_REV | 0.3 | 2.0 | 258 | 0.907 | 0.44 | -0.057 |
+| EURJPY | M15 | LONDON_NY | BB_BREAKOUT | 0.3 | 2.5 | 257 | 0.907 | 0.19 | -0.078 |
+| GBPJPY | M15 | LONDON_NY | BB_RSI_CONFLUENCE | 0.3 | 2.5 | 182 | 0.907 | 0.21 | -0.069 |
+| GBPAUD | M15 | ALL_DAY | BB_TOUCH_REV | 0.3 | 2.0 | 310 | 0.906 | 0.46 | -0.054 |
+| GBPUSD | M15 | ALL_DAY | RSI_50_CROSS | 0.3 | 2.5 | 299 | 0.906 | 0.23 | -0.062 |
