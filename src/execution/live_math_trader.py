@@ -28,6 +28,10 @@ import polars as pl
 
 from src.execution.mt5_client import MT5Client
 from src.execution.math_order_manager import MathOrderManager
+from src.execution.risk_manager import DynamicRiskAllocator
+from src.domain.constants import (
+    MATH_RISK_MIN_PCT, MATH_RISK_MAX_PCT, MATH_WR_MIN, MATH_WR_MAX,
+)
 from src.application.math_indicators import MathIndicatorEnricher
 from src.domain.constants import (
     MAGIC_NUMBER_MATH, MATH_BARS_LOOKBACK, INDICATOR_SESSIONS,
@@ -87,9 +91,16 @@ class MathTraderEngine:
         except Exception as e:
             print(f"[MATH] Telegram init skipped: {e}")
 
+        # Math-specific risk allocator: 1% @ WR 0.57 → 15% @ WR 1.00 (linear).
+        self.risk = DynamicRiskAllocator(
+            min_risk=MATH_RISK_MIN_PCT, max_risk=MATH_RISK_MAX_PCT,
+            min_wr=MATH_WR_MIN, max_wr=MATH_WR_MAX,
+        )
+
         self.om = MathOrderManager(
             client=self.client, magic=MAGIC_NUMBER_MATH,
             dry_run=dry_run, telegram=self.telegram,
+            risk_allocator=self.risk,
         )
 
         self._start_time: Optional[float] = None
