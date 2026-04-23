@@ -74,11 +74,12 @@ class MathOrderManager:
     """Manages STOP orders for the MATH parallel runner (magic 1338)."""
 
     def __init__(self, client, magic: int = MAGIC_NUMBER_MATH,
-                 dry_run: bool = True, telegram=None):
+                 dry_run: bool = True, telegram=None, risk_allocator=None):
         self.client = client
         self.magic = magic
         self.dry_run = dry_run
         self.telegram = telegram
+        self.risk = risk_allocator  # DynamicRiskAllocator instance or None
 
         # In-memory pending registry (source of truth in DRY, shadow in LIVE)
         self._pending: dict[str, PendingMathOrder] = {}
@@ -200,6 +201,7 @@ class MathOrderManager:
             symbol=symbol, order_type=order_type, stop_price=stop_price,
             sl=sl_price, tp=tp_price, setup_type=setup_type,
             session=setup_cfg["session"], expiration=expiration,
+            expected_wr=float(setup_cfg.get("expected_wr", 0.60)),
         )
         if ticket is None:
             return None
@@ -226,10 +228,40 @@ class MathOrderManager:
         self._tg(msg)
         return pending
 
+    def _compute_volume(self, sym_info, entry: float, sl: float,
+                        expected_wr: float) -> float:
+        """Balance-based position sizing via DynamicRiskAllocator."""
+        lot_min = float(getattr(sym_info, "volume_min", 0.01))
+        if self.risk is None or mt5 is None:
+            return lot_min  # fallback when allocator not wired
+
+        acct = mt5.account_info()
+        if acct is None or getattr(acct, "balance", 0) <= 0:
+            return lot_min
+
+        volume_step = float(getattr(sym_info, "volume_step", lot_min))
+        tick_size = float(getattr(sym_info, "trade_tick_size",
+                                  getattr(sym_info, "point", 0.0)))
+        tick_value = float(getattr(sym_info, "trade_tick_value", 0.0))
+        if tick_size <= 0 or tick_value <= 0:
+            return lot_min
+
+        lots = self.risk.calculate_lots(
+            account_balance=float(acct.balance),
+            entry_price=entry, sl_price=sl,
+            tick_value=tick_value, tick_size=tick_size,
+            volume_step=volume_step, win_rate=expected_wr,
+        )
+        return max(lots, lot_min)
+
     def _submit_stop(self, symbol: str, order_type: str, stop_price: float,
                      sl: float, tp: float, setup_type: str, session: str,
-                     expiration: datetime) -> Optional[int]:
-        """Send STOP to MT5 unless DRY_RUN. Returns ticket (or -1 in DRY)."""
+                     expiration: datetime, expected_wr: float = 0.60) -> Optional[int]:
+        """Send STOP to MT5 unless DRY_RUN. Returns ticket (or -1 in DRY).
+
+        Sizing: uses DynamicRiskAllocator (math-tuned: 1% @ WR 0.57 → 15% @ WR 1.00)
+        with the setup's expected_wr to dimension lots against balance.
+        """
         if self.dry_run:
             return -1
 
@@ -243,8 +275,11 @@ class MathOrderManager:
                 print(f"[MATH] symbol_info None for {symbol}")
                 return None
 
-            lot_min = getattr(sym_info, "volume_min", 0.01)
-            volume = float(lot_min)  # Minimal viable — real sizing TBD in live phase
+            # Risk-based sizing using balance (not free_margin) and setup WR
+            volume = self._compute_volume(sym_info, stop_price, sl, expected_wr)
+            if volume <= 0:
+                print(f"[MATH] computed volume=0 for {symbol}, skipping")
+                return None
 
             type_map = {
                 "BUY_STOP": mt5.ORDER_TYPE_BUY_STOP,

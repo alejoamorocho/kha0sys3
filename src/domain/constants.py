@@ -35,6 +35,14 @@ MATH_WAIT_BARS = 5             # STOP expiration window (5 * 15min = 75 min)
 MATH_STOP_ATR_OFFSET = 0.5     # STOP placement distance in ATR units
 MATH_GUARD_WEAKEN_THRESHOLD = 0.5  # guard triggers if |guard| < 0.5 * |g0|
 
+# Math-bot risk scaling — steeper than FADE because the 17 strategies have
+# expected WR 0.80-0.89 with PF 1.5-2.2 (more aggressive edge, warrants higher
+# risk). Scale: 1% at WR=0.57 → 15% at WR=1.00, linear interpolation.
+MATH_RISK_MIN_PCT = 0.01
+MATH_RISK_MAX_PCT = 0.15
+MATH_WR_MIN = 0.57
+MATH_WR_MAX = 1.00
+
 # ── Symbol classification ──────────────────────────────────────
 INDEX_SYMBOLS = frozenset({"SP500", "NASDAQ100", "VIX", "WTI", "BRENT", "NATGAS"})
 
