@@ -232,7 +232,7 @@ class MathOrderManager:
         msg = (
             f"{order_type} {symbol} @ {stop_price:.5f} "
             f"TP={tp_price:.5f} SL={sl_price:.5f} "
-            f"(setup={setup_type} orig={orig_dir}→INVERTED={flipped} atr={atr:.5f})"
+            f"(setup={setup_type} orig={orig_dir}->INVERTED={flipped} atr={atr:.5f})"
         )
         print(f"[MATH]{'[DRY]' if self.dry_run else ''} {msg}")
         self._tg(msg)
@@ -488,7 +488,7 @@ class MathOrderManager:
             print(f"[MATH][DRY] log write error: {e}")
         self._tg(
             f"VCLOSE {p.flipped_direction} {p.symbol} {p.setup_type} "
-            f"{reason} @ {exit_price:.5f} → R={r:+.3f}"
+            f"{reason} @ {exit_price:.5f} -> R={r:+.3f}"
         )
 
     def read_dry_trades(self) -> list[dict]:
