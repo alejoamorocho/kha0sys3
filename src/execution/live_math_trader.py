@@ -169,11 +169,15 @@ class MathTraderEngine:
         scoped = _filter_by_session(bars, sess)
         if len(scoped) == 0:
             return
-        # Direction guard first (on currently pending), then detect_and_place.
+        # Order: guard → virtual sim (DRY only) → detect_and_place on newest.
         try:
             self.om.tick_pending(s, scoped)
         except Exception as e:
             print(f"[MATH] tick_pending {sym}/{s['setup_type']}: {e}")
+        try:
+            self.om.tick_virtual(s, scoped)
+        except Exception as e:
+            print(f"[MATH] tick_virtual {sym}/{s['setup_type']}: {e}")
         try:
             self.om.detect_and_place(s, scoped)
         except Exception as e:
@@ -185,8 +189,33 @@ class MathTraderEngine:
             return
         self._last_heartbeat = now
         uptime_h = (now - (self._start_time or now)) / 3600.0
+        # Add DRY summary line to heartbeat when dry_run
+        extra = ""
+        if self.dry_run:
+            trades = self.om.read_dry_trades()
+            today = self.om._today_utc()
+            todays = [t for t in trades if (t.get("exit_time") or "").startswith(today)]
+            n_today = len(todays)
+            net_r_today = sum(t.get("r_multiple", 0.0) for t in todays)
+            extra = f" | DRY today n={n_today} netR={net_r_today:+.2f}"
         self._tg(f"heartbeat uptime={uptime_h:.1f}h setups={len(self.setups)} "
-                 f"pending={len(self.om._pending)}")
+                 f"pending={len(self.om._pending)}{extra}")
+
+    def _maybe_emit_daily_report(self):
+        """Fire the DRY daily report at 23:55 UTC (once per day)."""
+        if not self.dry_run:
+            return
+        utc = self._utc_now()
+        if not (utc.hour == 23 and utc.minute >= 55):
+            return
+        key = utc.strftime("%Y-%m-%d")
+        if getattr(self, "_last_report_day", None) == key:
+            return
+        try:
+            self.om.emit_daily_report()
+            self._last_report_day = key
+        except Exception as e:
+            print(f"[MATH] daily report error: {e}")
 
     def run(self):
         """Main loop. Polls every POLL_INTERVAL; acts on M15 boundaries."""
@@ -224,6 +253,7 @@ class MathTraderEngine:
                     self.om.sweep_expired()
 
                 self._heartbeat()
+                self._maybe_emit_daily_report()
 
                 Path("logs").mkdir(exist_ok=True)
                 Path("logs/math_bot_heartbeat").touch()

@@ -22,9 +22,11 @@ never touches or observes FADE state.
 """
 from __future__ import annotations
 
+import json
 import math
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
 import polars as pl
@@ -58,16 +60,21 @@ class PendingMathOrder:
     symbol: str                 # broker symbol (sym)
     internal_sym: str
     setup_type: str
-    original_direction: str     # LONG/SHORT per detector
-    flipped_direction: str      # what we actually placed
-    stop_price: float
-    tp_price: float
-    sl_price: float
-    atr: float
-    guard_value_at_placement: float
-    expiration_utc: datetime
-    placed_date: str            # YYYY-MM-DD UTC
+    session: str = ""
+    original_direction: str = "LONG"     # LONG/SHORT per detector
+    flipped_direction: str = "LONG"      # what we actually placed
+    stop_price: float = 0.0
+    tp_price: float = 0.0
+    sl_price: float = 0.0
+    atr: float = 0.0
+    guard_value_at_placement: float = 0.0
+    expiration_utc: Optional[datetime] = None
+    placed_date: str = ""            # YYYY-MM-DD UTC
     dry_run: bool = True
+    # Virtual-simulation fields (DRY only; ignored in LIVE)
+    virt_state: str = "PENDING"      # PENDING | FILLED | CLOSED
+    virt_entry_price: Optional[float] = None
+    virt_entry_time: Optional[datetime] = None
 
 
 class MathOrderManager:
@@ -85,6 +92,9 @@ class MathOrderManager:
         self._pending: dict[str, PendingMathOrder] = {}
         # Dedup: (symbol, setup_type) → date string
         self._fired_today: dict[tuple[str, str], str] = {}
+        # DRY virtual trade log (append-only JSONL)
+        self._dry_trades_path = Path("data/live_state/math_dry_trades.jsonl")
+        self._dry_trades_path.parent.mkdir(parents=True, exist_ok=True)
 
     # ─── Telegram helpers ─────────────────────────────────────────
 
@@ -208,7 +218,7 @@ class MathOrderManager:
 
         pending = PendingMathOrder(
             ticket=ticket, symbol=symbol, internal_sym=internal,
-            setup_type=setup_type,
+            setup_type=setup_type, session=setup_cfg.get("session", ""),
             original_direction=orig_dir, flipped_direction=flipped,
             stop_price=stop_price, tp_price=tp_price, sl_price=sl_price,
             atr=atr, guard_value_at_placement=float(guard_value),
@@ -363,6 +373,174 @@ class MathOrderManager:
                     f"(g0={g0:.5f} now={latest_guard:.5f})"
                 )
         return cancelled
+
+    # ─── DRY virtual simulation (fill + TP/SL tracking) ─────────────
+
+    def tick_virtual(self, setup_cfg: dict, bars: pl.DataFrame) -> int:
+        """DRY-only: simulate fill and TP/SL resolution on pending/filled MATH
+        orders for this setup using the latest bar's high/low.
+
+        State machine per pending:
+          PENDING → FILLED when latest bar's range crosses the STOP price
+                    (LONG_STOP filled if high >= stop; SHORT_STOP if low <= stop)
+          FILLED  → CLOSED when TP or SL touched. Also closes at session end
+                    or expiration_utc (virtual time-stop).
+
+        On CLOSED: append a JSON line to data/live_state/math_dry_trades.jsonl
+        and notify Telegram [MATH][DRY] with R-multiple.
+
+        Returns the number of virtual closes this tick.
+        """
+        if not self.dry_run or bars is None or len(bars) == 0:
+            return 0
+
+        symbol = setup_cfg["sym"]
+        setup_type = setup_cfg["setup_type"]
+
+        last_row = bars.sort("time").row(-1, named=True)
+        t = last_row["time"]
+        hi = last_row["high"]
+        lo = last_row["low"]
+        closes = 0
+
+        for key, p in list(self._pending.items()):
+            if p.symbol != symbol or p.setup_type != setup_type:
+                continue
+
+            now = datetime.now(timezone.utc)
+
+            # Virtual fill: only if still PENDING
+            if p.virt_state == "PENDING":
+                is_long = p.flipped_direction == "LONG"
+                filled = (hi >= p.stop_price) if is_long else (lo <= p.stop_price)
+                if filled:
+                    p.virt_state = "FILLED"
+                    p.virt_entry_price = p.stop_price
+                    p.virt_entry_time = t
+                    self._tg(
+                        f"VFILL {p.flipped_direction} {p.symbol} {p.setup_type} "
+                        f"@ {p.stop_price:.5f} (virtual)"
+                    )
+                # If not filled and expired, drop without log
+                elif now >= p.expiration_utc:
+                    self._pending.pop(key, None)
+                continue
+
+            # FILLED → check TP / SL / time-stop on latest bar
+            if p.virt_state == "FILLED":
+                is_long = p.flipped_direction == "LONG"
+                exit_reason = None
+                exit_price = None
+                # TP priority (matches backtester semantics)
+                if is_long:
+                    if hi >= p.tp_price:
+                        exit_reason, exit_price = "TP", p.tp_price
+                    elif lo <= p.sl_price:
+                        exit_reason, exit_price = "SL", p.sl_price
+                else:
+                    if lo <= p.tp_price:
+                        exit_reason, exit_price = "TP", p.tp_price
+                    elif hi >= p.sl_price:
+                        exit_reason, exit_price = "SL", p.sl_price
+
+                # Session time-stop (session end hour on same day)
+                if exit_reason is None:
+                    from src.domain.constants import INDICATOR_SESSIONS
+                    session_end_h = INDICATOR_SESSIONS.get(p.session, (0, 24))[1]
+                    if t.date() > p.virt_entry_time.date() or t.hour >= session_end_h:
+                        exit_reason, exit_price = "TIME_STOP", last_row["close"]
+
+                if exit_reason is not None:
+                    r = self._r_multiple(p, exit_price)
+                    self._log_dry_trade(p, exit_reason, exit_price, r, t)
+                    self._pending.pop(key, None)
+                    closes += 1
+        return closes
+
+    def _r_multiple(self, p: PendingMathOrder, exit_price: float) -> float:
+        """R = net PnL / initial risk per unit."""
+        if p.virt_entry_price is None or p.atr <= 0:
+            return 0.0
+        is_long = p.flipped_direction == "LONG"
+        pnl = (exit_price - p.virt_entry_price) if is_long else (p.virt_entry_price - exit_price)
+        risk_per_unit = abs(p.virt_entry_price - p.sl_price)
+        return float(pnl / risk_per_unit) if risk_per_unit > 0 else 0.0
+
+    def _log_dry_trade(self, p: PendingMathOrder, reason: str, exit_price: float,
+                       r: float, exit_time: datetime) -> None:
+        rec = {
+            "symbol": p.symbol, "internal_sym": p.internal_sym,
+            "session": p.session, "setup_type": p.setup_type,
+            "direction": p.flipped_direction,
+            "entry_time": p.virt_entry_time.isoformat() if p.virt_entry_time else None,
+            "entry_price": p.virt_entry_price,
+            "tp_price": p.tp_price, "sl_price": p.sl_price,
+            "exit_time": exit_time.isoformat() if hasattr(exit_time, "isoformat") else str(exit_time),
+            "exit_price": float(exit_price),
+            "exit_reason": reason,
+            "r_multiple": round(r, 4),
+            "atr": float(p.atr),
+        }
+        try:
+            with self._dry_trades_path.open("a", encoding="utf-8") as f:
+                f.write(json.dumps(rec) + "\n")
+        except Exception as e:
+            print(f"[MATH][DRY] log write error: {e}")
+        self._tg(
+            f"VCLOSE {p.flipped_direction} {p.symbol} {p.setup_type} "
+            f"{reason} @ {exit_price:.5f} → R={r:+.3f}"
+        )
+
+    def read_dry_trades(self) -> list[dict]:
+        """Read all logged virtual trades."""
+        if not self._dry_trades_path.exists():
+            return []
+        out = []
+        with self._dry_trades_path.open("r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    out.append(json.loads(line))
+                except Exception:
+                    pass
+        return out
+
+    def emit_daily_report(self) -> str:
+        """Summarize virtual trades and notify Telegram. Returns the text."""
+        trades = self.read_dry_trades()
+        if not trades:
+            msg = "DRY report: 0 virtual trades logged yet"
+            self._tg(msg)
+            return msg
+
+        today = self._today_utc()
+        today_trades = [t for t in trades if (t.get("exit_time") or "").startswith(today)]
+
+        def _fmt_block(label: str, ts: list[dict]) -> str:
+            if not ts:
+                return f"{label}: 0 trades"
+            n = len(ts)
+            rs = [t["r_multiple"] for t in ts]
+            wins = [r for r in rs if r > 0]
+            losses = [r for r in rs if r < 0]
+            wr = len(wins) / n if n else 0.0
+            gross_win = sum(wins)
+            gross_loss = abs(sum(losses))
+            pf = (gross_win / gross_loss) if gross_loss > 0 else float("inf")
+            avg_r = sum(rs) / n
+            net_r = sum(rs)
+            return (f"{label}: n={n} WR={wr:.0%} PF={pf:.2f} "
+                    f"avgR={avg_r:+.3f} netR={net_r:+.2f}")
+
+        msg = (
+            "[MATH][DRY] VIRTUAL P&L\n"
+            f"{_fmt_block('Today ' + today, today_trades)}\n"
+            f"{_fmt_block('All-time', trades)}"
+        )
+        self._tg(msg)
+        return msg
 
     def _cancel(self, p: PendingMathOrder) -> bool:
         if self.dry_run or p.ticket < 0:
