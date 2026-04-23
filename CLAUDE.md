@@ -103,8 +103,31 @@ Validated: MC ruina 0.0%, WF OOS WR 91.5%, decay MEJORANDO. See `reports/RR_Expl
 - **MOMENTUM:** Direct STOP orders. Dormant — ready for reactivation.
 - **SHAKEOUT:** 3-stage monitor (breakout → false break → re-entry). Dormant — ready for reactivation.
 
+## Math Parallel Runner
+
+A second isolated process runs 17 MATH_INV_MOMENTUM strategies on the SAME
+VPS1, Vantage account, and Telegram bot as the FADE bot, but with strict
+process separation.
+
+| Component | FADE bot (existing) | MATH bot (new) |
+|-----------|--------------------|-----------------|
+| NSSM service | `Kha0sysBot3` | `Kha0sysMathBot` |
+| Entry | `scripts/run_bot_supervisor.py` | `scripts/run_math_bot_supervisor.py` |
+| Engine | `src/execution/live_trader.py` | `src/execution/live_math_trader.py` |
+| Orders | `src/execution/order_manager.py` | `src/execution/math_order_manager.py` |
+| Config | `src/execution/bot_config.json` (108) | `src/execution/bot_config_math.json` (17) |
+| Magic | `1337` | `1338` |
+| Mechanics | FADE LIMIT + direction guard | STOP at close±0.5×ATR, FLIPPED direction, 5-bar wait, guard cancel |
+| Default mode | LIVE | **DRY_RUN** (flip manually after telemetry) |
+
+All MT5 reads in the MATH runner filter by `magic=1338`, so it never observes
+or touches FADE orders. `--dry-run` (default) emits `[MATH][DRY]` telegram
+messages instead of calling `mt5.order_send`. Deploy with
+`python deploy/deploy_math_bot.py`; flip to `--live` manually on the VPS after
+observing DRY telemetry for at least one full session.
+
 ## Deploy
 
 - VPS: Windows Server via WinRM (`deploy/` scripts)
-- Services: `Kha0sysBot3` (trading), `Kha0sysWatchdog3` (monitoring)
+- Services: `Kha0sysBot3` (FADE, magic 1337), `Kha0sysMathBot` (MATH inverted momentum, magic 1338, DRY_RUN default), `Kha0sysWatchdog3` (monitoring)
 - Telegram: interactive commands via `/status`, `/balance`, `/pnl`, `/positions`, `/health`

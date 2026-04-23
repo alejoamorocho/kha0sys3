@@ -26,6 +26,15 @@ FRICTION_INDEX = 0.2
 MAGIC_NUMBER = 1337
 ORDER_EXPIRATION_HOURS = 8
 
+# ── Math parallel runner (isolated from FADE) ──────────────────
+# Distinct magic so fetch_positions(magic=1338) never sees FADE orders
+# and the FADE runner never sees MATH orders.
+MAGIC_NUMBER_MATH = 1338
+MATH_BARS_LOOKBACK = 500       # M15 bars needed for math indicator enrichment
+MATH_WAIT_BARS = 5             # STOP expiration window (5 * 15min = 75 min)
+MATH_STOP_ATR_OFFSET = 0.5     # STOP placement distance in ATR units
+MATH_GUARD_WEAKEN_THRESHOLD = 0.5  # guard triggers if |guard| < 0.5 * |g0|
+
 # ── Symbol classification ──────────────────────────────────────
 INDEX_SYMBOLS = frozenset({"SP500", "NASDAQ100", "VIX", "WTI", "BRENT", "NATGAS"})
 
