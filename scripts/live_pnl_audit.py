@@ -114,7 +114,7 @@ def main():
 
     to_dt = datetime.now(timezone.utc)
     from_dt = to_dt - timedelta(days=args.days)
-    print(f"Window: {from_dt.date()} → {to_dt.date()} ({args.days} days)")
+    print(f"Window: {from_dt.date()} -> {to_dt.date()} ({args.days} days)")
 
     deals = mt5.history_deals_get(from_dt, to_dt)
     if deals is None:
