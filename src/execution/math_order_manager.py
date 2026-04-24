@@ -199,8 +199,14 @@ class MathOrderManager:
         if guard_value is None:
             return None
 
-        # INVERTED: flip direction
-        flipped = _flip(orig_dir)
+        # Direction mode: INVERT flips (default for historical FADE_INV setups).
+        # NORMAL uses the detector's direction as-is (for NORMAL-family setups
+        # like GARCH_Z_FADE that already encode the trade direction correctly).
+        dir_mode = setup_cfg.get("direction_mode", "INVERT")
+        if dir_mode == "NORMAL":
+            flipped = orig_dir
+        else:
+            flipped = _flip(orig_dir)
 
         # STOP placement = close +/- 0.5*ATR in the FLIPPED direction
         if flipped == "LONG":
