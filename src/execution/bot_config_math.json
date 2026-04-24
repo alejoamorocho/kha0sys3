@@ -1,5 +1,5 @@
 {
-  "_doc": "Math-invert portfolio 36 \u2014 22 ELITE + 108 diversification 2026-04-24",
+  "_doc": "Math-invert portfolio 42 \u2014 22 ELITE + 108 pool + FX top (WR>=0.75 PF>=2.0 DD<=10R) session-disjoint",
   "_tier1": "WR>=0.80 PF>=3.0 DD<=8R (all 22 forced in)",
   "_tier2": "WR>=0.75 PF>=2.5 DD<=10R (fill up to cap)",
   "_caps": {
@@ -7,9 +7,9 @@
     "max_per_symbol_setup": 3
   },
   "_metrics_aggregate": {
-    "n_strategies": 36,
-    "avg_wr": 0.8372,
-    "avg_pf": 3.157,
+    "n_strategies": 42,
+    "avg_wr": 0.8278,
+    "avg_pf": 3.039,
     "avg_expectancy_r": 0.3382
   },
   "risk_scaling": {
@@ -124,6 +124,19 @@
       "expected_expectancy_r": 0.3957
     },
     {
+      "sym": "GBPJPY+",
+      "internal_sym": "GBPJPY",
+      "session": "ASIA",
+      "setup_type": "OLS_SLOPE_STRONG",
+      "direction_mode": "INVERT",
+      "tp_atr_mult": 0.75,
+      "sl_atr_mult": 0.75,
+      "atr_period": 14,
+      "expected_wr": 0.75,
+      "expected_pf": 2.385,
+      "expected_expectancy_r": 0.3936
+    },
+    {
       "sym": "UKOUSD",
       "internal_sym": "BRENT",
       "session": "ASIA",
@@ -150,6 +163,19 @@
       "expected_expectancy_r": 0.3928
     },
     {
+      "sym": "EURJPY+",
+      "internal_sym": "EURJPY",
+      "session": "NY",
+      "setup_type": "OLS_SLOPE_STRONG",
+      "direction_mode": "INVERT",
+      "tp_atr_mult": 0.75,
+      "sl_atr_mult": 0.75,
+      "atr_period": 14,
+      "expected_wr": 0.7733,
+      "expected_pf": 2.493,
+      "expected_expectancy_r": 0.3794
+    },
+    {
       "sym": "USOUSD",
       "internal_sym": "WTI",
       "session": "ASIA",
@@ -161,6 +187,19 @@
       "expected_wr": 0.8471,
       "expected_pf": 3.331,
       "expected_expectancy_r": 0.3748
+    },
+    {
+      "sym": "EURUSD+",
+      "internal_sym": "EURUSD",
+      "session": "NY",
+      "setup_type": "OLS_SLOPE_STRONG",
+      "direction_mode": "INVERT",
+      "tp_atr_mult": 0.75,
+      "sl_atr_mult": 0.75,
+      "atr_period": 14,
+      "expected_wr": 0.7599,
+      "expected_pf": 2.378,
+      "expected_expectancy_r": 0.3698
     },
     {
       "sym": "XAGUSD",
@@ -187,6 +226,19 @@
       "expected_wr": 0.8403,
       "expected_pf": 3.16,
       "expected_expectancy_r": 0.365
+    },
+    {
+      "sym": "EURUSD+",
+      "internal_sym": "EURUSD",
+      "session": "ASIA",
+      "setup_type": "HURST_TREND_MOM",
+      "direction_mode": "INVERT",
+      "tp_atr_mult": 0.75,
+      "sl_atr_mult": 0.75,
+      "atr_period": 14,
+      "expected_wr": 0.7561,
+      "expected_pf": 2.301,
+      "expected_expectancy_r": 0.3639
     },
     {
       "sym": "GBPUSD+",
@@ -408,6 +460,32 @@
       "expected_wr": 0.9008,
       "expected_pf": 3.926,
       "expected_expectancy_r": 0.2828
+    },
+    {
+      "sym": "GBPAUD+",
+      "internal_sym": "GBPAUD",
+      "session": "ASIA",
+      "setup_type": "OLS_SLOPE_STRONG",
+      "direction_mode": "INVERT",
+      "tp_atr_mult": 0.5,
+      "sl_atr_mult": 0.75,
+      "atr_period": 14,
+      "expected_wr": 0.8124,
+      "expected_pf": 2.397,
+      "expected_expectancy_r": 0.2784
+    },
+    {
+      "sym": "AUDUSD+",
+      "internal_sym": "AUDUSD",
+      "session": "LONDON",
+      "setup_type": "OLS_SLOPE_STRONG",
+      "direction_mode": "INVERT",
+      "tp_atr_mult": 0.75,
+      "sl_atr_mult": 1.0,
+      "atr_period": 14,
+      "expected_wr": 0.7775,
+      "expected_pf": 2.048,
+      "expected_expectancy_r": 0.2441
     },
     {
       "sym": "XAGUSD",
