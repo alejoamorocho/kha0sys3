@@ -220,6 +220,20 @@ class MathOrderManager:
             sl_price = stop_price + setup_cfg["sl_atr_mult"] * atr
             order_type = "SELL_STOP"
 
+        # Early price normalization to symbol digits (so logs/pending/submit match)
+        digits = 5  # fallback
+        if mt5 is not None:
+            try:
+                _si = mt5.symbol_info(symbol)
+                if _si is not None:
+                    digits = int(getattr(_si, "digits", 5))
+            except Exception:
+                pass
+        stop_price = round(stop_price, digits)
+        tp_price = round(tp_price, digits)
+        sl_price = round(sl_price, digits)
+        _fmt = f".{digits}f"
+
         # Expiration: 5 M15 bars = 75 minutes
         expiration = datetime.now(timezone.utc) + timedelta(minutes=15 * MATH_WAIT_BARS)
 
@@ -246,9 +260,9 @@ class MathOrderManager:
         self._mark_fired(symbol, setup_type)
 
         msg = (
-            f"{order_type} {symbol} @ {stop_price:.5f} "
-            f"TP={tp_price:.5f} SL={sl_price:.5f} "
-            f"(setup={setup_type} orig={orig_dir}->INVERTED={flipped} atr={atr:.5f})"
+            f"{order_type} {symbol} @ {stop_price:{_fmt}} "
+            f"TP={tp_price:{_fmt}} SL={sl_price:{_fmt}} "
+            f"(setup={setup_type} orig={orig_dir}->{dir_mode}={flipped} atr={atr:.5f})"
         )
         print(f"[MATH]{'[DRY]' if self.dry_run else ''} {msg}")
         self._tg(msg)
