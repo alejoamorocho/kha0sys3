@@ -29,7 +29,7 @@ import polars as pl
 
 from src.execution.mt5_client import MT5Client
 from src.execution.math_order_manager import MathOrderManager
-from src.execution.risk_manager import DynamicRiskAllocator
+from src.execution.risk_manager import DynamicRiskAllocator, BalanceTieredRiskAllocator
 from src.domain.constants import (
     MATH_RISK_MIN_PCT, MATH_RISK_MAX_PCT, MATH_WR_MIN, MATH_WR_MAX,
 )
@@ -96,11 +96,21 @@ class MathTraderEngine:
         except Exception as e:
             print(f"[MATH] Telegram init skipped: {e}")
 
-        # Math-specific risk allocator: 1% @ WR 0.57 → 15% @ WR 1.00 (linear).
-        self.risk = DynamicRiskAllocator(
-            min_risk=MATH_RISK_MIN_PCT, max_risk=MATH_RISK_MAX_PCT,
-            min_wr=MATH_WR_MIN, max_wr=MATH_WR_MAX,
-        )
+        # Risk allocator: prefer balance-tiered if present in config, else flat.
+        rs = cfg.get("risk_scaling", {})
+        min_wr = float(rs.get("min_wr", MATH_WR_MIN))
+        max_wr = float(rs.get("max_wr", MATH_WR_MAX))
+        if "tiers" in rs:
+            self.risk = BalanceTieredRiskAllocator(
+                tiers=rs["tiers"], min_wr=min_wr, max_wr=max_wr,
+            )
+            print(f"[MATH] Risk: balance-tiered {len(rs['tiers'])} tiers, WR range {min_wr:.2f}-{max_wr:.2f}")
+        else:
+            self.risk = DynamicRiskAllocator(
+                min_risk=float(rs.get("min_risk", MATH_RISK_MIN_PCT)),
+                max_risk=float(rs.get("max_risk", MATH_RISK_MAX_PCT)),
+                min_wr=min_wr, max_wr=max_wr,
+            )
 
         self.om = MathOrderManager(
             client=self.client, magic=MAGIC_NUMBER_MATH,
@@ -225,17 +235,42 @@ class MathTraderEngine:
             return
         self._last_heartbeat = now
         uptime_h = (now - (self._start_time or now)) / 3600.0
-        # Add DRY summary line to heartbeat when dry_run
-        extra = ""
+
+        # Account snapshot
+        bal = eq = free = 0.0
+        n_pos = 0
+        pnl_d = 0.0
+        if mt5 is not None:
+            try:
+                a = mt5.account_info()
+                if a is not None:
+                    bal = float(a.balance); eq = float(a.equity); free = float(a.margin_free)
+                positions = mt5.positions_get() or []
+                math_pos = [p for p in positions if p.magic == MAGIC_NUMBER_MATH]
+                n_pos = len(math_pos)
+                pnl_d = sum(float(p.profit) for p in math_pos)
+            except Exception:
+                pass
+
+        msg = (
+            f"HEARTBEAT\n"
+            f"Uptime:   {uptime_h:.1f}h\n"
+            f"Setups:   {len(self.setups)}\n"
+            f"Pending:  {len(self.om._pending)}\n"
+            f"Open pos: {n_pos} (floating P&L ${pnl_d:+.2f})\n"
+            f"Balance:  ${bal:.2f}\n"
+            f"Equity:   ${eq:.2f}\n"
+            f"Free:     ${free:.2f}"
+        )
         if self.dry_run:
             trades = self.om.read_dry_trades()
             today = self.om._today_utc()
             todays = [t for t in trades if (t.get("exit_time") or "").startswith(today)]
-            n_today = len(todays)
-            net_r_today = sum(t.get("r_multiple", 0.0) for t in todays)
-            extra = f" | DRY today n={n_today} netR={net_r_today:+.2f}"
-        self._tg(f"heartbeat uptime={uptime_h:.1f}h setups={len(self.setups)} "
-                 f"pending={len(self.om._pending)}{extra}")
+            msg += (
+                f"\nDRY today: n={len(todays)} "
+                f"netR={sum(t.get('r_multiple', 0.0) for t in todays):+.2f}"
+            )
+        self._tg(msg)
 
     def _maybe_emit_daily_report(self):
         """Fire the DRY daily report at 23:55 UTC (once per day)."""
@@ -257,7 +292,7 @@ class MathTraderEngine:
         """Main loop. Polls every POLL_INTERVAL; acts on M15 boundaries."""
         if not self.client.connect():
             print("[MATH] MT5 connect failed.")
-            self._tg("MT5 connect failed — MATH engine exiting")
+            self._tg("ENGINE FATAL\nMT5 connect failed\nEngine exiting")
             return
 
         self._start_time = time.time()
@@ -274,20 +309,36 @@ class MathTraderEngine:
             bal = float(getattr(acct, "balance", 0.0)) if acct else 0.0
             eq = float(getattr(acct, "equity", 0.0)) if acct else 0.0
             mg = float(getattr(acct, "margin_free", 0.0)) if acct else 0.0
-            labels = "\n".join(
-                f"  {s['sym']}|{s['session']}|{s['setup_type']} "
-                f"(WR={s.get('expected_wr', 0):.2f})"
-                for s in self.setups
-            )
+            # Symbol summary compact
+            from collections import Counter
+            sym_counter = Counter(s["sym"] for s in self.setups)
+            setup_counter = Counter(s["setup_type"] for s in self.setups)
+            dir_counter = Counter(s.get("direction_mode", "INVERT") for s in self.setups)
+            syms_line = ", ".join(f"{k}({v})" for k, v in sym_counter.most_common())
+            setups_line = ", ".join(f"{k}({v})" for k, v in setup_counter.most_common())
+            dirs_line = ", ".join(f"{k}({v})" for k, v in dir_counter.most_common())
+
+            mode = "LIVE" if not self.dry_run else "DRY_RUN"
             self._tg(
-                f"Engine LIVE acct=${bal:.2f} equity=${eq:.2f} free=${mg:.2f} "
-                f"risk_tier=1-15% setups={n}\n{labels}"
+                f"ENGINE STARTED ({mode})\n"
+                f"Magic:    {MAGIC_NUMBER_MATH}\n"
+                f"Setups:   {n}\n"
+                f"Symbols:  {len(sym_counter)} -> {syms_line}\n"
+                f"Setup mix: {setups_line}\n"
+                f"Direction: {dirs_line}\n"
+                f"Risk tier: 1% @ WR 0.57 -> 15% @ WR 1.00\n"
+                f"Balance:  ${bal:.2f}\n"
+                f"Equity:   ${eq:.2f}\n"
+                f"Free:     ${mg:.2f}"
             )
         except Exception as e:
             print(f"[MATH] startup TG error: {e}")
             self._tg(
-                f"MATH engine started | setups={n} symbols={len(syms)} "
-                f"magic={MAGIC_NUMBER_MATH} dry_run={self.dry_run}"
+                f"ENGINE STARTED (fallback)\n"
+                f"Magic:   {MAGIC_NUMBER_MATH}\n"
+                f"Setups:  {n}\n"
+                f"Symbols: {len(syms)}\n"
+                f"Dry run: {self.dry_run}"
             )
 
         print(f"[MATH] Engine started ({n} setups, dry_run={self.dry_run})")
@@ -302,7 +353,7 @@ class MathTraderEngine:
                     self._last_reconnect_check = nowt
                     try:
                         if not self.client.ensure_connected():
-                            self._tg("MT5 reconnect FAILED -- skipping this pass")
+                            self._tg("MT5 RECONNECT FAILED\nSkipping this pass")
                             time.sleep(self.POLL_INTERVAL)
                             continue
                     except Exception as e:
@@ -331,7 +382,7 @@ class MathTraderEngine:
                     try:
                         alerts = self._health.get_critical_alerts()
                         if alerts:
-                            self._tg("[HEALTH] " + " | ".join(alerts))
+                            self._tg("HEALTH ALERT\n" + "\n".join(alerts))
                     except Exception as e:
                         print(f"[MATH] health check err: {e}")
 
@@ -360,7 +411,7 @@ class MathTraderEngine:
                 time.sleep(self.POLL_INTERVAL)
 
         except KeyboardInterrupt:
-            self._tg("MATH engine stopped (KeyboardInterrupt)")
+            self._tg("ENGINE STOPPED\nReason: KeyboardInterrupt")
             print("[MATH] Stopped.")
         finally:
             try:

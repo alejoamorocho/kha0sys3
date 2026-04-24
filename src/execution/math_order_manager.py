@@ -259,13 +259,38 @@ class MathOrderManager:
         self._pending[key] = pending
         self._mark_fired(symbol, setup_type)
 
-        msg = (
-            f"{order_type} {symbol} @ {stop_price:{_fmt}} "
-            f"TP={tp_price:{_fmt}} SL={sl_price:{_fmt}} "
-            f"(setup={setup_type} orig={orig_dir}->{dir_mode}={flipped} atr={atr:.5f})"
+        # Structured multi-line Telegram message (no emojis)
+        expected_wr = float(setup_cfg.get("expected_wr", 0.60))
+        risk_pct = 0.0
+        if self.risk is not None:
+            try:
+                # Balance-tiered takes (wr, balance); classic takes (wr) only
+                bal = getattr(self, "_last_balance", 0.0)
+                try:
+                    risk_pct = float(self.risk.get_risk_percent(expected_wr, bal))
+                except TypeError:
+                    risk_pct = float(self.risk.get_risk_percent(expected_wr))
+            except Exception:
+                pass
+        tg_msg = (
+            f"ORDER PLACED\n"
+            f"Symbol:    {symbol}\n"
+            f"Type:      {order_type}\n"
+            f"Direction: {flipped} ({dir_mode})\n"
+            f"Setup:     {setup_type}\n"
+            f"Session:   {setup_cfg.get('session', '-')}\n"
+            f"Entry:     {stop_price:{_fmt}}\n"
+            f"TP:        {tp_price:{_fmt}}\n"
+            f"SL:        {sl_price:{_fmt}}\n"
+            f"ATR:       {atr:.5f}\n"
+            f"Risk:      {risk_pct*100:.1f}% (WR={expected_wr:.2f})\n"
+            f"Ticket:    {ticket if ticket != -1 else 'DRY'}"
         )
-        print(f"[MATH]{'[DRY]' if self.dry_run else ''} {msg}")
-        self._tg(msg)
+        # Console log stays compact (one line for grep)
+        print(f"[MATH]{'[DRY]' if self.dry_run else ''} {order_type} {symbol} "
+              f"@ {stop_price:{_fmt}} TP={tp_price:{_fmt}} SL={sl_price:{_fmt}} "
+              f"setup={setup_type}/{dir_mode} risk={risk_pct*100:.1f}%")
+        self._tg(tg_msg)
         return pending
 
     def _compute_volume(self, sym_info, entry: float, sl: float,
@@ -292,6 +317,8 @@ class MathOrderManager:
             tick_value=tick_value, tick_size=tick_size,
             volume_step=volume_step, win_rate=expected_wr,
         )
+        # Cache balance for subsequent get_risk_percent display in log
+        self._last_balance = float(acct.balance)
         return max(lots, lot_min)
 
     def _submit_stop(self, symbol: str, order_type: str, stop_price: float,
@@ -311,7 +338,12 @@ class MathOrderManager:
 
         # Spread gate (hard guard)
         if not self._spread_ok(symbol):
-            self._tg(f"spread gate blocked {symbol} {setup_type}")
+            self._tg(
+                f"SPREAD GATE BLOCK\n"
+                f"Symbol:  {symbol}\n"
+                f"Setup:   {setup_type}\n"
+                f"Reason:  current spread > 2.5x typical (skip)"
+            )
             return None
 
         try:
@@ -400,12 +432,12 @@ class MathOrderManager:
                 res = mt5.order_send(req)
             except Exception as e:
                 print(f"[MATH] order_send raised: {e}")
-                self._tg(f"order_send EXC {symbol} {setup_type}: {e}")
+                self._tg(f"ORDER SEND EXCEPTION\nSymbol: {symbol}\nSetup:  {setup_type}\nError:  {e}")
                 return None
             if res is None:
                 last_err = mt5.last_error() if hasattr(mt5, "last_error") else "?"
                 print(f"[MATH] order_send None: {last_err}")
-                self._tg(f"order_send None {symbol} {setup_type}: {last_err}")
+                self._tg(f"ORDER SEND NULL RESPONSE\nSymbol: {symbol}\nSetup:  {setup_type}\nError:  {last_err}")
                 return None
             rc = int(getattr(res, "retcode", -1))
             done_code = getattr(mt5, "TRADE_RETCODE_DONE", 10009)
@@ -413,11 +445,11 @@ class MathOrderManager:
                 return int(res.order)
             if rc == _RETCODE_INVALID_PRICE:
                 print(f"[MATH] {symbol} invalid price (10015) p={price_n} bid={getattr(tick,'bid','?')} ask={getattr(tick,'ask','?')} stops_level={stops_level_pts}pt -- skip")
-                self._tg(f"invalid price {symbol} {setup_type} p={price_n}")
+                self._tg(f"INVALID PRICE (retcode 10015)\nSymbol: {symbol}\nSetup:  {setup_type}\nPrice:  {price_n} (skipped)")
                 return None
             if rc == _RETCODE_INVALID_STOPS:
                 print(f"[MATH] {symbol} invalid stops (10016) tp={tp_n} sl={sl_n} stops_level={stops_level_pts}pt -- skip")
-                self._tg(f"invalid stops {symbol} {setup_type} tp={tp_n} sl={sl_n}")
+                self._tg(f"INVALID STOPS (retcode 10016)\nSymbol: {symbol}\nSetup:  {setup_type}\nTP:     {tp_n}\nSL:     {sl_n}\n(skipped)")
                 return None
             if rc == _RETCODE_INVALID_EXPIRATION:
                 # Broker may still reject GTC for this account; try DAY as last resort
@@ -430,7 +462,7 @@ class MathOrderManager:
                     print(f"[MATH] {symbol} retry retcode={getattr(res2,'retcode','?')}")
                 except Exception as e:
                     print(f"[MATH] {symbol} retry EXC: {e}")
-                self._tg(f"invalid expiration {symbol} {setup_type}")
+                self._tg(f"INVALID EXPIRATION (retcode 10022)\nSymbol: {symbol}\nSetup:  {setup_type}\nRetry:  ORDER_TIME_DAY failed (skipped)")
                 return None
             if rc == _RETCODE_INVALID_FILL:
                 # Try alternate filling modes
@@ -446,14 +478,14 @@ class MathOrderManager:
                             return int(res3.order)
                     except Exception:
                         pass
-                self._tg(f"invalid fill {symbol} {setup_type}")
+                self._tg(f"INVALID FILL MODE (retcode 10030)\nSymbol: {symbol}\nSetup:  {setup_type}\nRetry:  FOK/IOC failed (skipped)")
                 return None
             if rc == _RETCODE_MARKET_CLOSED:
                 print(f"[MATH] {symbol} market closed (10018) -- skip quietly")
                 return None
             # Other non-done: loud
             print(f"[MATH] order_send retcode={rc} req={req}")
-            self._tg(f"order_send retcode={rc} {symbol} {setup_type}")
+            self._tg(f"ORDER REJECT (retcode {rc})\nSymbol: {symbol}\nSetup:  {setup_type}\n(skipped)")
             return None
         except Exception as e:
             print(f"[MATH] _submit_stop error: {e}")
@@ -530,7 +562,7 @@ class MathOrderManager:
             except Exception as e:
                 print(f"[MATH] sweep_stale iter error: {e}")
         if cancelled > 0:
-            self._tg(f"sweep_stale cancelled {cancelled} stale STOP orders (>{_STALE_STOP_MIN}min)")
+            self._tg(f"STALE SWEEP\nCancelled: {cancelled} STOP orders\nAge limit: {_STALE_STOP_MIN} minutes")
             print(f"[MATH] sweep_stale cancelled={cancelled}")
         return cancelled
 
@@ -585,7 +617,7 @@ class MathOrderManager:
                 res = mt5.order_send(req)
                 if res is not None and getattr(res, "retcode", -1) == mt5.TRADE_RETCODE_DONE:
                     closed += 1
-                    self._tg(f"SLGuardian closed breached {p.symbol} ticket={p.ticket}")
+                    self._tg(f"SL GUARDIAN CLOSE\nSymbol: {p.symbol}\nTicket: {p.ticket}\nReason: price crossed SL without broker close\nAction: closed at market")
                     print(f"[MATH][SLG] closed {p.symbol} ticket={p.ticket}")
             except Exception as e:
                 print(f"[MATH][SLG] iter error: {e}")
@@ -638,8 +670,12 @@ class MathOrderManager:
                 cancelled += 1
                 self._pending.pop(key, None)
                 self._tg(
-                    f"guard-cancel {p.symbol} {p.setup_type} "
-                    f"(g0={g0:.5f} now={latest_guard:.5f})"
+                    f"GUARD CANCEL\n"
+                    f"Symbol:  {p.symbol}\n"
+                    f"Setup:   {p.setup_type}\n"
+                    f"Reason:  original indicator weakened\n"
+                    f"Guard@0: {g0:.5f}\n"
+                    f"Guard now: {latest_guard:.5f}"
                 )
         return cancelled
 
@@ -687,8 +723,11 @@ class MathOrderManager:
                     p.virt_entry_price = p.stop_price
                     p.virt_entry_time = t
                     self._tg(
-                        f"VFILL {p.flipped_direction} {p.symbol} {p.setup_type} "
-                        f"@ {p.stop_price:.5f} (virtual)"
+                        f"VIRTUAL FILL\n"
+                        f"Symbol:    {p.symbol}\n"
+                        f"Setup:     {p.setup_type}\n"
+                        f"Direction: {p.flipped_direction}\n"
+                        f"Entry:     {p.stop_price:.5f}"
                     )
                 # If not filled and expired, drop without log
                 elif now >= p.expiration_utc:
@@ -756,8 +795,14 @@ class MathOrderManager:
         except Exception as e:
             print(f"[MATH][DRY] log write error: {e}")
         self._tg(
-            f"VCLOSE {p.flipped_direction} {p.symbol} {p.setup_type} "
-            f"{reason} @ {exit_price:.5f} -> R={r:+.3f}"
+            f"VIRTUAL CLOSE\n"
+            f"Symbol:    {p.symbol}\n"
+            f"Setup:     {p.setup_type}\n"
+            f"Direction: {p.flipped_direction}\n"
+            f"Reason:    {reason}\n"
+            f"Entry:     {p.virt_entry_price:.5f}\n"
+            f"Exit:      {exit_price:.5f}\n"
+            f"R-mult:    {r:+.3f}"
         )
 
     def read_dry_trades(self) -> list[dict]:

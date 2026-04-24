@@ -99,6 +99,77 @@ class DynamicRiskAllocator:
         return round(lots, 2)
 
 
+class BalanceTieredRiskAllocator(DynamicRiskAllocator):
+    """Risk allocator with balance-based tiers. Max risk decreases as balance grows.
+
+    Tiers is a list of dicts, each with keys:
+      - max_balance (float or None): upper bound of this tier (None = final tier)
+      - min_risk:    minimum risk pct for this tier
+      - max_risk:    maximum risk pct for this tier
+
+    The right tier is picked every call based on current account balance.
+    WR still scales risk linearly inside [min_risk, max_risk] of the active tier.
+    """
+
+    def __init__(self, tiers: list[dict], min_wr: float = WR_MIN,
+                 max_wr: float = WR_MAX):
+        self.tiers = tiers
+        self.min_wr = min_wr
+        self.max_wr = max_wr
+        # Initialize parent with tier 1 defaults (fallback before balance known)
+        t0 = tiers[0] if tiers else {"min_risk": RISK_MIN_PCT, "max_risk": RISK_MAX_PCT}
+        super().__init__(
+            min_risk=t0["min_risk"], max_risk=t0["max_risk"],
+            min_wr=min_wr, max_wr=max_wr,
+        )
+
+    def _tier_for_balance(self, balance: float) -> dict:
+        for t in self.tiers:
+            mb = t.get("max_balance")
+            if mb is None or balance <= mb:
+                return t
+        return self.tiers[-1]
+
+    def get_risk_percent(self, win_rate: float, account_balance: float = 0.0) -> float:
+        tier = self._tier_for_balance(account_balance)
+        min_r = tier["min_risk"]
+        max_r = tier["max_risk"]
+        if win_rate <= self.min_wr:
+            return min_r
+        if win_rate >= self.max_wr:
+            return max_r
+        ratio = (win_rate - self.min_wr) / (self.max_wr - self.min_wr)
+        return min_r + ratio * (max_r - min_r)
+
+    def calculate_lots(self, account_balance: float, entry_price: float,
+                       sl_price: float, tick_value: float, tick_size: float,
+                       volume_step: float, win_rate: float = DEFAULT_WIN_RATE) -> float:
+        if tick_value <= 0 or tick_size <= 0 or volume_step <= 0:
+            return 0.0
+        # Balance-tiered risk pct
+        risk_pct = self.get_risk_percent(win_rate, account_balance)
+        risk_money = account_balance * risk_pct
+
+        price_diff = abs(entry_price - sl_price)
+        if price_diff <= 0:
+            return 0.0
+
+        ticks_at_risk = price_diff / tick_size
+        loss_per_1_lot = ticks_at_risk * tick_value
+        if loss_per_1_lot <= 0:
+            return 0.0
+
+        raw_lots = risk_money / loss_per_1_lot
+        lots = math.floor(raw_lots / volume_step) * volume_step
+        if lots < volume_step:
+            lots = volume_step
+            actual_risk = (lots * loss_per_1_lot) / account_balance
+            tier = self._tier_for_balance(account_balance)
+            print(f"[RISK-TIERED] Min lot override: {lots} lots | Target={risk_pct:.2%} "
+                  f"Actual={actual_risk:.2%} Tier_max={tier['max_risk']:.1%} bal=${account_balance:.0f}")
+        return round(lots, 2)
+
+
 class SLGuardian:
     """Proteccion contra slippage que salta el SL.
 
