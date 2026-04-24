@@ -212,3 +212,147 @@ def test_dry_run_submit_returns_sentinel_ticket():
     assert p is not None
     assert p.ticket == -1
     assert p.dry_run is True
+
+
+# ===== Hardening tests (retcodes, sweep, spread, risk sizing) =====
+
+
+def _make_mt5_mock(retcode: int = 10009, order_id: int = 12345):
+    """Build a fake mt5 module with just the attrs _submit_stop needs."""
+    fake = MagicMock()
+    fake.TRADE_RETCODE_DONE = 10009
+    fake.TRADE_ACTION_PENDING = 5
+    fake.TRADE_ACTION_REMOVE = 6
+    fake.ORDER_TYPE_BUY_STOP = 4
+    fake.ORDER_TYPE_SELL_STOP = 5
+    fake.ORDER_TIME_SPECIFIED = 2
+    fake.ORDER_FILLING_RETURN = 2
+    fake.ORDER_FILLING_IOC = 1
+    # symbol_info: volume_min/step, tick_value/size, visible, spread
+    sym_info = MagicMock()
+    sym_info.volume_min = 0.01
+    sym_info.volume_step = 0.01
+    sym_info.trade_tick_size = 0.00001
+    sym_info.trade_tick_value = 1.0
+    sym_info.point = 0.00001
+    sym_info.spread = 10
+    fake.symbol_info = MagicMock(return_value=sym_info)
+    acct = MagicMock()
+    acct.balance = 1000.0
+    fake.account_info = MagicMock(return_value=acct)
+    fake.last_error = MagicMock(return_value="none")
+    # Response for order_send
+    res = MagicMock()
+    res.retcode = retcode
+    res.order = order_id
+    fake.order_send = MagicMock(return_value=res)
+    return fake
+
+
+def _submit_args():
+    from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+    return dict(
+        symbol="EURUSD+", order_type="BUY_STOP",
+        stop_price=1.1000, sl=1.0950, tp=1.1050,
+        setup_type="OLS_SLOPE_STRONG", session="ASIA",
+        expiration=_dt.now(_tz.utc) + _td(minutes=75),
+        expected_wr=0.80,
+    )
+
+
+def test_retcode_10015_handled_without_crash(monkeypatch):
+    from src.execution.risk_manager import DynamicRiskAllocator
+    fake_mt5 = _make_mt5_mock(retcode=10015)
+    import src.execution.math_order_manager as mm
+    monkeypatch.setattr(mm, "mt5", fake_mt5)
+
+    om = MathOrderManager(
+        client=MagicMock(), dry_run=False, telegram=None,
+        risk_allocator=DynamicRiskAllocator(),
+    )
+    ticket = om._submit_stop(**_submit_args())
+    assert ticket is None  # skip, no crash
+    assert fake_mt5.order_send.called
+
+
+def test_retcode_10018_handled_without_crash(monkeypatch):
+    from src.execution.risk_manager import DynamicRiskAllocator
+    fake_mt5 = _make_mt5_mock(retcode=10018)
+    import src.execution.math_order_manager as mm
+    monkeypatch.setattr(mm, "mt5", fake_mt5)
+
+    om = MathOrderManager(
+        client=MagicMock(), dry_run=False, telegram=None,
+        risk_allocator=DynamicRiskAllocator(),
+    )
+    ticket = om._submit_stop(**_submit_args())
+    assert ticket is None  # skip quiet
+
+
+def test_sweep_stale_cancels_orders_older_than_90min(monkeypatch):
+    from datetime import datetime as _dt, timezone as _tz
+    fake_mt5 = _make_mt5_mock(retcode=10009)
+    # Two MATH orders: one fresh (5min old), one stale (120min old)
+    now_ts = int(_dt.now(_tz.utc).timestamp())
+    fresh = MagicMock(ticket=1, magic=1338, symbol="EURUSD+",
+                      time_setup=now_ts - 5 * 60)
+    stale = MagicMock(ticket=2, magic=1338, symbol="EURUSD+",
+                      time_setup=now_ts - 120 * 60)
+    other = MagicMock(ticket=3, magic=1337, symbol="EURUSD+",  # FADE bot
+                      time_setup=now_ts - 180 * 60)
+    fake_mt5.orders_get = MagicMock(return_value=[fresh, stale, other])
+
+    import src.execution.math_order_manager as mm
+    monkeypatch.setattr(mm, "mt5", fake_mt5)
+
+    om = MathOrderManager(client=MagicMock(), dry_run=False, telegram=None)
+    n = om.sweep_stale()
+    assert n == 1
+    # Verify it targeted ticket=2 with REMOVE action
+    calls = fake_mt5.order_send.call_args_list
+    assert any(call.args[0].get("order") == 2
+               and call.args[0].get("action") == fake_mt5.TRADE_ACTION_REMOVE
+               for call in calls)
+
+
+def test_spread_gate_blocks_when_spread_too_high(monkeypatch):
+    from src.execution.risk_manager import DynamicRiskAllocator
+    fake_mt5 = _make_mt5_mock(retcode=10009)
+    import src.execution.math_order_manager as mm
+    monkeypatch.setattr(mm, "mt5", fake_mt5)
+
+    om = MathOrderManager(
+        client=MagicMock(), dry_run=False, telegram=None,
+        risk_allocator=DynamicRiskAllocator(),
+    )
+    # Seed typical spread at 10
+    om._typical_spread = {"EURUSD+": 10.0}
+    # Now broker reports spread=100 (10x typical > 2.5x limit)
+    fake_mt5.symbol_info.return_value.spread = 100
+    ticket = om._submit_stop(**_submit_args())
+    assert ticket is None
+    # order_send must NOT have been called (gate blocked before request)
+    assert fake_mt5.order_send.call_count == 0
+
+
+def test_compute_volume_respects_expected_wr(monkeypatch):
+    """Higher WR -> bigger lot; lower WR -> smaller lot."""
+    from src.execution.risk_manager import DynamicRiskAllocator
+    fake_mt5 = _make_mt5_mock(retcode=10009)
+    import src.execution.math_order_manager as mm
+    monkeypatch.setattr(mm, "mt5", fake_mt5)
+
+    alloc = DynamicRiskAllocator(min_risk=0.01, max_risk=0.15,
+                                  min_wr=0.57, max_wr=1.00)
+    om = MathOrderManager(
+        client=MagicMock(), dry_run=False, telegram=None,
+        risk_allocator=alloc,
+    )
+    sym_info = fake_mt5.symbol_info.return_value
+    lots_high = om._compute_volume(sym_info, entry=1.1000, sl=1.0950,
+                                   expected_wr=1.00)
+    lots_low = om._compute_volume(sym_info, entry=1.1000, sl=1.0950,
+                                  expected_wr=0.57)
+    assert lots_high > lots_low
+    # Sanity: 15x ratio roughly matches risk scale (allow slop for lot rounding)
+    assert lots_high / max(lots_low, 0.01) > 5.0
