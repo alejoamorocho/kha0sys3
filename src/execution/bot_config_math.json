@@ -4,7 +4,7 @@
     "min_risk": 0.01,
     "max_risk": 0.15,
     "min_wr": 0.57,
-    "max_wr": 1.00
+    "max_wr": 1.0
   },
   "portfolio": [
     {
@@ -17,7 +17,7 @@
       "tp_atr_mult": 0.75,
       "sl_atr_mult": 1.5,
       "atr_period": 14,
-      "expected_wr": 1.00,
+      "expected_wr": 0.8064,
       "expected_pf": 1.7575
     },
     {
@@ -30,7 +30,7 @@
       "tp_atr_mult": 0.5,
       "sl_atr_mult": 1.5,
       "atr_period": 14,
-      "expected_wr": 0.80,
+      "expected_wr": 0.8466,
       "expected_pf": 1.3699
     },
     {
@@ -43,7 +43,7 @@
       "tp_atr_mult": 0.75,
       "sl_atr_mult": 1.5,
       "atr_period": 14,
-      "expected_wr": 0.85,
+      "expected_wr": 0.8037,
       "expected_pf": 1.6584
     },
     {
@@ -56,7 +56,7 @@
       "tp_atr_mult": 0.75,
       "sl_atr_mult": 1.5,
       "atr_period": 14,
-      "expected_wr": 0.80,
+      "expected_wr": 0.8068,
       "expected_pf": 1.2147
     },
     {
@@ -69,7 +69,7 @@
       "tp_atr_mult": 0.75,
       "sl_atr_mult": 1.5,
       "atr_period": 14,
-      "expected_wr": 0.78,
+      "expected_wr": 0.8026,
       "expected_pf": 1.7471
     },
     {
@@ -82,7 +82,7 @@
       "tp_atr_mult": 0.75,
       "sl_atr_mult": 1.5,
       "atr_period": 14,
-      "expected_wr": 0.80,
+      "expected_wr": 0.8236,
       "expected_pf": 1.9017
     }
   ]
