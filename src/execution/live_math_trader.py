@@ -19,6 +19,7 @@ NEVER reads or writes FADE orders — every MT5 query filters by magic=1338.
 from __future__ import annotations
 
 import json
+import threading
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -68,9 +69,13 @@ def _add_atr(bars: pl.DataFrame, period: int = 14) -> pl.DataFrame:
 
 class MathTraderEngine:
 
-    POLL_INTERVAL = 60                  # seconds between loop iterations
+    POLL_INTERVAL = 10                  # seconds between loop iterations
     HEARTBEAT_INTERVAL = 900            # 15 min
     M15_SECONDS = 15 * 60
+    RECONNECT_CHECK_INTERVAL = 60       # secs — ensure_connected cadence
+    SL_GUARDIAN_INTERVAL = 10           # secs
+    HEALTH_CHECK_INTERVAL = 300         # 5 min
+    SWEEP_STALE_INTERVAL = 3600         # 1 hour
 
     def __init__(self, config_path: str = "src/execution/bot_config_math.json",
                  dry_run: bool = True):
@@ -106,6 +111,37 @@ class MathTraderEngine:
         self._start_time: Optional[float] = None
         self._last_heartbeat: float = 0.0
         self._last_m15_processed: Optional[datetime] = None
+        self._last_reconnect_check: float = 0.0
+        self._last_sl_check: float = 0.0
+        self._last_health_check: float = 0.0
+        self._last_sweep: float = 0.0
+
+        # Thread-safe pause flag (for /math_stop /math_resume)
+        self._paused = False
+        self._pause_lock = threading.Lock()
+
+        # Health monitor (optional — tolerate missing deps in dev)
+        self._health = None
+        try:
+            from src.monitoring.system_health import SystemHealthMonitor
+            self._health = SystemHealthMonitor()
+        except Exception as e:
+            print(f"[MATH] SystemHealthMonitor init skipped: {e}")
+
+    # ------- pause API -------
+    def pause(self):
+        with self._pause_lock:
+            self._paused = True
+        self._tg("engine PAUSED (no new placements)")
+
+    def resume(self):
+        with self._pause_lock:
+            self._paused = False
+        self._tg("engine RESUMED")
+
+    def is_paused(self) -> bool:
+        with self._pause_lock:
+            return self._paused
 
     # ─── helpers ────────────────────────────────────────────────
 
@@ -229,28 +265,91 @@ class MathTraderEngine:
 
         n = len(self.setups)
         syms = sorted({s["sym"] for s in self.setups})
-        self._tg(
-            f"MATH engine started | setups={n} symbols={len(syms)} "
-            f"magic={MAGIC_NUMBER_MATH} dry_run={self.dry_run}"
-        )
+
+        # Startup Telegram — account snapshot + setup labels
+        try:
+            acct = None
+            if mt5 is not None:
+                acct = mt5.account_info()
+            bal = float(getattr(acct, "balance", 0.0)) if acct else 0.0
+            eq = float(getattr(acct, "equity", 0.0)) if acct else 0.0
+            mg = float(getattr(acct, "margin_free", 0.0)) if acct else 0.0
+            labels = "\n".join(
+                f"  {s['sym']}|{s['session']}|{s['setup_type']} "
+                f"(WR={s.get('expected_wr', 0):.2f})"
+                for s in self.setups
+            )
+            self._tg(
+                f"Engine LIVE acct=${bal:.2f} equity=${eq:.2f} free=${mg:.2f} "
+                f"risk_tier=1-15% setups={n}\n{labels}"
+            )
+        except Exception as e:
+            print(f"[MATH] startup TG error: {e}")
+            self._tg(
+                f"MATH engine started | setups={n} symbols={len(syms)} "
+                f"magic={MAGIC_NUMBER_MATH} dry_run={self.dry_run}"
+            )
+
         print(f"[MATH] Engine started ({n} setups, dry_run={self.dry_run})")
 
         try:
             while True:
                 now = self._utc_now()
+                nowt = time.time()
 
-                # Process only once per M15 bar close
+                # Ensure MT5 connected (every RECONNECT_CHECK_INTERVAL)
+                if nowt - self._last_reconnect_check >= self.RECONNECT_CHECK_INTERVAL:
+                    self._last_reconnect_check = nowt
+                    try:
+                        if not self.client.ensure_connected():
+                            self._tg("MT5 reconnect FAILED -- skipping this pass")
+                            time.sleep(self.POLL_INTERVAL)
+                            continue
+                    except Exception as e:
+                        print(f"[MATH] ensure_connected err: {e}")
+
+                # SL Guardian every 10s
+                if nowt - self._last_sl_check >= self.SL_GUARDIAN_INTERVAL:
+                    self._last_sl_check = nowt
+                    try:
+                        self.om.check_sl_guardian()
+                    except Exception as e:
+                        print(f"[MATH] SLG error: {e}")
+
+                # Hourly stale sweep
+                if nowt - self._last_sweep >= self.SWEEP_STALE_INTERVAL:
+                    self._last_sweep = nowt
+                    try:
+                        self.om.sweep_stale()
+                    except Exception as e:
+                        print(f"[MATH] sweep_stale error: {e}")
+
+                # Health monitor
+                if (self._health is not None
+                        and nowt - self._last_health_check >= self.HEALTH_CHECK_INTERVAL):
+                    self._last_health_check = nowt
+                    try:
+                        alerts = self._health.get_critical_alerts()
+                        if alerts:
+                            self._tg("[HEALTH] " + " | ".join(alerts))
+                    except Exception as e:
+                        print(f"[MATH] health check err: {e}")
+
+                # Process only once per M15 bar close (skip if paused)
                 bar_key = now.replace(second=0, microsecond=0,
                                       minute=(now.minute // 15) * 15)
                 if self._is_m15_close(now) and bar_key != self._last_m15_processed:
                     self._last_m15_processed = bar_key
-                    self.om.reset_daily_if_needed()
-                    for s in self.setups:
-                        try:
-                            self._process_setup(s)
-                        except Exception as e:
-                            print(f"[MATH] process {s.get('sym')}: {e}")
-                    self.om.sweep_expired()
+                    if self.is_paused():
+                        print("[MATH] paused -- skipping M15 processing")
+                    else:
+                        self.om.reset_daily_if_needed()
+                        for s in self.setups:
+                            try:
+                                self._process_setup(s)
+                            except Exception as e:
+                                print(f"[MATH] process {s.get('sym')}: {e}")
+                        self.om.sweep_expired()
 
                 self._heartbeat()
                 self._maybe_emit_daily_report()

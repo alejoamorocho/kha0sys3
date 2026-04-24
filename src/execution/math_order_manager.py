@@ -45,6 +45,13 @@ except Exception:  # pragma: no cover - allow tests without MT5 installed
     mt5 = None  # type: ignore
 
 
+# Retcodes we handle gracefully (skip, no crash)
+_RETCODE_INVALID_PRICE = 10015
+_RETCODE_MARKET_CLOSED = 10018
+_SPREAD_MULT_LIMIT = 2.5      # current spread vs typical
+_STALE_STOP_MIN = 90          # minutes after which an idle STOP is nuked
+
+
 # Setup-type → original direction source column (for live direction guard)
 # (delegates to the already-validated mapping in run_math_momentum)
 
@@ -276,8 +283,13 @@ class MathOrderManager:
             return -1
 
         if mt5 is None:
-            print("[MATH] mt5 not available — treating as DRY")
+            print("[MATH] mt5 not available -- treating as DRY")
             return -1
+
+        # Spread gate (hard guard)
+        if not self._spread_ok(symbol):
+            self._tg(f"spread gate blocked {symbol} {setup_type}")
+            return None
 
         try:
             sym_info = mt5.symbol_info(symbol)
@@ -290,6 +302,18 @@ class MathOrderManager:
             if volume <= 0:
                 print(f"[MATH] computed volume=0 for {symbol}, skipping")
                 return None
+
+            # Risk-sizing log line (ASCII-safe for NSSM cp1252 stdout)
+            try:
+                risk_pct = 0.0
+                if self.risk is not None:
+                    risk_pct = float(self.risk.get_risk_percent(expected_wr))
+                print(
+                    f"[MATH] {symbol} place risk={risk_pct*100:.1f}% "
+                    f"lots={volume:.2f} (WR={expected_wr:.2f})"
+                )
+            except Exception:
+                pass
 
             type_map = {
                 "BUY_STOP": mt5.ORDER_TYPE_BUY_STOP,
@@ -310,17 +334,167 @@ class MathOrderManager:
                 "expiration": int(expiration.timestamp()),
                 "type_filling": mt5.ORDER_FILLING_RETURN,
             }
-            res = mt5.order_send(req)
+            try:
+                res = mt5.order_send(req)
+            except Exception as e:
+                print(f"[MATH] order_send raised: {e}")
+                self._tg(f"order_send EXC {symbol} {setup_type}: {e}")
+                return None
             if res is None:
-                print(f"[MATH] order_send None: {mt5.last_error()}")
+                last_err = mt5.last_error() if hasattr(mt5, "last_error") else "?"
+                print(f"[MATH] order_send None: {last_err}")
+                self._tg(f"order_send None {symbol} {setup_type}: {last_err}")
                 return None
-            if res.retcode != mt5.TRADE_RETCODE_DONE:
-                print(f"[MATH] order_send retcode={res.retcode}")
+            rc = int(getattr(res, "retcode", -1))
+            done_code = getattr(mt5, "TRADE_RETCODE_DONE", 10009)
+            if rc == done_code:
+                return int(res.order)
+            if rc == _RETCODE_INVALID_PRICE:
+                print(f"[MATH] {symbol} invalid price (10015) -- skipping")
+                self._tg(f"invalid price {symbol} {setup_type} price={stop_price}")
                 return None
-            return int(res.order)
+            if rc == _RETCODE_MARKET_CLOSED:
+                print(f"[MATH] {symbol} market closed (10018) -- skipping quietly")
+                return None
+            # Other non-done: loud
+            print(f"[MATH] order_send retcode={rc} req={req}")
+            self._tg(f"order_send retcode={rc} {symbol} {setup_type}")
+            return None
         except Exception as e:
             print(f"[MATH] _submit_stop error: {e}")
+            self._tg(f"_submit_stop EXC {symbol} {setup_type}: {e}")
             return None
+
+    # ------- spread gate -------
+
+    def _spread_ok(self, symbol: str) -> bool:
+        """Block placement if current spread > _SPREAD_MULT_LIMIT * typical.
+
+        'typical' = broker-reported spread (symbol_info.spread, points) EWMA'd
+        across calls. Falls back to allowing trade when info unavailable.
+        """
+        if mt5 is None:
+            return True
+        try:
+            info = mt5.symbol_info(symbol)
+            if info is None:
+                return True
+            cur = float(getattr(info, "spread", 0.0) or 0.0)
+            if cur <= 0:
+                return True
+            if not hasattr(self, "_typical_spread"):
+                self._typical_spread: dict[str, float] = {}
+            typ = self._typical_spread.get(symbol)
+            if typ is None or typ <= 0:
+                self._typical_spread[symbol] = cur
+                return True
+            # EWMA so typical drifts slowly
+            self._typical_spread[symbol] = 0.9 * typ + 0.1 * cur
+            ok = cur <= _SPREAD_MULT_LIMIT * typ
+            if not ok:
+                print(f"[MATH] spread gate {symbol}: cur={cur} typ={typ:.1f}"
+                      f" (>{_SPREAD_MULT_LIMIT}x)")
+            return ok
+        except Exception:
+            return True
+
+    # ------- stale order sweep (hourly) -------
+
+    def sweep_stale(self) -> int:
+        """Cancel STOP orders older than _STALE_STOP_MIN minutes (magic filter).
+        Returns number cancelled. LIVE only; DRY returns 0.
+        """
+        if self.dry_run or mt5 is None:
+            return 0
+        try:
+            orders = mt5.orders_get() or []
+        except Exception as e:
+            print(f"[MATH] sweep_stale orders_get error: {e}")
+            return 0
+        now = datetime.now(timezone.utc)
+        cutoff = now - timedelta(minutes=_STALE_STOP_MIN)
+        cancelled = 0
+        for o in orders:
+            try:
+                if getattr(o, "magic", 0) != self.magic:
+                    continue
+                ts = int(getattr(o, "time_setup", 0) or 0)
+                if ts <= 0:
+                    continue
+                setup_at = datetime.fromtimestamp(ts, tz=timezone.utc)
+                if setup_at >= cutoff:
+                    continue
+                req = {
+                    "action": mt5.TRADE_ACTION_REMOVE,
+                    "order": int(o.ticket),
+                    "symbol": o.symbol,
+                }
+                res = mt5.order_send(req)
+                if res is not None and getattr(res, "retcode", -1) == mt5.TRADE_RETCODE_DONE:
+                    cancelled += 1
+            except Exception as e:
+                print(f"[MATH] sweep_stale iter error: {e}")
+        if cancelled > 0:
+            self._tg(f"sweep_stale cancelled {cancelled} stale STOP orders (>{_STALE_STOP_MIN}min)")
+            print(f"[MATH] sweep_stale cancelled={cancelled}")
+        return cancelled
+
+    # ------- SL Guardian (MATH-scoped) -------
+
+    def check_sl_guardian(self) -> int:
+        """Close positions (magic=1338) whose price has moved beyond SL.
+        Returns number of positions closed. LIVE only.
+        """
+        if self.dry_run or mt5 is None:
+            return 0
+        try:
+            positions = mt5.positions_get() or []
+        except Exception as e:
+            print(f"[MATH] SLGuardian positions_get error: {e}")
+            return 0
+        closed = 0
+        for p in positions:
+            try:
+                if getattr(p, "magic", 0) != self.magic:
+                    continue
+                sl = float(getattr(p, "sl", 0.0) or 0.0)
+                if sl == 0.0:
+                    continue
+                price = float(getattr(p, "price_current", 0.0) or 0.0)
+                ptype = int(getattr(p, "type", -1))
+                breached = False
+                if ptype == 0 and price <= sl:       # BUY
+                    breached = True
+                elif ptype == 1 and price >= sl:     # SELL
+                    breached = True
+                if not breached:
+                    continue
+                # Close at market
+                tick = mt5.symbol_info_tick(p.symbol)
+                if tick is None:
+                    continue
+                close_price = tick.bid if ptype == 0 else tick.ask
+                order_type = mt5.ORDER_TYPE_SELL if ptype == 0 else mt5.ORDER_TYPE_BUY
+                req = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "symbol": p.symbol,
+                    "volume": float(p.volume),
+                    "type": order_type,
+                    "position": int(p.ticket),
+                    "price": float(close_price),
+                    "deviation": 20,
+                    "magic": self.magic,
+                    "comment": "SLG_MATH",
+                    "type_filling": mt5.ORDER_FILLING_IOC,
+                }
+                res = mt5.order_send(req)
+                if res is not None and getattr(res, "retcode", -1) == mt5.TRADE_RETCODE_DONE:
+                    closed += 1
+                    self._tg(f"SLGuardian closed breached {p.symbol} ticket={p.ticket}")
+                    print(f"[MATH][SLG] closed {p.symbol} ticket={p.ticket}")
+            except Exception as e:
+                print(f"[MATH][SLG] iter error: {e}")
+        return closed
 
     # ─── Direction guard (tick) ──────────────────────────────────
 
