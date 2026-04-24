@@ -179,6 +179,30 @@ class MathTraderEngine:
         sec_offset = (mins_since_hour % 15) * 60 + now.second
         return sec_offset <= tol_sec
 
+    def _compute_server_offset(self) -> int:
+        """Detect MT5 server time vs real UTC offset in seconds.
+
+        MT5 returns bar/tick timestamps as epoch seconds interpreted in server
+        local time (not real UTC). Vantage server is EEST (UTC+3) most of the
+        year. If we naively convert with timezone.utc we get +3h skew which
+        breaks session-hour filters.
+        """
+        if mt5 is None:
+            return 0
+        try:
+            t = mt5.symbol_info_tick("EURUSD+")
+            if t is None:
+                return 0
+            # time.time() is real UTC epoch; t.time is server "as-UTC" epoch
+            import time as _t
+            offset = int(t.time) - int(_t.time())
+            # Round to nearest hour (MT5 servers are whole-hour offsets)
+            hours = round(offset / 3600)
+            return hours * 3600
+        except Exception as e:
+            print(f"[MATH] server offset detect failed: {e}")
+            return 0
+
     def _fetch_bars(self, broker_sym: str, count: int = MATH_BARS_LOOKBACK) -> Optional[pl.DataFrame]:
         if mt5 is None:
             return None
@@ -186,8 +210,10 @@ class MathTraderEngine:
             rates = mt5.copy_rates_from_pos(broker_sym, mt5.TIMEFRAME_M15, 0, count)
             if rates is None or len(rates) == 0:
                 return None
+            # Correct MT5 server-time-as-UTC skew: subtract server offset
+            offset = getattr(self, "_server_offset_sec", 0)
             df = pl.DataFrame({
-                "time": [datetime.fromtimestamp(int(r["time"]), tz=timezone.utc)
+                "time": [datetime.fromtimestamp(int(r["time"]) - offset, tz=timezone.utc)
                          for r in rates],
                 "open": [float(r["open"]) for r in rates],
                 "high": [float(r["high"]) for r in rates],
@@ -298,6 +324,14 @@ class MathTraderEngine:
         self._start_time = time.time()
         self._last_heartbeat = self._start_time
 
+        # Detect MT5 server-time offset (CRITICAL for session filters to work)
+        self._server_offset_sec = self._compute_server_offset()
+        off_h = self._server_offset_sec / 3600
+        print(f"[MATH] MT5 server offset vs real UTC: {off_h:+.0f}h (will subtract from bar times)")
+        if abs(off_h) >= 1:
+            # Warn if offset is non-zero so operator knows sessions are now corrected
+            pass
+
         n = len(self.setups)
         syms = sorted({s["sym"] for s in self.setups})
 
@@ -319,17 +353,19 @@ class MathTraderEngine:
             dirs_line = ", ".join(f"{k}({v})" for k, v in dir_counter.most_common())
 
             mode = "LIVE" if not self.dry_run else "DRY_RUN"
+            off_h = self._server_offset_sec / 3600
             self._tg(
                 f"ENGINE STARTED ({mode})\n"
-                f"Magic:    {MAGIC_NUMBER_MATH}\n"
-                f"Setups:   {n}\n"
-                f"Symbols:  {len(sym_counter)} -> {syms_line}\n"
-                f"Setup mix: {setups_line}\n"
-                f"Direction: {dirs_line}\n"
-                f"Risk tier: 1% @ WR 0.57 -> 15% @ WR 1.00\n"
-                f"Balance:  ${bal:.2f}\n"
-                f"Equity:   ${eq:.2f}\n"
-                f"Free:     ${mg:.2f}"
+                f"Magic:      {MAGIC_NUMBER_MATH}\n"
+                f"Setups:     {n}\n"
+                f"Symbols:    {len(sym_counter)} -> {syms_line}\n"
+                f"Setup mix:  {setups_line}\n"
+                f"Direction:  {dirs_line}\n"
+                f"MT5 offset: {off_h:+.0f}h (server -> real UTC)\n"
+                f"Risk:       balance-tiered 1-15% / 1-8% / 0.5-5% / 0.3-3%\n"
+                f"Balance:    ${bal:.2f}\n"
+                f"Equity:     ${eq:.2f}\n"
+                f"Free:       ${mg:.2f}"
             )
         except Exception as e:
             print(f"[MATH] startup TG error: {e}")
