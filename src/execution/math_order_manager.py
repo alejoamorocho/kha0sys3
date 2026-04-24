@@ -47,7 +47,10 @@ except Exception:  # pragma: no cover - allow tests without MT5 installed
 
 # Retcodes we handle gracefully (skip, no crash)
 _RETCODE_INVALID_PRICE = 10015
+_RETCODE_INVALID_STOPS = 10016
 _RETCODE_MARKET_CLOSED = 10018
+_RETCODE_INVALID_EXPIRATION = 10022
+_RETCODE_INVALID_FILL = 10030
 _SPREAD_MULT_LIMIT = 2.5      # current spread vs typical
 _STALE_STOP_MIN = 90          # minutes after which an idle STOP is nuked
 
@@ -319,19 +322,58 @@ class MathOrderManager:
                 "BUY_STOP": mt5.ORDER_TYPE_BUY_STOP,
                 "SELL_STOP": mt5.ORDER_TYPE_SELL_STOP,
             }
+
+            # --- Price normalization to symbol digits ---
+            digits = int(getattr(sym_info, "digits", 5))
+            price_n = round(float(stop_price), digits)
+            sl_n = round(float(sl), digits)
+            tp_n = round(float(tp), digits)
+
+            # --- Stops-level validation (broker minimum distance) ---
+            tick = mt5.symbol_info_tick(symbol)
+            point = float(getattr(sym_info, "point", 10 ** -digits))
+            stops_level_pts = int(getattr(sym_info, "trade_stops_level", 0) or 0)
+            min_dist = stops_level_pts * point
+            buffer = max(min_dist * 1.5, 2 * point)  # 50% safety buffer, min 2 points
+            if tick is not None and stops_level_pts > 0:
+                ref_bid = float(tick.bid)
+                ref_ask = float(tick.ask)
+                if order_type == "BUY_STOP":
+                    # BUY_STOP must be above ask by >= stops_level
+                    if price_n - ref_ask < min_dist:
+                        price_n = round(ref_ask + buffer, digits)
+                        tp_n = round(price_n + (tp_n - stop_price), digits)
+                        sl_n = round(price_n - (stop_price - sl_n), digits)
+                        print(f"[MATH] {symbol} STOP bumped above ask by stops_level: {price_n}")
+                elif order_type == "SELL_STOP":
+                    # SELL_STOP must be below bid by >= stops_level
+                    if ref_bid - price_n < min_dist:
+                        price_n = round(ref_bid - buffer, digits)
+                        tp_n = round(price_n - (stop_price - tp_n), digits)
+                        sl_n = round(price_n + (sl_n - stop_price), digits)
+                        print(f"[MATH] {symbol} STOP bumped below bid by stops_level: {price_n}")
+
+            # Volume normalization to volume_step
+            vstep = float(getattr(sym_info, "volume_step", 0.01))
+            volume = round(round(volume / vstep) * vstep, 2)
+            vmin = float(getattr(sym_info, "volume_min", 0.01))
+            vmax = float(getattr(sym_info, "volume_max", 100.0))
+            volume = max(vmin, min(vmax, volume))
+
             req = {
                 "action": mt5.TRADE_ACTION_PENDING,
                 "symbol": symbol,
                 "volume": volume,
                 "type": type_map[order_type],
-                "price": float(stop_price),
-                "sl": float(sl),
-                "tp": float(tp),
+                "price": price_n,
+                "sl": sl_n,
+                "tp": tp_n,
                 "deviation": 10,
                 "magic": self.magic,
                 "comment": f"M|{setup_type[:8]}|{session[:6]}",
-                "type_time": mt5.ORDER_TIME_SPECIFIED,
-                "expiration": int(expiration.timestamp()),
+                # GTC + manual cancellation via sweep_stale (broker may reject
+                # ORDER_TIME_SPECIFIED <24h on ECN → retcode 10022).
+                "type_time": mt5.ORDER_TIME_GTC,
                 "type_filling": mt5.ORDER_FILLING_RETURN,
             }
             try:
@@ -350,11 +392,44 @@ class MathOrderManager:
             if rc == done_code:
                 return int(res.order)
             if rc == _RETCODE_INVALID_PRICE:
-                print(f"[MATH] {symbol} invalid price (10015) -- skipping")
-                self._tg(f"invalid price {symbol} {setup_type} price={stop_price}")
+                print(f"[MATH] {symbol} invalid price (10015) p={price_n} bid={getattr(tick,'bid','?')} ask={getattr(tick,'ask','?')} stops_level={stops_level_pts}pt -- skip")
+                self._tg(f"invalid price {symbol} {setup_type} p={price_n}")
+                return None
+            if rc == _RETCODE_INVALID_STOPS:
+                print(f"[MATH] {symbol} invalid stops (10016) tp={tp_n} sl={sl_n} stops_level={stops_level_pts}pt -- skip")
+                self._tg(f"invalid stops {symbol} {setup_type} tp={tp_n} sl={sl_n}")
+                return None
+            if rc == _RETCODE_INVALID_EXPIRATION:
+                # Broker may still reject GTC for this account; try DAY as last resort
+                print(f"[MATH] {symbol} invalid expiration (10022) -- retrying ORDER_TIME_DAY")
+                req["type_time"] = mt5.ORDER_TIME_DAY
+                try:
+                    res2 = mt5.order_send(req)
+                    if res2 is not None and int(getattr(res2, "retcode", -1)) == done_code:
+                        return int(res2.order)
+                    print(f"[MATH] {symbol} retry retcode={getattr(res2,'retcode','?')}")
+                except Exception as e:
+                    print(f"[MATH] {symbol} retry EXC: {e}")
+                self._tg(f"invalid expiration {symbol} {setup_type}")
+                return None
+            if rc == _RETCODE_INVALID_FILL:
+                # Try alternate filling modes
+                for fm_name, fm in (("FOK", getattr(mt5, "ORDER_FILLING_FOK", None)),
+                                    ("IOC", getattr(mt5, "ORDER_FILLING_IOC", None))):
+                    if fm is None:
+                        continue
+                    req["type_filling"] = fm
+                    try:
+                        res3 = mt5.order_send(req)
+                        if res3 is not None and int(getattr(res3, "retcode", -1)) == done_code:
+                            print(f"[MATH] {symbol} filled with {fm_name}")
+                            return int(res3.order)
+                    except Exception:
+                        pass
+                self._tg(f"invalid fill {symbol} {setup_type}")
                 return None
             if rc == _RETCODE_MARKET_CLOSED:
-                print(f"[MATH] {symbol} market closed (10018) -- skipping quietly")
+                print(f"[MATH] {symbol} market closed (10018) -- skip quietly")
                 return None
             # Other non-done: loud
             print(f"[MATH] order_send retcode={rc} req={req}")
