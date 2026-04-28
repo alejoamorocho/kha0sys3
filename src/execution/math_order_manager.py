@@ -623,6 +623,118 @@ class MathOrderManager:
                 print(f"[MATH][SLG] iter error: {e}")
         return closed
 
+    # ─── Session-end cleanup ─────────────────────────────────────
+
+    def session_end_cleanup(self, all_setups: list[dict]) -> tuple[int, int]:
+        """Cancel pending STOPs and close open positions whose setup's session
+        has ENDED (real UTC). This enforces the backtest's session_end_hour
+        time-stop in live trading.
+
+        Returns (cancelled_count, closed_count).
+        """
+        if self.dry_run or mt5 is None:
+            return (0, 0)
+
+        from src.domain.constants import INDICATOR_SESSIONS
+        h_now = datetime.now(timezone.utc).hour
+
+        # Build map: setup_type[:8]+session[:6] -> session_end_hour
+        # to match comments like 'M|OLS_SLOP|ASIA' / 'M|HURST_TR|LONDON'
+        end_h_by_comment = {}
+        for s in all_setups:
+            sess = s.get("session", "")
+            if sess not in INDICATOR_SESSIONS:
+                continue
+            end_h = INDICATOR_SESSIONS[sess][1]
+            comment_key = f"M|{s['setup_type'][:8]}|{sess[:6]}"
+            end_h_by_comment[comment_key] = (sess, end_h)
+
+        cancelled = 0
+        closed = 0
+
+        # 1) Cancel pending STOPs whose session has ended
+        try:
+            orders = mt5.orders_get() or []
+        except Exception:
+            orders = []
+        for o in orders:
+            if getattr(o, "magic", 0) != self.magic:
+                continue
+            comment = str(getattr(o, "comment", ""))
+            info = end_h_by_comment.get(comment)
+            if info is None:
+                continue
+            sess, end_h = info
+            # Session has ended for this comment if h_now is at/past end_h
+            # OR before session start (next day). Only cancel if outside window.
+            start_h = INDICATOR_SESSIONS[sess][0]
+            if start_h <= h_now < end_h:
+                continue  # session still active, leave pending alive
+            # Outside session: cancel
+            try:
+                req = {"action": mt5.TRADE_ACTION_REMOVE, "order": o.ticket}
+                r = mt5.order_send(req)
+                if r and getattr(r, "retcode", 0) == mt5.TRADE_RETCODE_DONE:
+                    cancelled += 1
+                    print(f"[MATH] session-end cancel pending {o.symbol} ticket={o.ticket} (sess={sess})")
+                    self._tg(f"SESSION-END CANCEL\nSymbol: {o.symbol}\nSession: {sess} (ended)\nTicket:  {o.ticket}")
+            except Exception as e:
+                print(f"[MATH] session cancel err: {e}")
+
+        # 2) Close open positions whose session has ended
+        try:
+            positions = mt5.positions_get() or []
+        except Exception:
+            positions = []
+        for p in positions:
+            if getattr(p, "magic", 0) != self.magic:
+                continue
+            comment = str(getattr(p, "comment", ""))
+            info = end_h_by_comment.get(comment)
+            if info is None:
+                continue
+            sess, end_h = info
+            start_h = INDICATOR_SESSIONS[sess][0]
+            if start_h <= h_now < end_h:
+                continue  # still in session, leave open
+            # Outside session: close at market (matches backtest TIME_STOP)
+            try:
+                tick = mt5.symbol_info_tick(p.symbol)
+                if tick is None:
+                    continue
+                ptype = int(getattr(p, "type", -1))
+                # opposite of position type
+                close_type = mt5.ORDER_TYPE_SELL if ptype == 0 else mt5.ORDER_TYPE_BUY
+                price = float(tick.bid if ptype == 0 else tick.ask)
+                req = {
+                    "action": mt5.TRADE_ACTION_DEAL,
+                    "position": p.ticket,
+                    "symbol": p.symbol,
+                    "volume": float(p.volume),
+                    "type": close_type,
+                    "price": price,
+                    "deviation": 20,
+                    "magic": self.magic,
+                    "comment": "M|TIME_STOP",
+                    "type_filling": mt5.ORDER_FILLING_IOC,
+                }
+                r = mt5.order_send(req)
+                if r and getattr(r, "retcode", 0) == mt5.TRADE_RETCODE_DONE:
+                    closed += 1
+                    print(f"[MATH] session-end close {p.symbol} ticket={p.ticket} (sess={sess})")
+                    self._tg(
+                        f"SESSION-END TIME-STOP\n"
+                        f"Symbol:  {p.symbol}\n"
+                        f"Session: {sess} (ended at H{end_h:02d}:00 UTC)\n"
+                        f"Ticket:  {p.ticket}\n"
+                        f"Reason:  position outside session window (matches backtest)\n"
+                        f"Action:  closed at market"
+                    )
+            except Exception as e:
+                print(f"[MATH] session close err: {e}")
+
+        return (cancelled, closed)
+
     # ─── Direction guard (tick) ──────────────────────────────────
 
     def tick_pending(self, setup_cfg: dict, bars: pl.DataFrame) -> int:
