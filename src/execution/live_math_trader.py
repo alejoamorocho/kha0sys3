@@ -348,7 +348,8 @@ class MathTraderEngine:
         # Detect MT5 server-time offset (CRITICAL for session filters to work)
         self._server_offset_sec = self._compute_server_offset()
         off_h = self._server_offset_sec / 3600
-        print(f"[MATH] MT5 server offset vs real UTC: {off_h:+.0f}h (will subtract from bar times)")
+        print(f"[MATH] MT5 server offset vs real UTC: {off_h:+.0f}h "
+              f"(bars in broker time = backtest cache; sessions in broker hour)")
         if abs(off_h) >= 1:
             # Warn if offset is non-zero so operator knows sessions are now corrected
             pass
