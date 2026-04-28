@@ -231,13 +231,26 @@ class MathTraderEngine:
 
     # ─── main loop ──────────────────────────────────────────────
 
+    def _session_active_now(self, session: str) -> bool:
+        """True if the setup's session is open at the current REAL UTC hour.
+
+        Critical guard: prevents setups labelled ASIA from running at NY hours.
+        Backtest enforces session_end_hour as time-stop; live must match.
+        """
+        h = datetime.now(timezone.utc).hour
+        start_h, end_h = INDICATOR_SESSIONS[session]
+        return start_h <= h < end_h
+
     def _process_setup(self, s: dict):
         sym = s["sym"]
+        sess = s["session"]
+        # Hard guard: only process during the setup's session window (real UTC)
+        if not self._session_active_now(sess):
+            return
         bars = self._fetch_bars(sym)
         if bars is None or len(bars) < 100:
             return
         bars = self._enrich(bars)
-        sess = s["session"]
         scoped = _filter_by_session(bars, sess)
         if len(scoped) == 0:
             return
@@ -421,6 +434,13 @@ class MathTraderEngine:
                             self._tg("HEALTH ALERT\n" + "\n".join(alerts))
                     except Exception as e:
                         print(f"[MATH] health check err: {e}")
+
+                # Session-end cleanup (cancel pending + close positions whose
+                # session ended). Runs every loop (~10s) for tight enforcement.
+                try:
+                    self.om.session_end_cleanup(self.setups)
+                except Exception as e:
+                    print(f"[MATH] session_end_cleanup err: {e}")
 
                 # Process only once per M15 bar close (skip if paused)
                 bar_key = now.replace(second=0, microsecond=0,
