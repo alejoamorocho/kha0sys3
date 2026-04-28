@@ -210,10 +210,14 @@ class MathTraderEngine:
             rates = mt5.copy_rates_from_pos(broker_sym, mt5.TIMEFRAME_M15, 0, count)
             if rates is None or len(rates) == 0:
                 return None
-            # Correct MT5 server-time-as-UTC skew: subtract server offset
-            offset = getattr(self, "_server_offset_sec", 0)
+            # IMPORTANT: do NOT subtract server offset.
+            # The backtest cache (CSV) stores broker server time as if UTC.
+            # Sessions in bot_config_math.json are configured in BROKER hours
+            # (matching backtest semantics: ASIA=0-7 broker = real UTC 21-04).
+            # Live MT5 also returns broker-time-as-Unix-ts; treating it as UTC
+            # keeps live==backtest alignment exact.
             df = pl.DataFrame({
-                "time": [datetime.fromtimestamp(int(r["time"]) - offset, tz=timezone.utc)
+                "time": [datetime.fromtimestamp(int(r["time"]), tz=timezone.utc)
                          for r in rates],
                 "open": [float(r["open"]) for r in rates],
                 "high": [float(r["high"]) for r in rates],
@@ -232,14 +236,18 @@ class MathTraderEngine:
     # ─── main loop ──────────────────────────────────────────────
 
     def _session_active_now(self, session: str) -> bool:
-        """True if the setup's session is open at the current REAL UTC hour.
+        """True if the setup's session is open AT THE BROKER's current hour.
 
-        Critical guard: prevents setups labelled ASIA from running at NY hours.
-        Backtest enforces session_end_hour as time-stop; live must match.
+        Critical: backtest interprets sessions in BROKER server time (the CSV
+        cache stores broker-time-as-UTC). Live must check 'is broker hour in
+        session window?', NOT real UTC hour. For Vantage EEST, broker hour =
+        real UTC hour + 3.
         """
-        h = datetime.now(timezone.utc).hour
+        real_utc_h = datetime.now(timezone.utc).hour
+        offset_h = getattr(self, "_server_offset_sec", 0) // 3600
+        broker_h = (real_utc_h + offset_h) % 24
         start_h, end_h = INDICATOR_SESSIONS[session]
-        return start_h <= h < end_h
+        return start_h <= broker_h < end_h
 
     def _process_setup(self, s: dict):
         sym = s["sym"]
@@ -435,12 +443,9 @@ class MathTraderEngine:
                     except Exception as e:
                         print(f"[MATH] health check err: {e}")
 
-                # Session-end cleanup (cancel pending + close positions whose
-                # session ended). Runs every loop (~10s) for tight enforcement.
-                try:
-                    self.om.session_end_cleanup(self.setups)
-                except Exception as e:
-                    print(f"[MATH] session_end_cleanup err: {e}")
+                # No forced session-end cleanup — let TP/SL/expiration play
+                # exactly as in backtest. The only session enforcement is
+                # at PLACEMENT (via _session_active_now in _process_setup).
 
                 # Process only once per M15 bar close (skip if paused)
                 bar_key = now.replace(second=0, microsecond=0,
