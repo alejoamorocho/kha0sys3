@@ -1,16 +1,12 @@
 {
-  "_doc": "Math-invert portfolio 42 \u2014 22 ELITE + 108 pool + FX top (WR>=0.75 PF>=2.0 DD<=10R) session-disjoint | tiered risk 2026-04-24",
-  "_tier1": "WR>=0.80 PF>=3.0 DD<=8R (all 22 forced in)",
-  "_tier2": "WR>=0.75 PF>=2.5 DD<=10R (fill up to cap)",
-  "_caps": {
-    "max_per_symbol": 8,
-    "max_per_symbol_setup": 3
-  },
+  "_doc": "Math-invert ELITE-ONLY portfolio 22 \u2014 WR>=0.80 PF>=3.0 DD<=8R 2026-04-24",
+  "_gate": "WR>=0.80 AND PF>=3.0 AND MaxDD<=8R (NO compromises)",
   "_metrics_aggregate": {
-    "n_strategies": 42,
-    "avg_wr": 0.8278,
-    "avg_pf": 3.039,
-    "avg_expectancy_r": 0.3382
+    "n_strategies": 22,
+    "avg_wr": 0.865,
+    "avg_pf": 3.443,
+    "avg_expectancy_r": 0.3176,
+    "avg_max_dd_r": 4.22
   },
   "risk_scaling": {
     "min_wr": 0.57,
@@ -40,58 +36,6 @@
   },
   "portfolio": [
     {
-      "sym": "GBPUSD+",
-      "internal_sym": "GBPUSD",
-      "session": "ASIA",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.7763,
-      "expected_pf": 2.951,
-      "expected_expectancy_r": 0.4941
-    },
-    {
-      "sym": "XAUUSD+",
-      "internal_sym": "XAUUSD",
-      "session": "LONDON",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.7516,
-      "expected_pf": 2.83,
-      "expected_expectancy_r": 0.47
-    },
-    {
-      "sym": "USOUSD",
-      "internal_sym": "WTI",
-      "session": "ASIA",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.7588,
-      "expected_pf": 2.842,
-      "expected_expectancy_r": 0.4683
-    },
-    {
-      "sym": "USOUSD",
-      "internal_sym": "WTI",
-      "session": "ASIA",
-      "setup_type": "HURST_TREND_MOM",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.7597,
-      "expected_pf": 2.836,
-      "expected_expectancy_r": 0.4595
-    },
-    {
       "sym": "XAGUSD",
       "internal_sym": "XAGUSD",
       "session": "ASIA",
@@ -102,7 +46,8 @@
       "atr_period": 14,
       "expected_wr": 0.8626,
       "expected_pf": 4.296,
-      "expected_expectancy_r": 0.4456
+      "expected_expectancy_r": 0.4456,
+      "expected_max_dd_r": 4.3
     },
     {
       "sym": "XAGUSD",
@@ -115,7 +60,8 @@
       "atr_period": 14,
       "expected_wr": 0.819,
       "expected_pf": 3.519,
-      "expected_expectancy_r": 0.4316
+      "expected_expectancy_r": 0.4316,
+      "expected_max_dd_r": 3.65
     },
     {
       "sym": "XAGUSD",
@@ -128,7 +74,8 @@
       "atr_period": 14,
       "expected_wr": 0.8101,
       "expected_pf": 3.112,
-      "expected_expectancy_r": 0.3995
+      "expected_expectancy_r": 0.3995,
+      "expected_max_dd_r": 4.81
     },
     {
       "sym": "XAGUSD",
@@ -141,20 +88,8 @@
       "atr_period": 14,
       "expected_wr": 0.852,
       "expected_pf": 3.64,
-      "expected_expectancy_r": 0.3957
-    },
-    {
-      "sym": "GBPJPY+",
-      "internal_sym": "GBPJPY",
-      "session": "ASIA",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.75,
-      "expected_pf": 2.385,
-      "expected_expectancy_r": 0.3936
+      "expected_expectancy_r": 0.3957,
+      "expected_max_dd_r": 5.14
     },
     {
       "sym": "UKOUSD",
@@ -167,7 +102,8 @@
       "atr_period": 14,
       "expected_wr": 0.8614,
       "expected_pf": 3.726,
-      "expected_expectancy_r": 0.3934
+      "expected_expectancy_r": 0.3934,
+      "expected_max_dd_r": 5.0
     },
     {
       "sym": "UKOUSD",
@@ -180,20 +116,8 @@
       "atr_period": 14,
       "expected_wr": 0.8523,
       "expected_pf": 3.766,
-      "expected_expectancy_r": 0.3928
-    },
-    {
-      "sym": "EURJPY+",
-      "internal_sym": "EURJPY",
-      "session": "NY",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.7733,
-      "expected_pf": 2.493,
-      "expected_expectancy_r": 0.3794
+      "expected_expectancy_r": 0.3928,
+      "expected_max_dd_r": 3.31
     },
     {
       "sym": "USOUSD",
@@ -206,20 +130,8 @@
       "atr_period": 14,
       "expected_wr": 0.8471,
       "expected_pf": 3.331,
-      "expected_expectancy_r": 0.3748
-    },
-    {
-      "sym": "EURUSD+",
-      "internal_sym": "EURUSD",
-      "session": "NY",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.7599,
-      "expected_pf": 2.378,
-      "expected_expectancy_r": 0.3698
+      "expected_expectancy_r": 0.3748,
+      "expected_max_dd_r": 4.46
     },
     {
       "sym": "XAGUSD",
@@ -232,7 +144,8 @@
       "atr_period": 14,
       "expected_wr": 0.8208,
       "expected_pf": 3.115,
-      "expected_expectancy_r": 0.3677
+      "expected_expectancy_r": 0.3677,
+      "expected_max_dd_r": 5.28
     },
     {
       "sym": "USOUSD",
@@ -245,33 +158,8 @@
       "atr_period": 14,
       "expected_wr": 0.8403,
       "expected_pf": 3.16,
-      "expected_expectancy_r": 0.365
-    },
-    {
-      "sym": "EURUSD+",
-      "internal_sym": "EURUSD",
-      "session": "ASIA",
-      "setup_type": "HURST_TREND_MOM",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.7561,
-      "expected_pf": 2.301,
-      "expected_expectancy_r": 0.3639
-    },
-    {
-      "sym": "GBPUSD+",
-      "internal_sym": "GBPUSD",
-      "session": "ASIA",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.8349,
-      "expected_pf": 2.908,
-      "expected_expectancy_r": 0.3591
+      "expected_expectancy_r": 0.365,
+      "expected_max_dd_r": 4.38
     },
     {
       "sym": "XAGUSD",
@@ -284,46 +172,8 @@
       "atr_period": 14,
       "expected_wr": 0.8254,
       "expected_pf": 3.017,
-      "expected_expectancy_r": 0.3553
-    },
-    {
-      "sym": "GBPUSD+",
-      "internal_sym": "GBPUSD",
-      "session": "ASIA",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 1.0,
-      "atr_period": 14,
-      "expected_wr": 0.7936,
-      "expected_pf": 2.63,
-      "expected_expectancy_r": 0.3541
-    },
-    {
-      "sym": "USOUSD",
-      "internal_sym": "WTI",
-      "session": "ASIA",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 1.0,
-      "atr_period": 14,
-      "expected_wr": 0.7853,
-      "expected_pf": 2.57,
-      "expected_expectancy_r": 0.3411
-    },
-    {
-      "sym": "USOUSD",
-      "internal_sym": "WTI",
-      "session": "ASIA",
-      "setup_type": "HURST_TREND_MOM",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 1.0,
-      "atr_period": 14,
-      "expected_wr": 0.7871,
-      "expected_pf": 2.618,
-      "expected_expectancy_r": 0.3406
+      "expected_expectancy_r": 0.3553,
+      "expected_max_dd_r": 5.14
     },
     {
       "sym": "XAGUSD",
@@ -336,85 +186,8 @@
       "atr_period": 14,
       "expected_wr": 0.8822,
       "expected_pf": 4.026,
-      "expected_expectancy_r": 0.3345
-    },
-    {
-      "sym": "XAUUSD+",
-      "internal_sym": "XAUUSD",
-      "session": "ASIA",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.8097,
-      "expected_pf": 2.732,
-      "expected_expectancy_r": 0.3331
-    },
-    {
-      "sym": "XAUUSD+",
-      "internal_sym": "XAUUSD",
-      "session": "ASIA",
-      "setup_type": "HURST_TREND_MOM",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.8059,
-      "expected_pf": 2.678,
-      "expected_expectancy_r": 0.3271
-    },
-    {
-      "sym": "XAUUSD+",
-      "internal_sym": "XAUUSD",
-      "session": "ALL_DAY",
-      "setup_type": "HURST_TREND_MOM",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.8165,
-      "expected_pf": 2.661,
-      "expected_expectancy_r": 0.3182
-    },
-    {
-      "sym": "XAUUSD+",
-      "internal_sym": "XAUUSD",
-      "session": "LONDON_NY",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.8088,
-      "expected_pf": 2.578,
-      "expected_expectancy_r": 0.3111
-    },
-    {
-      "sym": "UKOUSD",
-      "internal_sym": "BRENT",
-      "session": "ASIA",
-      "setup_type": "KALMAN_INNOV_EXPAND",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.8143,
-      "expected_pf": 2.538,
-      "expected_expectancy_r": 0.3077
-    },
-    {
-      "sym": "XAUUSD+",
-      "internal_sym": "XAUUSD",
-      "session": "LONDON",
-      "setup_type": "HURST_TREND_MOM",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.8061,
-      "expected_pf": 2.529,
-      "expected_expectancy_r": 0.304
+      "expected_expectancy_r": 0.3345,
+      "expected_max_dd_r": 2.17
     },
     {
       "sym": "XAGUSD",
@@ -427,7 +200,8 @@
       "atr_period": 14,
       "expected_wr": 0.8704,
       "expected_pf": 3.224,
-      "expected_expectancy_r": 0.2883
+      "expected_expectancy_r": 0.2883,
+      "expected_max_dd_r": 3.6
     },
     {
       "sym": "UKOUSD",
@@ -440,7 +214,8 @@
       "atr_period": 14,
       "expected_wr": 0.8672,
       "expected_pf": 3.398,
-      "expected_expectancy_r": 0.2878
+      "expected_expectancy_r": 0.2878,
+      "expected_max_dd_r": 4.42
     },
     {
       "sym": "UKOUSD",
@@ -453,7 +228,8 @@
       "atr_period": 14,
       "expected_wr": 0.8768,
       "expected_pf": 3.308,
-      "expected_expectancy_r": 0.2862
+      "expected_expectancy_r": 0.2862,
+      "expected_max_dd_r": 5.91
     },
     {
       "sym": "XAGUSD",
@@ -466,7 +242,8 @@
       "atr_period": 14,
       "expected_wr": 0.8484,
       "expected_pf": 3.144,
-      "expected_expectancy_r": 0.2835
+      "expected_expectancy_r": 0.2835,
+      "expected_max_dd_r": 3.57
     },
     {
       "sym": "XAGUSD",
@@ -479,33 +256,8 @@
       "atr_period": 14,
       "expected_wr": 0.9008,
       "expected_pf": 3.926,
-      "expected_expectancy_r": 0.2828
-    },
-    {
-      "sym": "GBPAUD+",
-      "internal_sym": "GBPAUD",
-      "session": "ASIA",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.75,
-      "atr_period": 14,
-      "expected_wr": 0.8124,
-      "expected_pf": 2.397,
-      "expected_expectancy_r": 0.2784
-    },
-    {
-      "sym": "AUDUSD+",
-      "internal_sym": "AUDUSD",
-      "session": "LONDON",
-      "setup_type": "OLS_SLOPE_STRONG",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.75,
-      "sl_atr_mult": 1.0,
-      "atr_period": 14,
-      "expected_wr": 0.7775,
-      "expected_pf": 2.048,
-      "expected_expectancy_r": 0.2441
+      "expected_expectancy_r": 0.2828,
+      "expected_max_dd_r": 3.74
     },
     {
       "sym": "XAGUSD",
@@ -518,7 +270,8 @@
       "atr_period": 14,
       "expected_wr": 0.8949,
       "expected_pf": 3.17,
-      "expected_expectancy_r": 0.2306
+      "expected_expectancy_r": 0.2306,
+      "expected_max_dd_r": 3.74
     },
     {
       "sym": "UKOUSD",
@@ -531,7 +284,8 @@
       "atr_period": 14,
       "expected_wr": 0.9065,
       "expected_pf": 3.363,
-      "expected_expectancy_r": 0.2304
+      "expected_expectancy_r": 0.2304,
+      "expected_max_dd_r": 5.44
     },
     {
       "sym": "UKOUSD",
@@ -544,7 +298,8 @@
       "atr_period": 14,
       "expected_wr": 0.8835,
       "expected_pf": 3.03,
-      "expected_expectancy_r": 0.2211
+      "expected_expectancy_r": 0.2211,
+      "expected_max_dd_r": 4.68
     },
     {
       "sym": "XAGUSD",
@@ -557,7 +312,8 @@
       "atr_period": 14,
       "expected_wr": 0.904,
       "expected_pf": 3.633,
-      "expected_expectancy_r": 0.2201
+      "expected_expectancy_r": 0.2201,
+      "expected_max_dd_r": 3.74
     },
     {
       "sym": "XAGUSD",
@@ -570,7 +326,8 @@
       "atr_period": 14,
       "expected_wr": 0.9149,
       "expected_pf": 3.652,
-      "expected_expectancy_r": 0.2095
+      "expected_expectancy_r": 0.2095,
+      "expected_max_dd_r": 3.89
     },
     {
       "sym": "UKOUSD",
@@ -583,7 +340,8 @@
       "atr_period": 14,
       "expected_wr": 0.8889,
       "expected_pf": 3.185,
-      "expected_expectancy_r": 0.191
+      "expected_expectancy_r": 0.191,
+      "expected_max_dd_r": 2.52
     }
   ]
 }
