@@ -55,13 +55,17 @@ NSSM Service → scripts/run_bot_supervisor.py → LiveTraderEngine.run()
 
 ## Running
 
-- **Live bot:** `python scripts/run_bot_supervisor.py` (on VPS as service)
+- **Live bot (FADE):** `python scripts/run_bot_supervisor.py` (on VPS as service)
+- **Live bot (MATH):** `python scripts/run_math_bot_supervisor.py` (on VPS as service, magic 1338)
 - **Backtest (R:R):** `python -m src.engine.run_portfolio_backtest_rr`
 - **Backtest (legacy 1:1):** `python -m src.engine.run_portfolio_backtest`
 - **R:R exploration:** `python -m src.engine.run_rr_exploration_v2`
 - **MC comparison:** `python -m src.engine.run_mc_global_vs_individual`
-- **Robustness:** `python -m src.engine.run_robustness_test`
+- **Robustness (FADE):** `python -m src.engine.run_robustness_test`
+- **Robustness (MATH):** `python -m src.engine.robustness_math_optuna`
 - **Strategy discovery:** `python -m src.engine.run_strategy_pipeline`
+- **Optuna 3-regime (MATH):** `python -m src.engine.optuna_three_regimes`
+- **Build math config from Optuna:** `python scripts/build_bot_config_math_optuna.py`
 
 ## Conventions
 
@@ -105,17 +109,17 @@ Validated: MC ruina 0.0%, WF OOS WR 91.5%, decay MEJORANDO. See `reports/RR_Expl
 
 ## Math Parallel Runner
 
-A second isolated process runs 17 MATH_INV_MOMENTUM strategies on the SAME
+A second isolated process runs **35 math-indicator strategies** on the SAME
 VPS1, Vantage account, and Telegram bot as the FADE bot, but with strict
 process separation.
 
-| Component | FADE bot (existing) | MATH bot (new) |
+| Component | FADE bot | MATH bot |
 |-----------|--------------------|-----------------|
 | NSSM service | `Kha0sysBot3` | `Kha0sysMathBot` |
 | Entry | `scripts/run_bot_supervisor.py` | `scripts/run_math_bot_supervisor.py` |
 | Engine | `src/execution/live_trader.py` | `src/execution/live_math_trader.py` |
 | Orders | `src/execution/order_manager.py` | `src/execution/math_order_manager.py` |
-| Config | `src/execution/bot_config.json` (108) | `src/execution/bot_config_math.json` (17) |
+| Config | `src/execution/bot_config.json` (108) | `src/execution/bot_config_math.json` (35) |
 | Magic | `1337` | `1338` |
 | Mechanics | FADE LIMIT + direction guard | STOP at close±0.5×ATR, FLIPPED direction, 5-bar wait, guard cancel |
 | Default mode | LIVE | **DRY_RUN** (flip manually after telemetry) |
@@ -125,6 +129,20 @@ or touches FADE orders. `--dry-run` (default) emits `[MATH][DRY]` telegram
 messages instead of calling `mt5.order_send`. Deploy with
 `python deploy/deploy_math_bot.py`; flip to `--live` manually on the VPS after
 observing DRY telemetry for at least one full session.
+
+### Math portfolio (Optuna 3-regime + robustness validated)
+
+- **5 setups:** OLS_SLOPE_STRONG, HURST_TREND_MOM, KALMAN_INNOV_EXPAND, SPECTRAL_TREND_MOM, GARCH_Z_FADE
+- **9 symbols:** AUDUSD, EURJPY, EURUSD, GBPAUD, GBPJPY, GBPUSD, USDJPY, XAGUSD, XAUUSD
+- **5 sessions:** ASIA, LONDON, NY, LONDON_NY, ALL_DAY
+- TP/SL Optuna-optimized per strategy under realistic Vantage friction + 0.2R slippage. SL-invariant objective: `(expectancy_R × SL × tpy) / max_dd_R`.
+- **Regime distribution:** 30 HIGH_RR (TP>SL), 5 BALANCED. **0 HIGH_WR** — TP<SL tested explicitly via dedicated Optuna study, never optimal for math momentum/trend setups.
+- **Robustness:** 25 FUERTE + 10 ACEPTABLE, 0 weak/dead. Avg PF IS=2.42 → OOS=2.44 (no degradation). Avg MC ruin (DD≥30R) = 0.37%.
+- Reports: `reports/Optuna_3Regime_Final.md`, `reports/Robustness_Math_Optuna.md`
+
+### Math bot Telegram events
+
+Startup snapshot · 15-min HEARTBEAT · ORDER PLACED · LIVE FILL · LIVE CLOSE (with R-multiple, auto-detected via positions diff) · VIRTUAL FILL/CLOSE (DRY) · GUARD CANCEL · SL GUARDIAN CLOSE · SESSION-END TIME-STOP · STALE SWEEP · retcode handlers (10015/10016/10022/10030) · DRY daily report. All messages structured multi-line, no emojis.
 
 ## Deploy
 

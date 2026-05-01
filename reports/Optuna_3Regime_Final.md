@@ -1,0 +1,51 @@
+# Optuna 3-Regime Comparison
+
+Per-strategy: optimized in 3 distinct R:R regimes; best chosen by SL-invariant score.
+- HIGH_RR (TP>SL): TP∈[1.0,4.0], SL∈[0.3,1.5]
+- BALANCED (TP≈SL): TP∈[0.5,2.0], SL∈[0.5,2.0]
+- HIGH_WR (TP<SL): TP∈[0.3,1.5], SL∈[1.0,4.0]
+
+## Best-regime distribution
+
+- **HIGH_RR**: 30 strategies
+- **BALANCED**: 5 strategies
+
+## Per-strategy best regime + comparison
+
+| Symbol | Sess | Setup | Dir | Best R | TP/SL | RR | WR | PF | Exp | DD | tpy |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| XAGUSD | NY | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.20/0.30 | 4.00 | 0.608 | 4.37 | +1.653 | 9.2 | 190 |
+| XAGUSD | NY | GARCH_Z_FADE | NORMAL | **HIGH_RR** | 1.10/0.30 | 3.67 | 0.595 | 3.89 | +1.478 | 6.8 | 122 |
+| GBPAUD | NY | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.00/0.30 | 3.33 | 0.610 | 3.08 | +1.154 | 13.1 | 176 |
+| XAGUSD | ALL_DAY | HURST_TREND_MOM | INVERT | **HIGH_RR** | 1.00/0.40 | 2.50 | 0.627 | 2.98 | +0.927 | 10.3 | 201 |
+| XAUUSD | ALL_DAY | SPECTRAL_TREND_MOM | INVERT | **HIGH_RR** | 1.00/0.30 | 3.33 | 0.564 | 2.95 | +1.131 | 11.8 | 58 |
+| EURUSD | LONDON | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.20/0.30 | 4.00 | 0.582 | 2.94 | +1.273 | 12.7 | 190 |
+| GBPAUD | ALL_DAY | KALMAN_INNOV_EXPAND | INVERT | **HIGH_RR** | 1.20/0.30 | 4.00 | 0.531 | 2.76 | +1.194 | 15.9 | 242 |
+| GBPAUD | ALL_DAY | HURST_TREND_MOM | INVERT | **HIGH_RR** | 1.00/0.30 | 3.33 | 0.580 | 2.73 | +1.048 | 11.6 | 209 |
+| GBPUSD | ALL_DAY | HURST_TREND_MOM | INVERT | **HIGH_RR** | 1.20/0.30 | 4.00 | 0.535 | 2.72 | +1.180 | 20.7 | 216 |
+| XAUUSD | ASIA | HURST_TREND_MOM | INVERT | **HIGH_RR** | 1.00/0.40 | 2.50 | 0.614 | 2.72 | +0.844 | 9.5 | 132 |
+| XAGUSD | ALL_DAY | SPECTRAL_TREND_MOM | INVERT | **BALANCED** | 0.80/0.50 | 1.60 | 0.710 | 2.70 | +0.609 | 7.2 | 52 |
+| GBPJPY | ASIA | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.30/0.30 | 4.33 | 0.531 | 2.66 | +1.243 | 16.9 | 131 |
+| XAUUSD | NY | GARCH_Z_FADE | NORMAL | **HIGH_RR** | 1.00/0.40 | 2.50 | 0.603 | 2.65 | +0.825 | 14.5 | 123 |
+| GBPUSD | ALL_DAY | SPECTRAL_TREND_MOM | INVERT | **HIGH_RR** | 1.10/0.30 | 3.67 | 0.547 | 2.59 | +1.065 | 15.6 | 63 |
+| EURJPY | NY | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.20/0.40 | 3.00 | 0.608 | 2.51 | +0.860 | 14.6 | 183 |
+| EURJPY | NY | HURST_TREND_MOM | INVERT | **HIGH_RR** | 1.00/0.30 | 3.33 | 0.596 | 2.44 | +0.925 | 12.9 | 153 |
+| USDJPY | LONDON | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.10/0.30 | 3.67 | 0.578 | 2.33 | +0.952 | 15.9 | 161 |
+| GBPUSD | ASIA | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.40/0.60 | 2.33 | 0.610 | 2.30 | +0.680 | 9.4 | 91 |
+| GBPJPY | ALL_DAY | KALMAN_INNOV_EXPAND | INVERT | **HIGH_RR** | 1.10/0.30 | 3.67 | 0.525 | 2.30 | +0.926 | 16.0 | 249 |
+| GBPJPY | ASIA | HURST_TREND_MOM | INVERT | **HIGH_RR** | 1.20/0.40 | 3.00 | 0.563 | 2.26 | +0.791 | 10.4 | 141 |
+| AUDUSD | ASIA | KALMAN_INNOV_EXPAND | INVERT | **HIGH_RR** | 1.00/0.30 | 3.33 | 0.575 | 2.24 | +0.853 | 15.2 | 196 |
+| AUDUSD | LONDON | HURST_TREND_MOM | INVERT | **HIGH_RR** | 1.00/0.30 | 3.33 | 0.569 | 2.22 | +0.839 | 10.8 | 138 |
+| AUDUSD | LONDON_NY | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.20/0.40 | 3.00 | 0.573 | 2.17 | +0.745 | 15.1 | 221 |
+| EURUSD | LONDON_NY | GARCH_Z_FADE | NORMAL | **HIGH_RR** | 1.10/0.30 | 3.67 | 0.524 | 2.16 | +0.866 | 22.6 | 152 |
+| USDJPY | ALL_DAY | HURST_TREND_MOM | INVERT | **HIGH_RR** | 1.00/0.30 | 3.33 | 0.588 | 2.16 | +0.821 | 15.1 | 227 |
+| EURUSD | ASIA | HURST_TREND_MOM | INVERT | **BALANCED** | 1.00/0.50 | 2.00 | 0.665 | 2.12 | +0.547 | 11.3 | 126 |
+| USDJPY | ALL_DAY | SPECTRAL_TREND_MOM | INVERT | **HIGH_RR** | 1.20/0.30 | 4.00 | 0.516 | 2.05 | +0.861 | 17.3 | 54 |
+| EURJPY | ALL_DAY | KALMAN_INNOV_EXPAND | INVERT | **HIGH_RR** | 1.10/0.30 | 3.67 | 0.515 | 2.01 | +0.786 | 25.3 | 242 |
+| EURUSD | ASIA | KALMAN_INNOV_EXPAND | INVERT | **HIGH_RR** | 1.10/0.40 | 2.75 | 0.583 | 1.96 | +0.627 | 24.4 | 163 |
+| GBPUSD | ASIA | KALMAN_INNOV_EXPAND | INVERT | **HIGH_RR** | 1.10/0.40 | 2.75 | 0.562 | 1.91 | +0.599 | 13.9 | 166 |
+| EURJPY | LONDON_NY | SPECTRAL_TREND_MOM | INVERT | **BALANCED** | 1.20/0.50 | 2.40 | 0.577 | 1.82 | +0.482 | 9.7 | 33 |
+| XAUUSD | LONDON | OLS_SLOPE_STRONG | INVERT | **HIGH_RR** | 1.50/0.80 | 1.88 | 0.590 | 1.81 | +0.394 | 12.5 | 156 |
+| AUDUSD | LONDON_NY | GARCH_Z_FADE | NORMAL | **HIGH_RR** | 1.00/0.40 | 2.50 | 0.538 | 1.53 | +0.363 | 19.0 | 111 |
+| GBPJPY | NY | GARCH_Z_FADE | NORMAL | **BALANCED** | 1.20/0.50 | 2.40 | 0.506 | 1.47 | +0.311 | 15.3 | 71 |
+| GBPAUD | NY | GARCH_Z_FADE | NORMAL | **BALANCED** | 1.10/0.90 | 1.22 | 0.634 | 1.34 | +0.145 | 9.6 | 77 |

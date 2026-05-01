@@ -425,6 +425,13 @@ class MathTraderEngine:
                     except Exception as e:
                         print(f"[MATH] SLG error: {e}")
 
+                # LIVE event detection (fills + closes) — every poll in LIVE
+                if not self.dry_run:
+                    try:
+                        self.om.detect_live_events()
+                    except Exception as e:
+                        print(f"[MATH] detect_live_events err: {e}")
+
                 # Hourly stale sweep
                 if nowt - self._last_sweep >= self.SWEEP_STALE_INTERVAL:
                     self._last_sweep = nowt
