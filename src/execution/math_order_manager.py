@@ -1006,3 +1006,113 @@ class MathOrderManager:
         for k, v in list(self._fired_today.items()):
             if v != today:
                 self._fired_today.pop(k, None)
+
+    # ─── LIVE event detection (fills + closes) ───────────────────
+
+    def detect_live_events(self) -> tuple[int, int]:
+        """LIVE only: detect new fills and closes for magic=MAGIC_NUMBER_MATH.
+        Sends Telegram notifications:
+          - LIVE FILL: when a previously-pending order is now an open position
+          - LIVE CLOSE: when a previously-open position is gone (TP/SL/manual)
+        Returns (n_fills, n_closes).
+        """
+        if self.dry_run or mt5 is None:
+            return (0, 0)
+
+        # Track previous tickets across calls
+        prev_open = getattr(self, "_prev_open_tickets", {})
+        prev_pending = getattr(self, "_prev_pending_tickets", set())
+
+        try:
+            cur_pos = mt5.positions_get() or []
+            cur_orders = mt5.orders_get() or []
+        except Exception as e:
+            print(f"[MATH] detect_live_events MT5 err: {e}")
+            return (0, 0)
+
+        cur_pos = [p for p in cur_pos if getattr(p, "magic", 0) == self.magic]
+        cur_orders = [o for o in cur_orders if getattr(o, "magic", 0) == self.magic]
+        cur_open = {p.ticket: p for p in cur_pos}
+        cur_pending = {o.ticket for o in cur_orders}
+
+        n_fills = 0
+        n_closes = 0
+
+        # FILLS: pending tickets that became positions (could be different ticket
+        # IDs across pending→position in MT5; use symbol+comment as fallback)
+        for tkt, p in cur_open.items():
+            if tkt in prev_open:
+                continue
+            # New position
+            n_fills += 1
+            entry = float(getattr(p, "price_open", 0.0))
+            sl = float(getattr(p, "sl", 0.0))
+            tp = float(getattr(p, "tp", 0.0))
+            vol = float(getattr(p, "volume", 0.0))
+            ptype = "BUY" if getattr(p, "type", 0) == 0 else "SELL"
+            self._tg(
+                f"LIVE FILL\n"
+                f"Symbol:    {p.symbol}\n"
+                f"Comment:   {p.comment}\n"
+                f"Direction: {ptype}\n"
+                f"Volume:    {vol}\n"
+                f"Entry:     {entry:.5f}\n"
+                f"SL:        {sl:.5f}\n"
+                f"TP:        {tp:.5f}\n"
+                f"Ticket:    {tkt}"
+            )
+
+        # CLOSES: tickets that were open last tick but no longer open now
+        for tkt, prev_p in prev_open.items():
+            if tkt in cur_open:
+                continue
+            n_closes += 1
+            # Try to fetch the closing deal for R-multiple
+            r_mult = None
+            close_price = None
+            close_reason = "unknown"
+            try:
+                end = datetime.now(timezone.utc)
+                start = end - timedelta(hours=24)
+                deals = mt5.history_deals_get(start, end, position=tkt) or []
+                # closing deal is the one with entry=DEAL_ENTRY_OUT
+                for d in deals:
+                    if getattr(d, "entry", 0) == 1:  # DEAL_ENTRY_OUT
+                        close_price = float(d.price)
+                        cmt = (d.comment or "").lower()
+                        if "tp" in cmt:
+                            close_reason = "TP"
+                        elif "sl" in cmt:
+                            close_reason = "SL"
+                        elif "so" in cmt or "stopout" in cmt:
+                            close_reason = "STOPOUT"
+                        else:
+                            close_reason = "manual/other"
+                        # R-multiple from entry+sl on prev_p
+                        entry = float(getattr(prev_p, "price_open", 0.0))
+                        sl = float(getattr(prev_p, "sl", 0.0))
+                        risk_unit = abs(entry - sl) if sl > 0 else 0.0
+                        if risk_unit > 0:
+                            ptype = getattr(prev_p, "type", 0)
+                            pnl = (close_price - entry) if ptype == 0 else (entry - close_price)
+                            r_mult = pnl / risk_unit
+                        break
+            except Exception as e:
+                print(f"[MATH] history_deals err for {tkt}: {e}")
+
+            r_line = f"R-mult:    {r_mult:+.3f}\n" if r_mult is not None else ""
+            cp_line = f"Close:     {close_price:.5f}\n" if close_price is not None else ""
+            self._tg(
+                f"LIVE CLOSE\n"
+                f"Symbol:    {prev_p.symbol}\n"
+                f"Comment:   {prev_p.comment}\n"
+                f"Reason:    {close_reason}\n"
+                f"Entry:     {float(prev_p.price_open):.5f}\n"
+                f"{cp_line}"
+                f"{r_line}"
+                f"Ticket:    {tkt}"
+            )
+
+        self._prev_open_tickets = cur_open
+        self._prev_pending_tickets = cur_pending
+        return (n_fills, n_closes)
