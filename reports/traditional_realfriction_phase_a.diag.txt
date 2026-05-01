@@ -1,0 +1,6 @@
+combos_evaluated=4800
+combos_with_>=30_trades=36000
+survivors=2
+max_WR_observed=0.794
+max_PF_observed=1.21
+max_exp_observed=0.180
