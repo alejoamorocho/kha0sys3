@@ -215,29 +215,56 @@ class MathTraderEngine:
             return self._is_h4_close(now, tol_sec)
         return False
 
+    # Vantage runs EEST (UTC+3) year-round per broker config — fallback when
+    # tick-based detection fails (weekend, market closed, stale tick).
+    _DEFAULT_OFFSET_SEC = 3 * 3600
+
     def _compute_server_offset(self) -> int:
         """Detect MT5 server time vs real UTC offset in seconds.
 
-        MT5 returns bar/tick timestamps as epoch seconds interpreted in server
-        local time (not real UTC). Vantage server is EEST (UTC+3) most of the
-        year. If we naively convert with timezone.utc we get +3h skew which
-        breaks session-hour filters.
+        Uses the freshest tick across multiple symbols. If no tick is fresh
+        within the last 5 minutes (e.g. weekend/market closed), falls back to
+        the Vantage default (+3h EEST). The offset is also re-evaluated each
+        time it's queried via _refresh_server_offset_if_stale so that when
+        markets reopen the bot self-corrects without a restart.
         """
         if mt5 is None:
-            return 0
-        try:
-            t = mt5.symbol_info_tick("EURUSD+")
-            if t is None:
-                return 0
-            # time.time() is real UTC epoch; t.time is server "as-UTC" epoch
-            import time as _t
-            offset = int(t.time) - int(_t.time())
-            # Round to nearest hour (MT5 servers are whole-hour offsets)
-            hours = round(offset / 3600)
-            return hours * 3600
-        except Exception as e:
-            print(f"[MATH] server offset detect failed: {e}")
-            return 0
+            return self._DEFAULT_OFFSET_SEC
+        import time as _t
+        best_offset = None
+        best_age = float("inf")
+        now_real = int(_t.time())
+        for sym in ("EURUSD+", "XAUUSD+", "XAGUSD", "GBPUSD+", "AUDUSD+"):
+            try:
+                t = mt5.symbol_info_tick(sym)
+                if t is None or int(t.time) == 0:
+                    continue
+                age = now_real - int(t.time)
+                # ignore ticks older than 5 minutes (likely market closed)
+                if abs(age) <= 300 and abs(age) < best_age:
+                    best_age = abs(age)
+                    best_offset = int(t.time) - now_real
+            except Exception:
+                continue
+        if best_offset is None:
+            print(f"[MATH] no fresh tick — using default offset "
+                  f"{self._DEFAULT_OFFSET_SEC // 3600:+d}h (Vantage EEST)")
+            return self._DEFAULT_OFFSET_SEC
+        # Round to nearest hour
+        hours = round(best_offset / 3600)
+        return hours * 3600
+
+    def _refresh_server_offset_if_stale(self) -> None:
+        """Recompute server offset if it looks wrong (sanity: must be in
+        [-1h, +12h] for any realistic broker)."""
+        cur = getattr(self, "_server_offset_sec", 0)
+        if -3600 <= cur <= 12 * 3600:
+            return  # plausible
+        new = self._compute_server_offset()
+        if new != cur:
+            print(f"[MATH] server offset corrected: {cur//3600:+d}h -> "
+                  f"{new//3600:+d}h")
+            self._server_offset_sec = new
 
     def _fetch_bars(self, broker_sym: str, tf: str = "M15",
                     count: int = MATH_BARS_LOOKBACK) -> Optional[pl.DataFrame]:
@@ -465,6 +492,9 @@ class MathTraderEngine:
                             self._tg("MT5 RECONNECT FAILED\nSkipping this pass")
                             time.sleep(self.POLL_INTERVAL)
                             continue
+                        # Self-heal server offset if it was set during a stale-tick
+                        # window (weekend / market closed at startup)
+                        self._refresh_server_offset_if_stale()
                     except Exception as e:
                         print(f"[MATH] ensure_connected err: {e}")
 
