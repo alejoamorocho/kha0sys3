@@ -130,19 +130,22 @@ messages instead of calling `mt5.order_send`. Deploy with
 `python deploy/deploy_math_bot.py`; flip to `--live` manually on the VPS after
 observing DRY telemetry for at least one full session.
 
-### Math portfolio (Optuna 3-regime + robustness validated)
+### Math portfolio (ELITE WR>=65% multi-TF, 2026-05-03)
 
+- **34 strategies** filtered for high WR + low capital deployment: WR≥65%, FUERTE only, MC ruin≤1%, PF OOS≥1.5
+- **Timeframes:** M15 (1) + H1 (10) + H4 (23) — single bot, multi-TF dispatch
 - **5 setups:** OLS_SLOPE_STRONG, HURST_TREND_MOM, KALMAN_INNOV_EXPAND, SPECTRAL_TREND_MOM, GARCH_Z_FADE
 - **9 symbols:** AUDUSD, EURJPY, EURUSD, GBPAUD, GBPJPY, GBPUSD, USDJPY, XAGUSD, XAUUSD
 - **5 sessions:** ASIA, LONDON, NY, LONDON_NY, ALL_DAY
-- TP/SL Optuna-optimized per strategy under realistic Vantage friction + 0.2R slippage. SL-invariant objective: `(expectancy_R × SL × tpy) / max_dd_R`.
-- **Regime distribution:** 30 HIGH_RR (TP>SL), 5 BALANCED. **0 HIGH_WR** — TP<SL tested explicitly via dedicated Optuna study, never optimal for math momentum/trend setups.
-- **Robustness:** 25 FUERTE + 10 ACEPTABLE, 0 weak/dead. Avg PF IS=2.42 → OOS=2.44 (no degradation). Avg MC ruin (DD≥30R) = 0.37%.
-- Reports: `reports/Optuna_3Regime_Final.md`, `reports/Robustness_Math_Optuna.md`
+- TP/SL Optuna 3-regime per strategy under realistic Vantage friction + 0.2R slippage
+- Avg WR=68.98%, Avg PF IS=2.70, Avg PF OOS=2.76, Avg DD=7.25 R, Avg MC ruin=0.0%
+- **Multi-TF dispatch:** engine processes M15 setups every :00/:15/:30/:45, H1 setups every HH:00, H4 setups every 0/4/8/12/16/20 broker hour
+- **Pre-elite history:** M15-only portfolio of 35 strategies (Optuna 3-regime) preserved in `bot_config_math.json.bak_pre_elite`
+- Reports: `reports/elite_wr65_portfolio.parquet`, `reports/Math_H1_Robustness.md`, `reports/Math_H4_Robustness.md`
 
 ### Math bot Telegram events
 
-Startup snapshot · 15-min HEARTBEAT · ORDER PLACED · LIVE FILL · LIVE CLOSE (with R-multiple, auto-detected via positions diff) · VIRTUAL FILL/CLOSE (DRY) · GUARD CANCEL · SL GUARDIAN CLOSE · SESSION-END TIME-STOP · STALE SWEEP · retcode handlers (10015/10016/10022/10030) · DRY daily report. All messages structured multi-line, no emojis.
+Startup snapshot (with TF distribution and avg WR) · 15-min HEARTBEAT (per-TF setup count) · ORDER PLACED (with TF and R:R fields) · LIVE FILL · LIVE CLOSE (with R-multiple, auto-detected via positions diff) · VIRTUAL FILL/CLOSE (DRY) · GUARD CANCEL · SL GUARDIAN CLOSE · SESSION-END TIME-STOP · STALE SWEEP · retcode handlers (10015/10016/10022/10030) · DRY daily report. All messages structured multi-line, no emojis. MT5 order comment now includes TF: `M|<TF>|<setup>|<sess>`.
 
 ## Deploy
 
