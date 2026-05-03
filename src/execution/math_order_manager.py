@@ -242,6 +242,7 @@ class MathOrderManager:
             sl=sl_price, tp=tp_price, setup_type=setup_type,
             session=setup_cfg["session"], expiration=expiration,
             expected_wr=float(setup_cfg.get("expected_wr", 0.60)),
+            tf=setup_cfg.get("tf", "M15"),
         )
         if ticket is None:
             return None
@@ -272,9 +273,12 @@ class MathOrderManager:
                     risk_pct = float(self.risk.get_risk_percent(expected_wr))
             except Exception:
                 pass
+        tf = setup_cfg.get("tf", "M15")
+        rr = setup_cfg.get("rr", 0)
         tg_msg = (
             f"ORDER PLACED\n"
             f"Symbol:    {symbol}\n"
+            f"TF:        {tf}\n"
             f"Type:      {order_type}\n"
             f"Direction: {flipped} ({dir_mode})\n"
             f"Setup:     {setup_type}\n"
@@ -282,6 +286,7 @@ class MathOrderManager:
             f"Entry:     {stop_price:{_fmt}}\n"
             f"TP:        {tp_price:{_fmt}}\n"
             f"SL:        {sl_price:{_fmt}}\n"
+            f"R:R:       {rr:.2f}\n"
             f"ATR:       {atr:.5f}\n"
             f"Risk:      {risk_pct*100:.1f}% (WR={expected_wr:.2f})\n"
             f"Ticket:    {ticket if ticket != -1 else 'DRY'}"
@@ -323,7 +328,8 @@ class MathOrderManager:
 
     def _submit_stop(self, symbol: str, order_type: str, stop_price: float,
                      sl: float, tp: float, setup_type: str, session: str,
-                     expiration: datetime, expected_wr: float = 0.60) -> Optional[int]:
+                     expiration: datetime, expected_wr: float = 0.60,
+                     tf: str = "M15") -> Optional[int]:
         """Send STOP to MT5 unless DRY_RUN. Returns ticket (or -1 in DRY).
 
         Sizing: uses DynamicRiskAllocator (math-tuned: 1% @ WR 0.57 → 15% @ WR 1.00)
@@ -422,7 +428,7 @@ class MathOrderManager:
                 "tp": tp_n,
                 "deviation": 10,
                 "magic": self.magic,
-                "comment": f"M|{setup_type[:8]}|{session[:6]}",
+                "comment": f"M|{tf}|{setup_type[:6]}|{session[:5]}",
                 # GTC + manual cancellation via sweep_stale (broker may reject
                 # ORDER_TIME_SPECIFIED <24h on ECN → retcode 10022).
                 "type_time": mt5.ORDER_TIME_GTC,

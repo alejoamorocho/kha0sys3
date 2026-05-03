@@ -179,6 +179,42 @@ class MathTraderEngine:
         sec_offset = (mins_since_hour % 15) * 60 + now.second
         return sec_offset <= tol_sec
 
+    @staticmethod
+    def _is_h1_close(now: datetime, tol_sec: int = 30) -> bool:
+        """True within `tol_sec` after an H1 boundary (HH:00)."""
+        sec_offset = now.minute * 60 + now.second
+        return sec_offset <= tol_sec
+
+    @staticmethod
+    def _is_h4_close(now: datetime, tol_sec: int = 30) -> bool:
+        """True within `tol_sec` after an H4 boundary (00,04,08,12,16,20 broker hour)."""
+        if now.hour % 4 != 0:
+            return False
+        sec_offset = now.minute * 60 + now.second
+        return sec_offset <= tol_sec
+
+    @staticmethod
+    def _bar_key_for_tf(now: datetime, tf: str) -> datetime:
+        """Returns the truncated time stamping the most recent bar boundary."""
+        if tf == "M15":
+            return now.replace(second=0, microsecond=0,
+                               minute=(now.minute // 15) * 15)
+        if tf == "H1":
+            return now.replace(second=0, microsecond=0, minute=0)
+        if tf == "H4":
+            return now.replace(second=0, microsecond=0, minute=0,
+                               hour=(now.hour // 4) * 4)
+        return now.replace(second=0, microsecond=0)
+
+    def _is_tf_close(self, now: datetime, tf: str, tol_sec: int = 30) -> bool:
+        if tf == "M15":
+            return self._is_m15_close(now, tol_sec)
+        if tf == "H1":
+            return self._is_h1_close(now, tol_sec)
+        if tf == "H4":
+            return self._is_h4_close(now, tol_sec)
+        return False
+
     def _compute_server_offset(self) -> int:
         """Detect MT5 server time vs real UTC offset in seconds.
 
@@ -203,11 +239,17 @@ class MathTraderEngine:
             print(f"[MATH] server offset detect failed: {e}")
             return 0
 
-    def _fetch_bars(self, broker_sym: str, count: int = MATH_BARS_LOOKBACK) -> Optional[pl.DataFrame]:
+    def _fetch_bars(self, broker_sym: str, tf: str = "M15",
+                    count: int = MATH_BARS_LOOKBACK) -> Optional[pl.DataFrame]:
         if mt5 is None:
             return None
         try:
-            rates = mt5.copy_rates_from_pos(broker_sym, mt5.TIMEFRAME_M15, 0, count)
+            tf_const = {
+                "M15": mt5.TIMEFRAME_M15,
+                "H1":  mt5.TIMEFRAME_H1,
+                "H4":  mt5.TIMEFRAME_H4,
+            }.get(tf, mt5.TIMEFRAME_M15)
+            rates = mt5.copy_rates_from_pos(broker_sym, tf_const, 0, count)
             if rates is None or len(rates) == 0:
                 return None
             # IMPORTANT: do NOT subtract server offset.
@@ -252,10 +294,11 @@ class MathTraderEngine:
     def _process_setup(self, s: dict):
         sym = s["sym"]
         sess = s["session"]
+        tf = s.get("tf", "M15")
         # Hard guard: only process during the setup's session window (real UTC)
         if not self._session_active_now(sess):
             return
-        bars = self._fetch_bars(sym)
+        bars = self._fetch_bars(sym, tf=tf)
         if bars is None or len(bars) < 100:
             return
         bars = self._enrich(bars)
@@ -299,10 +342,13 @@ class MathTraderEngine:
             except Exception:
                 pass
 
+        from collections import Counter as _Cnt
+        tf_dist = _Cnt(s.get("tf", "M15") for s in self.setups)
+        tf_line = " ".join(f"{k}:{v}" for k, v in tf_dist.most_common())
         msg = (
             f"HEARTBEAT\n"
             f"Uptime:   {uptime_h:.1f}h\n"
-            f"Setups:   {len(self.setups)}\n"
+            f"Setups:   {len(self.setups)} ({tf_line})\n"
             f"Pending:  {len(self.om._pending)}\n"
             f"Open pos: {n_pos} (floating P&L ${pnl_d:+.2f})\n"
             f"Balance:  ${bal:.2f}\n"
@@ -370,16 +416,21 @@ class MathTraderEngine:
             sym_counter = Counter(s["sym"] for s in self.setups)
             setup_counter = Counter(s["setup_type"] for s in self.setups)
             dir_counter = Counter(s.get("direction_mode", "INVERT") for s in self.setups)
+            tf_counter = Counter(s.get("tf", "M15") for s in self.setups)
             syms_line = ", ".join(f"{k}({v})" for k, v in sym_counter.most_common())
             setups_line = ", ".join(f"{k}({v})" for k, v in setup_counter.most_common())
             dirs_line = ", ".join(f"{k}({v})" for k, v in dir_counter.most_common())
+            tfs_line = ", ".join(f"{k}({v})" for k, v in tf_counter.most_common())
+            avg_wr = (sum(s.get("expected_wr", 0) for s in self.setups) / max(n, 1))
 
             mode = "LIVE" if not self.dry_run else "DRY_RUN"
             off_h = self._server_offset_sec / 3600
             self._tg(
-                f"ENGINE STARTED ({mode})\n"
+                f"ENGINE STARTED ({mode}) - ELITE WR>=65%\n"
                 f"Magic:      {MAGIC_NUMBER_MATH}\n"
                 f"Setups:     {n}\n"
+                f"Timeframes: {tfs_line}\n"
+                f"Avg WR:     {avg_wr:.1%}\n"
                 f"Symbols:    {len(sym_counter)} -> {syms_line}\n"
                 f"Setup mix:  {setups_line}\n"
                 f"Direction:  {dirs_line}\n"
@@ -455,20 +506,31 @@ class MathTraderEngine:
                 # exactly as in backtest. The only session enforcement is
                 # at PLACEMENT (via _session_active_now in _process_setup).
 
-                # Process only once per M15 bar close (skip if paused)
-                bar_key = now.replace(second=0, microsecond=0,
-                                      minute=(now.minute // 15) * 15)
-                if self._is_m15_close(now) and bar_key != self._last_m15_processed:
-                    self._last_m15_processed = bar_key
-                    if self.is_paused():
-                        print("[MATH] paused -- skipping M15 processing")
-                    else:
+                # Multi-TF dispatch: process each TF only at its own bar close.
+                # Setups grouped by tf field (M15/H1/H4); each TF has its own
+                # last-processed bar key so we never double-process.
+                if not hasattr(self, "_last_tf_processed"):
+                    self._last_tf_processed = {}
+                if self.is_paused():
+                    pass
+                else:
+                    for tf in ("M15", "H1", "H4"):
+                        if not self._is_tf_close(now, tf):
+                            continue
+                        bar_key = self._bar_key_for_tf(now, tf)
+                        if self._last_tf_processed.get(tf) == bar_key:
+                            continue
+                        self._last_tf_processed[tf] = bar_key
                         self.om.reset_daily_if_needed()
-                        for s in self.setups:
+                        tf_setups = [s for s in self.setups if s.get("tf", "M15") == tf]
+                        if not tf_setups:
+                            continue
+                        print(f"[MATH] {tf} close — processing {len(tf_setups)} setups")
+                        for s in tf_setups:
                             try:
                                 self._process_setup(s)
                             except Exception as e:
-                                print(f"[MATH] process {s.get('sym')}: {e}")
+                                print(f"[MATH] process {s.get('sym')}/{tf}: {e}")
                         self.om.sweep_expired()
 
                 self._heartbeat()
