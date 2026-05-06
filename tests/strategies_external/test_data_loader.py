@@ -5,6 +5,7 @@ import pytest
 
 from src.strategies_external.data_loader import aggregate_to_daily
 from src.strategies_external.data_loader import load_csv, load_m1, load_m5
+from src.strategies_external.data_loader import best_tracking_tf
 
 
 def test_aggregate_to_daily_two_full_days(df_h1_two_days: pl.DataFrame):
@@ -85,3 +86,49 @@ def test_load_m1_loads_when_present(tmp_path):
     assert df is not None
     assert df.shape[0] == 1
     assert df["time"].dtype == pl.Datetime
+
+
+def test_best_tracking_tf_prefers_m1(tmp_path):
+    """Si existe M1, devuelve ('M1', df)."""
+    (tmp_path / "M1").mkdir()
+    (tmp_path / "M5").mkdir()
+    (tmp_path / "M1" / "EURUSD.csv").write_text(
+        "time,open,high,low,close,volume\n"
+        "2024-01-01 00:00:00+00:00,1.10,1.11,1.09,1.105,500.0\n"
+    )
+    (tmp_path / "M5" / "EURUSD.csv").write_text(
+        "time,open,high,low,close,volume\n"
+        "2024-01-01 00:00:00+00:00,1.10,1.11,1.09,1.105,500.0\n"
+    )
+    tf, df = best_tracking_tf("EURUSD", data_dir=str(tmp_path))
+    assert tf == "M1"
+    assert df.shape[0] == 1
+
+
+def test_best_tracking_tf_falls_back_to_m5(tmp_path):
+    (tmp_path / "M5").mkdir()
+    (tmp_path / "M5" / "EURUSD.csv").write_text(
+        "time,open,high,low,close,volume\n"
+        "2024-01-01 00:00:00+00:00,1.10,1.11,1.09,1.105,500.0\n"
+    )
+    # Crear M15 también
+    (tmp_path / "EURUSD_M15_20240101_20240101.csv").write_text(
+        "time,open,high,low,close,volume\n"
+        "2024-01-01 00:00:00+00:00,1.10,1.11,1.09,1.105,500.0\n"
+    )
+    tf, _ = best_tracking_tf("EURUSD", data_dir=str(tmp_path))
+    assert tf == "M5"
+
+
+def test_best_tracking_tf_falls_back_to_m15(tmp_path):
+    (tmp_path / "EURUSD_M15_20240101_20240101.csv").write_text(
+        "time,open,high,low,close,volume\n"
+        "2024-01-01 00:00:00+00:00,1.10,1.11,1.09,1.105,500.0\n"
+    )
+    tf, _ = best_tracking_tf("EURUSD", data_dir=str(tmp_path))
+    assert tf == "M15"
+
+
+def test_best_tracking_tf_raises_when_nothing(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        best_tracking_tf("EURUSD", data_dir=str(tmp_path))

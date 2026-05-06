@@ -49,6 +49,21 @@ def load_m5(symbol: str, data_dir: str = "data") -> pl.DataFrame | None:
     return _load_fine_tf(symbol, "M5", data_dir)
 
 
+def best_tracking_tf(symbol: str, data_dir: str = "data") -> tuple[str, pl.DataFrame]:
+    """Devuelve (tf_label, df) eligiendo el TF más fino disponible: M1 > M5 > M15.
+
+    Raises:
+        FileNotFoundError: si no hay datos para el símbolo en ningún TF.
+    """
+    df_m1 = load_m1(symbol, data_dir)
+    if df_m1 is not None:
+        return "M1", df_m1
+    df_m5 = load_m5(symbol, data_dir)
+    if df_m5 is not None:
+        return "M5", df_m5
+    return "M15", load_csv(symbol, "M15", data_dir)
+
+
 def aggregate_to_daily(df: pl.DataFrame) -> pl.DataFrame:
     """Resamplea OHLCV a daily.
 
