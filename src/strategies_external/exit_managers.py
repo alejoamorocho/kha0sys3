@@ -77,11 +77,11 @@ class ATRExitManager(ExitManager):
         if signal_raw.side == "long":
             stop = signal_raw.entry_price - self.sl_mult * atr
             tp1 = signal_raw.entry_price + self.tp1_mult * atr
-            tp2 = signal_raw.entry_price + self.tp2_mult * atr if self.tp2_mult else None
+            tp2 = signal_raw.entry_price + self.tp2_mult * atr if self.tp2_mult is not None else None
         else:
             stop = signal_raw.entry_price + self.sl_mult * atr
             tp1 = signal_raw.entry_price - self.tp1_mult * atr
-            tp2 = signal_raw.entry_price - self.tp2_mult * atr if self.tp2_mult else None
+            tp2 = signal_raw.entry_price - self.tp2_mult * atr if self.tp2_mult is not None else None
         return replace(signal_raw, stop=stop, tp1=tp1, tp2=tp2)
 
 

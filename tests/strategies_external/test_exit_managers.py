@@ -57,6 +57,48 @@ def test_indicator_exit_manager_oops_long():
     assert s.tp2 == pytest.approx(4580.0)
 
 
+def _signal_short_oops_raw() -> Signal:
+    """Signal OOPS short sin stop/tp todavía."""
+    return Signal(
+        symbol="SP500", strategy="oops", side="short",
+        setup_ts=datetime(2024, 1, 5),
+        entry_type="stop", entry_price=4540.0,
+        valid_until=datetime(2024, 1, 5, 23, 59),
+        stop=0.0, tp1=None, tp2=None,
+        indicator_anchors={"prev_high": 4540.0, "prev_low": 4500.0,
+                           "prev_range": 40.0, "today_open": 4560.0,
+                           "atr14": 50.0, "today_high": 4570.0},
+    )
+
+
+def test_doc_exit_manager_oops_short():
+    raw = _signal_short_oops_raw()
+    mgr = DocExitManager(strategy="oops")
+    s = mgr.attach_levels(raw)
+    # Doc OOPS short: stop = today_high, tp1 = entry - 2R
+    assert s.stop == pytest.approx(4570.0)
+    R = 4570.0 - 4540.0
+    assert s.tp1 == pytest.approx(4540.0 - 2 * R)
+
+
+def test_indicator_exit_manager_oops_short():
+    raw = _signal_short_oops_raw()
+    mgr = IndicatorExitManager(strategy="oops")
+    s = mgr.attach_levels(raw)
+    # Indicator OOPS short: stop=today_high, tp1=prev_high - prev_range/2, tp2=prev_low - prev_range
+    assert s.stop == pytest.approx(4570.0)
+    assert s.tp1 == pytest.approx(4540.0 - 40.0 / 2.0)  # 4520
+    assert s.tp2 == pytest.approx(4500.0 - 40.0)  # 4460
+
+
+def test_atr_exit_manager_tp2_none_returns_none():
+    """Si tp2_mult es None, tp2 sigue None (no produce 0.0 ni False-equivalente)."""
+    raw = _signal_long_oops_raw()
+    mgr = ATRExitManager(sl_mult=1.0, tp1_mult=1.0, tp2_mult=None)
+    s = mgr.attach_levels(raw)
+    assert s.tp2 is None
+
+
 def test_exit_manager_unknown_strategy_raises():
     raw = _signal_long_oops_raw()
     with pytest.raises(ValueError, match="unknown strategy"):
