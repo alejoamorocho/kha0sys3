@@ -1,0 +1,129 @@
+"""Runner OOPS: ejecuta backtest con 3 modos de exit sobre los símbolos dados,
+escribe reporte Markdown y trades en parquet.
+"""
+
+from pathlib import Path
+
+import polars as pl
+
+from src.strategies_external.common.backtester import run_backtest
+from src.strategies_external.common.metrics import evaluate
+from src.strategies_external.common.trade import Trade
+from src.strategies_external.data_loader import (
+    aggregate_to_daily, best_tracking_tf, load_csv,
+)
+from src.strategies_external.exit_managers import (
+    ATRExitManager, DocExitManager, IndicatorExitManager,
+)
+from src.strategies_external.reporting.markdown import write_backtest_report
+from src.strategies_external.strategies.oops import OOPSStrategy
+
+
+def _trades_to_parquet(trades: list[Trade], path: Path) -> None:
+    if not trades:
+        path.touch()
+        return
+    # Use explicit schema to handle nullable tp2 column (None vs float)
+    schema = {
+        "symbol": pl.Utf8,
+        "strategy": pl.Utf8,
+        "exit_mode": pl.Utf8,
+        "side": pl.Utf8,
+        "entry_ts": pl.Datetime,
+        "entry": pl.Float64,
+        "stop": pl.Float64,
+        "tp1": pl.Float64,
+        "tp2": pl.Float64,
+        "exit_ts": pl.Datetime,
+        "exit": pl.Float64,
+        "exit_reason": pl.Utf8,
+        "R": pl.Float64,
+        "pnl_R": pl.Float64,
+        "pnl_pct": pl.Float64,
+        "bars_in_trade": pl.Int64,
+    }
+    df = pl.DataFrame(
+        [{
+            "symbol": t.symbol, "strategy": t.strategy, "exit_mode": t.exit_mode,
+            "side": t.side, "entry_ts": t.entry_ts, "entry": t.entry,
+            "stop": t.stop, "tp1": t.tp1, "tp2": t.tp2,
+            "exit_ts": t.exit_ts, "exit": t.exit, "exit_reason": t.exit_reason,
+            "R": t.R, "pnl_R": t.pnl_R, "pnl_pct": t.pnl_pct,
+            "bars_in_trade": t.bars_in_trade,
+        } for t in trades],
+        schema=schema,
+    )
+    df.write_parquet(path)
+
+
+def run_oops_backtest(
+    symbols: list[str],
+    data_dir: str = "data",
+    output_path: "Path | str" = "reports/external/oops_backtest.md",
+    atr_grid: "list[tuple[float, float, float]] | None" = None,
+) -> dict:
+    """Corre OOPS sobre los símbolos dados con 3 modos de exit.
+
+    Returns: dict mode -> metrics dict.
+    """
+    if atr_grid is None:
+        # Multipliers por defecto del documento (sweep en V2 si hace falta)
+        atr_grid = [(1.5, 1.5, 3.0)]
+
+    output_path = Path(output_path)
+    strategy = OOPSStrategy()
+    doc_mgr = DocExitManager(strategy="oops")
+    ind_mgr = IndicatorExitManager(strategy="oops")
+
+    trades_by_mode: dict[str, list[Trade]] = {"doc": [], "atr": [], "indicator": []}
+
+    for sym in symbols:
+        df_h1 = load_csv(sym, "H1", data_dir=data_dir)
+        df_daily = aggregate_to_daily(df_h1)
+        _, df_track = best_tracking_tf(sym, data_dir=data_dir)
+
+        signals_raw = strategy.generate_signals(df_daily, symbol=sym)
+
+        trades_by_mode["doc"].extend(
+            run_backtest([doc_mgr.attach_levels(s) for s in signals_raw],
+                         df_track, exit_mode="doc")
+        )
+        # ATR mode (primer punto del grid, V2 hará sweep completo)
+        sl, tp1, tp2 = atr_grid[0]
+        atr_mgr = ATRExitManager(sl_mult=sl, tp1_mult=tp1, tp2_mult=tp2)
+        trades_by_mode["atr"].extend(
+            run_backtest([atr_mgr.attach_levels(s) for s in signals_raw],
+                         df_track, exit_mode="atr")
+        )
+        trades_by_mode["indicator"].extend(
+            run_backtest([ind_mgr.attach_levels(s) for s in signals_raw],
+                         df_track, exit_mode="indicator")
+        )
+
+    write_backtest_report(
+        output_path,
+        strategy_name="oops",
+        symbols=symbols,
+        trades_by_mode=trades_by_mode,
+        config={"period": "2018-01-01..today", "risk_pct": 0.005,
+                "atr_grid": atr_grid},
+    )
+
+    # Combina trades en un único parquet
+    all_trades = trades_by_mode["doc"] + trades_by_mode["atr"] + trades_by_mode["indicator"]
+    _trades_to_parquet(all_trades, output_path.parent / "oops_trades.parquet")
+
+    return {m: evaluate(ts) for m, ts in trades_by_mode.items()}
+
+
+if __name__ == "__main__":
+    summary = run_oops_backtest(
+        symbols=["SP500", "NASDAQ100"],
+        data_dir="data",
+        output_path="reports/external/oops_backtest.md",
+    )
+    print("Backtest finished. Summary:")
+    for mode, m in summary.items():
+        print(f"  [{mode}] n={m['n_trades']} wr={m['win_rate']:.3f} "
+              f"pf={m['profit_factor']:.3f} exp_R={m['expectancy_R']:.3f} "
+              f"dd_R={m['max_dd_R']:.3f}")
