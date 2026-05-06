@@ -321,11 +321,12 @@ def test_aggregate_to_daily_two_full_days(df_h1_two_days: pl.DataFrame):
     assert day1["close"] == pytest.approx(104.7)
 
     day2 = daily.row(1, named=True)
-    # día 2 (i=24..47): open=105.0, low=99.5, high=105.5, close=99.7
+    # día 2 (i=24..47): o(i)=105-(i-24)*0.2 → o(47)=100.4, h(47)=100.9, l(47)=99.9, c(47)=100.5
+    # max h del día está en i=24 (105.5); min l del día está en i=47 (99.9); close = c(47) = 100.5
     assert day2["open"] == pytest.approx(105.0)
     assert day2["high"] == pytest.approx(105.5)
-    assert day2["low"] == pytest.approx(99.5)
-    assert day2["close"] == pytest.approx(99.7)
+    assert day2["low"] == pytest.approx(99.9)
+    assert day2["close"] == pytest.approx(100.5)
 
 
 def test_aggregate_to_daily_volume_sum(df_h1_two_days: pl.DataFrame):
