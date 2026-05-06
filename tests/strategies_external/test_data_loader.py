@@ -4,6 +4,7 @@ import polars as pl
 import pytest
 
 from src.strategies_external.data_loader import aggregate_to_daily
+from src.strategies_external.data_loader import load_csv, load_m1, load_m5
 
 
 def test_aggregate_to_daily_two_full_days(df_h1_two_days: pl.DataFrame):
@@ -43,3 +44,44 @@ def test_aggregate_to_daily_empty():
     daily = aggregate_to_daily(empty)
     assert daily.shape[0] == 0
     assert daily.columns == ["time", "open", "high", "low", "close", "volume"]
+
+
+def test_load_csv_returns_polars_with_canonical_schema(tmp_path):
+    """load_csv lee un CSV con el formato del proyecto y normaliza schema."""
+    csv_file = tmp_path / "EURUSD_H1_20180101_20180101.csv"
+    csv_file.write_text(
+        "time,open,high,low,close,volume\n"
+        "2018-01-01 00:00:00+00:00,1.20,1.21,1.19,1.205,1000.0\n"
+        "2018-01-01 01:00:00+00:00,1.205,1.215,1.20,1.21,1500.0\n"
+    )
+    df = load_csv("EURUSD", "H1", data_dir=str(tmp_path))
+    assert df.columns == ["time", "open", "high", "low", "close", "volume"]
+    assert df["time"].dtype == pl.Datetime
+    assert df.shape[0] == 2
+
+
+def test_load_csv_missing_raises(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        load_csv("NOPE", "H1", data_dir=str(tmp_path))
+
+
+def test_load_m1_returns_none_when_missing(tmp_path):
+    """load_m1 devuelve None si no existe data/M1/<symbol>.csv."""
+    assert load_m1("EURUSD", data_dir=str(tmp_path)) is None
+
+
+def test_load_m5_returns_none_when_missing(tmp_path):
+    assert load_m5("EURUSD", data_dir=str(tmp_path)) is None
+
+
+def test_load_m1_loads_when_present(tmp_path):
+    m1_dir = tmp_path / "M1"
+    m1_dir.mkdir()
+    (m1_dir / "EURUSD.csv").write_text(
+        "time,open,high,low,close,volume\n"
+        "2024-01-01 00:00:00+00:00,1.10,1.11,1.09,1.105,500.0\n"
+    )
+    df = load_m1("EURUSD", data_dir=str(tmp_path))
+    assert df is not None
+    assert df.shape[0] == 1
+    assert df["time"].dtype == pl.Datetime
