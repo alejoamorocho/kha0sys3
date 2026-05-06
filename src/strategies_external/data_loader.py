@@ -25,7 +25,12 @@ def load_csv(symbol: str, tf: str, data_dir: str = "data") -> pl.DataFrame:
 
 
 def _load_fine_tf(symbol: str, subdir: str, data_dir: str) -> pl.DataFrame | None:
-    """Helper: lee data_dir/<subdir>/<symbol>.csv si existe, sino None."""
+    """Helper: lee data_dir/<subdir>/<symbol>.csv si existe, sino None.
+
+    Convención: símbolos en mayúsculas y sin sufijo (XAUUSD.csv, no xauusd_m1.csv).
+    Los CSVs descargados de Dukascopy con minúsculas + `_m1` deben renombrarse
+    al mover a data/M1/.
+    """
     path = Path(data_dir) / subdir / f"{symbol}.csv"
     if not path.is_file():
         return None
