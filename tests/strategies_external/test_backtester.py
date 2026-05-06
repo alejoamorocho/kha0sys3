@@ -106,5 +106,6 @@ def test_long_eod_close_when_no_tp_hit():
     trades = run_backtest([sig], df, exit_mode="doc")
     assert len(trades) == 1
     assert trades[0].exit_reason == "eod"
-    # PnL bruto = (100.6 - 100.5) / 1.0 = 0.1R, neto -0.1R
-    assert trades[0].pnl_R == pytest.approx(-0.1, abs=0.05)
+    # entry slipped 100.5 → 100.55. PnL bruto = (100.6 - 100.55)/1.0 = 0.05R.
+    # neto = 0.05 - 0.2 (friction index) = -0.15R
+    assert trades[0].pnl_R == pytest.approx(-0.15, abs=0.02)
