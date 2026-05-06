@@ -8,7 +8,8 @@ from pathlib import Path
 
 import polars as pl
 
-from src.infrastructure.data.polars_loader import CSVPolarsLoader
+# Imported for use by load_csv in Task 4; kept here to keep imports stable.
+from src.infrastructure.data.polars_loader import CSVPolarsLoader  # noqa: F401
 
 
 _OHLC_COLS = ["time", "open", "high", "low", "close", "volume"]
@@ -18,7 +19,8 @@ def aggregate_to_daily(df: pl.DataFrame) -> pl.DataFrame:
     """Resamplea OHLCV a daily.
 
     Reglas: open=first, high=max, low=min, close=last, volume=sum.
-    Asume `time` ya es polars Datetime y el DataFrame está ordenado.
+    Asume `time` ya es polars Datetime; el DataFrame se ordena por tiempo
+    defensivamente antes de agrupar.
     Devuelve un DataFrame con las mismas columnas; `time` queda al inicio del día.
     """
     if df.is_empty():
