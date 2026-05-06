@@ -3,6 +3,8 @@ from pathlib import Path
 
 from src.strategies_external.common.trade import Trade
 from src.strategies_external.reporting.markdown import write_backtest_report
+from src.strategies_external.common.walk_forward import walk_forward_split
+from src.strategies_external.common.monte_carlo import monte_carlo_bootstrap
 
 
 def _trade(day: int, pnl_R: float, mode: str = "doc") -> Trade:
@@ -38,3 +40,22 @@ def test_report_includes_metrics_and_modes(tmp_path: Path):
     assert "indicator" in content
     assert "win_rate" in content
     assert "SP500" in content
+
+
+def test_report_includes_wf_and_mc(tmp_path: Path):
+    base = datetime(2024, 1, 1)
+    trades = [_trade(i, 0.5 if i % 3 != 0 else -1.0) for i in range(60)]
+    trades_by_mode = {"doc": trades}
+    wf = walk_forward_split(trades, n_windows=5, is_pct=0.7)
+    mc = monte_carlo_bootstrap(trades, n_simulations=1000, ruin_threshold_R=-15.0, seed=1)
+    report_path = tmp_path / "oops_backtest.md"
+    write_backtest_report(
+        report_path, strategy_name="oops", symbols=["SP500"],
+        trades_by_mode=trades_by_mode,
+        config={"period": "2018..", "risk_pct": 0.005},
+        walk_forward_windows=wf, monte_carlo_results=mc,
+    )
+    content = report_path.read_text()
+    assert "Walk-forward" in content
+    assert "Monte Carlo" in content
+    assert "prob_ruin" in content

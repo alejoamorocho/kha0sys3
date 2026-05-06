@@ -100,6 +100,17 @@ def run_oops_backtest(
                          df_track, exit_mode="indicator")
         )
 
+    from src.strategies_external.common.walk_forward import walk_forward_split
+    from src.strategies_external.common.monte_carlo import monte_carlo_bootstrap
+
+    doc_trades = trades_by_mode["doc"]
+    try:
+        wf = walk_forward_split(doc_trades, n_windows=5, is_pct=0.7)
+    except ValueError:
+        wf = None
+    mc = monte_carlo_bootstrap(doc_trades, n_simulations=10_000,
+                                ruin_threshold_R=-15.0, seed=42) if doc_trades else None
+
     write_backtest_report(
         output_path,
         strategy_name="oops",
@@ -107,6 +118,8 @@ def run_oops_backtest(
         trades_by_mode=trades_by_mode,
         config={"period": "2018-01-01..today", "risk_pct": 0.005,
                 "atr_grid": atr_grid},
+        walk_forward_windows=wf,
+        monte_carlo_results=mc,
     )
 
     # Combina trades en un único parquet

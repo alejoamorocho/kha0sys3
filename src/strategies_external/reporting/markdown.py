@@ -26,6 +26,9 @@ def write_backtest_report(
     symbols: list[str],
     trades_by_mode: dict[str, list[Trade]],
     config: dict,
+    walk_forward_windows: list | None = None,
+    monte_carlo_results: dict | None = None,
+    atr_grid_results: list[dict] | None = None,
 ) -> None:
     """Escribe report Markdown con métricas por modo de exit y por activo."""
     lines: list[str] = []
@@ -65,6 +68,42 @@ def write_backtest_report(
             f"{_fmt(m['max_dd_R'])} | {_fmt(m['calmar'])} |"
         )
     lines.append("")
+
+    if walk_forward_windows:
+        lines.append("## Walk-forward (modo doc)")
+        lines.append("")
+        lines.append("| window | IS n | IS pf | IS wr | OOS n | OOS pf | OOS wr |")
+        lines.append("|--------|------|-------|-------|-------|--------|--------|")
+        for i, (is_, oos) in enumerate(walk_forward_windows, 1):
+            mi = evaluate(is_); mo = evaluate(oos)
+            lines.append(
+                f"| {i} | {mi['n_trades']} | {_fmt(mi['profit_factor'])} | "
+                f"{_fmt(mi['win_rate'])} | {mo['n_trades']} | "
+                f"{_fmt(mo['profit_factor'])} | {_fmt(mo['win_rate'])} |"
+            )
+        lines.append("")
+
+    if monte_carlo_results:
+        lines.append("## Monte Carlo (modo doc, 10k bootstrap)")
+        lines.append("")
+        lines.append("| metric | value |")
+        lines.append("|--------|-------|")
+        for k, v in monte_carlo_results.items():
+            lines.append(f"| {k} | {_fmt(v)} |")
+        lines.append("")
+
+    if atr_grid_results:
+        lines.append("## ATR exit sweep")
+        lines.append("")
+        lines.append("| sl | tp1 | tp2 | n | wr | pf | exp_R | dd_R | calmar |")
+        lines.append("|----|-----|-----|---|-----|-----|-------|------|--------|")
+        for r in atr_grid_results:
+            lines.append(
+                f"| {r['sl']} | {r['tp1']} | {r['tp2']} | "
+                f"{r['n_trades']} | {_fmt(r['win_rate'])} | {_fmt(r['profit_factor'])} | "
+                f"{_fmt(r['expectancy_R'])} | {_fmt(r['max_dd_R'])} | {_fmt(r['calmar'])} |"
+            )
+        lines.append("")
 
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text("\n".join(lines), encoding="utf-8")
