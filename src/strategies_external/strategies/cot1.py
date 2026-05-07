@@ -28,6 +28,16 @@ def _is_pin_bar(o: float, h: float, l: float, c: float, side: str) -> bool:
         return upper_wick / rng > 0.5 and c < o
 
 
+def _is_inside_day_breakout(prev2: dict, prev1: dict, cur: dict, side: str) -> bool:
+    """prev1 inside-day vs prev2; cur rompe extremos en dirección bias."""
+    inside_day = prev1["high"] < prev2["high"] and prev1["low"] > prev2["low"]
+    if not inside_day:
+        return False
+    if side == "long":
+        return cur["high"] > prev1["high"]
+    return cur["low"] < prev1["low"]
+
+
 class COT1Strategy(Strategy):
     name = "cot1"
 
@@ -121,4 +131,31 @@ class COT1Strategy(Strategy):
                         timestop_bars=None,  # Plan 2.5: 5d via valid_until
                         indicator_anchors=anchors,
                     ))
+
+            # Inside-day breakout (Plan 2.5): doc lista 3 triggers válidos
+            if i >= 2:
+                prev2 = rows[i - 2]
+                prev1 = rows[i - 1]
+                if applicable_cot >= self.cot_threshold_long and seasonal >= self.seasonal_threshold:
+                    if _is_inside_day_breakout(prev2, prev1, cur, "long"):
+                        signals.append(Signal(
+                            symbol=symbol, strategy=self.name, side="long",
+                            setup_ts=cur_ts, entry_type="stop",
+                            entry_price=prev1["high"] + 0.01,
+                            valid_until=valid_until,
+                            stop=0.0, tp1=None, tp2=None,
+                            timestop_bars=None,
+                            indicator_anchors=anchors,
+                        ))
+                if applicable_cot <= self.cot_threshold_short and seasonal <= -self.seasonal_threshold:
+                    if _is_inside_day_breakout(prev2, prev1, cur, "short"):
+                        signals.append(Signal(
+                            symbol=symbol, strategy=self.name, side="short",
+                            setup_ts=cur_ts, entry_type="stop",
+                            entry_price=prev1["low"] - 0.01,
+                            valid_until=valid_until,
+                            stop=0.0, tp1=None, tp2=None,
+                            timestop_bars=None,
+                            indicator_anchors=anchors,
+                        ))
         return signals
