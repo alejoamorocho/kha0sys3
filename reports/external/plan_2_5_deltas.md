@@ -33,7 +33,10 @@ Re-runs de cada strategy aplicando los 7 fixes del Plan 2.5 documentados en
 | Perdices Fib | pf | 0.012 | 0.012 | 0 | |
 | Perdices Fib | dd_R | 292.9 | 292.9 | 0 | |
 | Perdices Fib | calmar | -1.001 | -1.001 | 0 | Espera M5 para test real |
-| **COT-1** | n | 0¹ | 0² | — | ¹Plan 2 no corrió standalone, ²HTTP 403 cftc.gov |
+| **COT-1** | n | 0¹ | 372 | +372 | ¹Plan 2 no corrió standalone (HTTP 403); Plan 2.5 fixed downloader |
+| COT-1 | wr | n/a | 0.417 | new | Pin bar + Inside-day breakout (Plan 2.5 T5) |
+| COT-1 | pf | n/a | 0.717 | new | Negativa pero mejor que OOPS/DB/Perdices |
+| COT-1 | calmar | n/a | -0.711 | new | best ATR=-0.617 (sl=1.5,tp1=2,tp2=4) |
 | **SMA-18** | n | 4241 | 4344 | +103 | valid_until 60→90d permite más signals |
 | SMA-18 | wr | 0.315 | 0.302 | -0.013 | |
 | SMA-18 | pf | 1.129 | **0.793** | **-0.336** | Cambio crítico: 2-cierres deja correr pérdidas |
