@@ -98,3 +98,34 @@ def test_indicator_exit_manager_perdices_long():
     assert s.stop == pytest.approx(1999.8, abs=0.01)
     assert s.tp1 == pytest.approx(2050.0)
     assert s.tp2 == pytest.approx(2080.9)
+
+
+def _signal_long_cot1_raw():
+    return Signal(
+        symbol="XAUUSD", strategy="cot1", side="long",
+        setup_ts=datetime(2024, 1, 5),
+        entry_type="stop", entry_price=2050.0,
+        valid_until=datetime(2024, 1, 10),
+        stop=0.0, tp1=None, tp2=None,
+        timestop_bars=120,
+        indicator_anchors={"atr14": 15.0, "cot_index": 85.0,
+                           "season_5d": 0.012,
+                           "swing_high_5d": 2055.0, "swing_low_5d": 2030.0},
+    )
+
+
+def test_doc_exit_manager_cot1_long():
+    s = DocExitManager(strategy="cot1").attach_levels(_signal_long_cot1_raw())
+    # Doc COT1: stop = swing_low_5d - 0.5*atr; tp1 = entry + 1.5R; tp2 = entry + 3R
+    assert s.stop == pytest.approx(2030.0 - 0.5 * 15.0)
+    R = 2050.0 - (2030.0 - 0.5 * 15.0)
+    assert s.tp1 == pytest.approx(2050.0 + 1.5 * R, abs=0.5)
+    assert s.tp2 == pytest.approx(2050.0 + 3.0 * R, abs=0.5)
+
+
+def test_indicator_exit_manager_cot1_long():
+    s = IndicatorExitManager(strategy="cot1").attach_levels(_signal_long_cot1_raw())
+    # Indicator COT1: stop = swing_low_5d - 0.5*atr; tp1/tp2 inherit doc style for now
+    assert s.stop == pytest.approx(2030.0 - 0.5 * 15.0)
+    assert s.tp1 is not None
+    assert s.tp2 is not None

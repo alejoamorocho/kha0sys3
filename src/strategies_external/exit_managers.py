@@ -51,6 +51,8 @@ class DocExitManager(ExitManager):
             return self._double_bottom(signal_raw)
         if self.strategy == "perdices_fib":
             return self._perdices_fib(signal_raw)
+        if self.strategy == "cot1":
+            return self._cot1(signal_raw)
         # Otras estrategias: implementadas en Plan 2.
         raise ValueError(f"unknown strategy: {self.strategy}")
 
@@ -94,6 +96,20 @@ class DocExitManager(ExitManager):
             stop = _require_anchor(s, "swing_high") + 0.2
             tp1 = _require_anchor(s, "swing_low")
         return replace(s, stop=stop, tp1=tp1, tp2=None, timestop_bars=240)  # 240 M1 bars = 4h
+
+    def _cot1(self, s: Signal) -> Signal:
+        atr = _require_anchor(s, "atr14")
+        if s.side == "long":
+            stop = _require_anchor(s, "swing_low_5d") - 0.5 * atr
+            R = s.entry_price - stop
+            tp1 = s.entry_price + 1.5 * R
+            tp2 = s.entry_price + 3.0 * R
+        else:
+            stop = _require_anchor(s, "swing_high_5d") + 0.5 * atr
+            R = stop - s.entry_price
+            tp1 = s.entry_price - 1.5 * R
+            tp2 = s.entry_price - 3.0 * R
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2)
 
 
 class ATRExitManager(ExitManager):
@@ -140,6 +156,8 @@ class IndicatorExitManager(ExitManager):
             return self._double_bottom(signal_raw)
         if self.strategy == "perdices_fib":
             return self._perdices_fib(signal_raw)
+        if self.strategy == "cot1":
+            return self._cot1(signal_raw)
         raise ValueError(f"unknown strategy: {self.strategy}")
 
     def _oops(self, s: Signal) -> Signal:
@@ -193,3 +211,18 @@ class IndicatorExitManager(ExitManager):
             tp1 = _require_anchor(s, "swing_low")
             tp2 = _require_anchor(s, "fib_1618")
         return replace(s, stop=stop, tp1=tp1, tp2=tp2, timestop_bars=240)
+
+    def _cot1(self, s: Signal) -> Signal:
+        # Same anchors as doc; if a clearer "indicator" anchoring emerges later, refine.
+        atr = _require_anchor(s, "atr14")
+        if s.side == "long":
+            stop = _require_anchor(s, "swing_low_5d") - 0.5 * atr
+            R = s.entry_price - stop
+            tp1 = s.entry_price + 1.5 * R
+            tp2 = s.entry_price + 3.0 * R
+        else:
+            stop = _require_anchor(s, "swing_high_5d") + 0.5 * atr
+            R = stop - s.entry_price
+            tp1 = s.entry_price - 1.5 * R
+            tp2 = s.entry_price - 3.0 * R
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2)
