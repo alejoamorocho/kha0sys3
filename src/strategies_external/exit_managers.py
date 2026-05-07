@@ -47,6 +47,8 @@ class DocExitManager(ExitManager):
             return self._oops(signal_raw)
         if self.strategy == "sma18":
             return self._sma18(signal_raw)
+        if self.strategy == "double_bottom":
+            return self._double_bottom(signal_raw)
         # Otras estrategias: implementadas en Plan 2.
         raise ValueError(f"unknown strategy: {self.strategy}")
 
@@ -66,6 +68,21 @@ class DocExitManager(ExitManager):
         # No fixed TP — let the trade run.
         sma = _require_anchor(s, "sma18")
         return replace(s, stop=sma, tp1=None, tp2=None)
+
+    def _double_bottom(self, s: Signal) -> Signal:
+        consol_low = _require_anchor(s, "consol_low")
+        neckline = _require_anchor(s, "neckline")
+        altura = _require_anchor(s, "altura_patron")
+        if s.side == "long":
+            stop = consol_low
+            tp1 = neckline + altura
+            tp2 = neckline + altura * 1.618
+        else:
+            consol_high = _require_anchor(s, "consol_high")
+            stop = consol_high
+            tp1 = neckline - altura
+            tp2 = neckline - altura * 1.618
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2)
 
 
 class ATRExitManager(ExitManager):
@@ -108,6 +125,8 @@ class IndicatorExitManager(ExitManager):
             return self._oops(signal_raw)
         if self.strategy == "sma18":
             return self._sma18(signal_raw)
+        if self.strategy == "double_bottom":
+            return self._double_bottom(signal_raw)
         raise ValueError(f"unknown strategy: {self.strategy}")
 
     def _oops(self, s: Signal) -> Signal:
@@ -135,4 +154,18 @@ class IndicatorExitManager(ExitManager):
             stop = sma + 0.5 * atr
             tp1 = sma - 2.0 * atr
             tp2 = sma - 4.0 * atr
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2)
+
+    def _double_bottom(self, s: Signal) -> Signal:
+        L2 = _require_anchor(s, "L2")
+        neckline = _require_anchor(s, "neckline")
+        altura = _require_anchor(s, "altura_patron")
+        if s.side == "long":
+            stop = L2 - 0.25 * altura
+            tp1 = neckline + altura
+            tp2 = neckline + altura * 1.618
+        else:
+            stop = L2 + 0.25 * altura
+            tp1 = neckline - altura
+            tp2 = neckline - altura * 1.618
         return replace(s, stop=stop, tp1=tp1, tp2=tp2)

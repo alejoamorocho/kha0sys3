@@ -40,3 +40,32 @@ def test_indicator_exit_manager_sma18_long():
     assert s.stop == pytest.approx(2025.0 - 0.5 * 15.0)
     assert s.tp1 == pytest.approx(2025.0 + 2.0 * 15.0)
     assert s.tp2 == pytest.approx(2025.0 + 4.0 * 15.0)
+
+
+def _signal_long_db_raw():
+    return Signal(
+        symbol="XAUUSD", strategy="double_bottom", side="long",
+        setup_ts=datetime(2024, 1, 5),
+        entry_type="stop", entry_price=2050.0,
+        valid_until=datetime(2024, 2, 5),
+        stop=0.0, tp1=None, tp2=None,
+        indicator_anchors={"L1": 2000.0, "L2": 2010.0, "neckline": 2040.0,
+                           "altura_patron": 30.0, "sma18": 2025.0,
+                           "atr14": 15.0, "consol_low": 2042.0},
+    )
+
+
+def test_doc_exit_manager_double_bottom_long():
+    s = DocExitManager(strategy="double_bottom").attach_levels(_signal_long_db_raw())
+    # Doc DB: stop = consol_low; tp1 = neckline + altura_patron (fib100); tp2 = neckline + altura*1.618
+    assert s.stop == pytest.approx(2042.0)
+    assert s.tp1 == pytest.approx(2040.0 + 30.0)
+    assert s.tp2 == pytest.approx(2040.0 + 30.0 * 1.618)
+
+
+def test_indicator_exit_manager_double_bottom_long():
+    s = IndicatorExitManager(strategy="double_bottom").attach_levels(_signal_long_db_raw())
+    # Indicator DB: stop = L2 - 0.25*altura; tp1 = neckline + altura; tp2 = neckline + 1.618*altura
+    assert s.stop == pytest.approx(2010.0 - 0.25 * 30.0)
+    assert s.tp1 == pytest.approx(2040.0 + 30.0)
+    assert s.tp2 == pytest.approx(2040.0 + 30.0 * 1.618)
