@@ -343,6 +343,124 @@ def run_discovery_phase_b(
     return df
 
 
+def run_discovery_phase_f(
+    output_path: str = "reports/external/math_discovery_m1_phase_f.md",
+) -> pl.DataFrame:
+    """Phase F: discovery con entries en M1 (no en M15/H1/H4).
+
+    Para cada sym × 12 setups × 5 sesiones × 7 (tp,sl) × 2 invert.
+    Tracking M1 (mismo data → entry close usa el mismo M1 bar).
+    """
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    from src.engine.run_math_momentum import detect_setups as mom_detect
+    from src.engine.run_math_fade import detect_setups as fade_detect
+
+    SESSIONS = ("ASIA", "LONDON", "NY", "LONDON_NY", "ALL_DAY")
+    grid = PHASE_B_GRID
+    all_setup_types = MOMENTUM_SETUP_TYPES + FADE_SETUP_TYPES
+    n_total = len(M1_AVAILABLE) * len(all_setup_types) * len(SESSIONS) * len(grid) * 2
+    print(f"[PhaseF] M1 entries — {n_total} backtests", flush=True)
+
+    rows = []
+    backtest_count = 0
+    t0 = time.time()
+    setups_cache: dict[tuple[str, str, bool], pl.DataFrame] = {}
+
+    for sym in M1_AVAILABLE:
+        m1 = load_m1(sym)
+        if m1 is None:
+            continue
+        print(f"[PhaseF] {sym}: enriching M1 ({len(m1)} rows)...", flush=True)
+        m1_arrays = precompute_m1_arrays(m1)
+        # Enrich M1 once per symbol (heavy: 3M rows × 16 indicators)
+        # Cache to data/enriched_math_tf/<sym>_M1.parquet via _load_and_enrich_math_tf
+        try:
+            bars = _load_and_enrich_math_tf(sym, "M1")
+        except Exception as e:
+            print(f"[PhaseF][SKIP] {sym} M1: {e}", flush=True)
+            continue
+        print(f"[PhaseF] {sym}: M1 enriched done ({time.time()-t0:.0f}s elapsed)", flush=True)
+
+        friction = _friction_for(sym)
+
+        for is_fade, setup_list in [(False, MOMENTUM_SETUP_TYPES), (True, FADE_SETUP_TYPES)]:
+            detect_fn = fade_detect if is_fade else mom_detect
+            for setup_type in setup_list:
+                sk = (sym, setup_type, is_fade)
+                if sk not in setups_cache:
+                    try:
+                        setups_cache[sk] = detect_fn(bars, setup_type)
+                    except Exception as e:
+                        print(f"[PhaseF][SKIP] {sym}/M1/{setup_type}: {e}", flush=True)
+                        setups_cache[sk] = pl.DataFrame()
+                all_setups = setups_cache[sk]
+                if all_setups.is_empty():
+                    continue
+
+                for session in SESSIONS:
+                    ses_setups = _filter_by_session(all_setups, session)
+                    if len(ses_setups) < 30:
+                        backtest_count += len(grid) * 2
+                        continue
+                    for tp, sl in grid:
+                        for invert in (False, True):
+                            backtest_count += 1
+                            if backtest_count % 500 == 0:
+                                pct = 100 * backtest_count / n_total
+                                print(f"[PhaseF] {backtest_count}/{n_total} ({pct:.0f}%) — {time.time()-t0:.0f}s", flush=True)
+                            try:
+                                trades = run_setup_backtest_m1(
+                                    setups=ses_setups, bars_signal_tf=bars, m1_df=None,
+                                    setup_type=setup_type, is_fade=is_fade,
+                                    tp_atr_mult=tp, sl_atr_mult=sl,
+                                    session_end_hour_utc=_session_end_hour(session),
+                                    friction_r=friction, symbol=sym, signal_tf="M1",
+                                    m1_arrays=m1_arrays, invert_direction=invert,
+                                )
+                            except Exception:
+                                continue
+                            md = compute_phase_a_metrics(trades)
+                            if (md["n_trades"] >= PA_MIN_TRADES
+                                    and md["wr"] >= PA_MIN_WR
+                                    and md["pf"] >= PA_MIN_PF):
+                                rows.append({
+                                    "symbol": sym, "tf": "M1",
+                                    "setup_type": setup_type, "session": session,
+                                    "is_fade": is_fade, "invert": invert,
+                                    "tp_mult": tp, "sl_mult": sl, **md,
+                                })
+
+    elapsed = time.time() - t0
+    print(f"\n[PhaseF] complete in {elapsed:.0f}s — {len(rows)} survivors out of {backtest_count}", flush=True)
+    df = pl.DataFrame(rows).sort("calmar", descending=True) if rows else pl.DataFrame()
+    out_path = Path(output_path)
+    if df.is_empty():
+        out_path.write_text(
+            f"# Phase F (M1 entries)\n- backtests: {backtest_count}\n- survivors: 0\n",
+            encoding="utf-8",
+        )
+        return df
+
+    lines = ["# MATH Discovery Phase F — entries en M1", "",
+             f"- Backtests: {backtest_count}",
+             f"- Survivors: {len(df)}",
+             f"- Runtime: {elapsed:.0f}s ({elapsed/60:.1f} min)", "",
+             "## Top 50 by Calmar", "",
+             "| sym | tf | setup | session | inv | tp | sl | n | wr | pf | exp_R | dd_R | calmar |",
+             "|-----|-----|-------|---------|-----|----|----|----|------|------|-------|------|--------|"]
+    for r in df.head(50).iter_rows(named=True):
+        lines.append(
+            f"| {r['symbol']} | M1 | {r['setup_type']} | {r['session']} | "
+            f"{r['invert']} | {r['tp_mult']:.2f} | {r['sl_mult']:.2f} | "
+            f"{r['n_trades']} | {r['wr']:.3f} | {r['pf']:.3f} | "
+            f"{r['expectancy_r']:.3f} | {r['max_dd_r']:.1f} | {r['calmar']:.3f} |"
+        )
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+    df.write_parquet(REPORTS_DIR / "math_discovery_m1_phase_f.parquet")
+    return df
+
+
 def _load_phase_b_survivors() -> pl.DataFrame:
     path = REPORTS_DIR / "math_discovery_m1_phase_b.parquet"
     if not path.exists():
@@ -735,6 +853,334 @@ def run_discovery_phase_d(
     return df
 
 
+def _run_with_alt_exit(
+    setups, m1_arrays, setup_type, is_fade,
+    tp_atr_mult, sl_atr_mult, session_end_hour_utc, friction_r,
+    symbol, signal_tf, invert,
+    exit_mode: str,                       # "trailing_atr" | "sma_cross" | "time_fixed"
+    bars_signal_tf: pl.DataFrame | None = None,
+    trailing_atr_mult: float = 1.0,
+    sma_window: int = 20,
+    time_fixed_m1_bars: int = 240,
+):
+    """Alternative exit modes for Phase E:
+
+    - trailing_atr: stop trails by `trailing_atr_mult * ATR` from highest favorable price
+    - sma_cross: exit when close crosses SMA(window) of M1 bars against trade
+    - time_fixed: exit after `time_fixed_m1_bars` M1 bars from fill, regardless of pnl
+    All keep TP/SL as protection caps (TP/SL hit also exits).
+    """
+    import bisect
+    from datetime import timedelta
+    if len(setups) == 0:
+        return _empty_trades()
+    tf_minutes = _TF_MINUTES.get(signal_tf, 15)
+    wait_m1_bars = WAIT_BARS * tf_minutes
+
+    # Apply invert + dedup
+    if invert:
+        setups = setups.with_columns(
+            pl.when(pl.col("direction") == "LONG").then(pl.lit("SHORT"))
+              .otherwise(pl.lit("LONG")).alias("direction")
+        )
+        if "stop_price" in setups.columns and "atr_14" in setups.columns and "close" in setups.columns:
+            setups = setups.with_columns(
+                pl.when(pl.col("direction") == "LONG")
+                  .then(pl.col("close") + 0.5 * pl.col("atr_14"))
+                  .otherwise(pl.col("close") - 0.5 * pl.col("atr_14"))
+                  .alias("stop_price")
+            )
+    setups = (
+        setups.with_columns(pl.col("time").dt.date().alias("_date"))
+        .sort("time").unique(subset=["_date"], keep="first").drop("_date")
+    )
+    m1_times = m1_arrays["times"]
+    m1_highs = m1_arrays["highs"]
+    m1_lows = m1_arrays["lows"]
+    m1_closes = m1_arrays["closes"]
+
+    # For sma_cross, pre-compute SMA on M1 closes once (reuse across setups in this combo)
+    sma_arr = None
+    if exit_mode == "sma_cross":
+        n = len(m1_closes)
+        sma_arr = [None] * n
+        if n >= sma_window:
+            running = sum(m1_closes[:sma_window])
+            sma_arr[sma_window - 1] = running / sma_window
+            for i in range(sma_window, n):
+                running += m1_closes[i] - m1_closes[i - sma_window]
+                sma_arr[i] = running / sma_window
+
+    results = []
+    for s in setups.iter_rows(named=True):
+        atr = s.get("atr_14")
+        if atr is None or atr <= 0:
+            continue
+        direction = s.get("direction")
+        if direction is None:
+            continue
+        if is_fade:
+            order_price = s.get("close")
+        else:
+            order_price = s.get("stop_price") if "stop_price" in setups.columns else s.get("close")
+        if order_price is None:
+            continue
+
+        setup_time = s["time"]
+        bar_close_time = setup_time + timedelta(minutes=tf_minutes)
+        start_idx = bisect.bisect_right(m1_times, bar_close_time)
+        if start_idx >= len(m1_times):
+            continue
+        end_wait = min(start_idx + wait_m1_bars, len(m1_times))
+
+        fill_idx = None
+        for i in range(start_idx, end_wait):
+            hi, lo = m1_highs[i], m1_lows[i]
+            if hi is None or lo is None:
+                continue
+            if is_fade:
+                if direction == "LONG" and lo <= order_price:
+                    fill_idx = i; break
+                if direction == "SHORT" and hi >= order_price:
+                    fill_idx = i; break
+            else:
+                if direction == "LONG" and hi >= order_price:
+                    fill_idx = i; break
+                if direction == "SHORT" and lo <= order_price:
+                    fill_idx = i; break
+        if fill_idx is None:
+            continue
+
+        entry = order_price
+        if direction == "LONG":
+            tp = entry + tp_atr_mult * atr
+            sl = entry - sl_atr_mult * atr
+            best_favorable = entry
+            trailing_stop = sl
+        else:
+            tp = entry - tp_atr_mult * atr
+            sl = entry + sl_atr_mult * atr
+            best_favorable = entry
+            trailing_stop = sl
+
+        exit_reason = None; exit_price = None; exit_time = None
+        signal_date = setup_time.date()
+        time_fixed_end = fill_idx + time_fixed_m1_bars
+
+        for j in range(fill_idx + 1, len(m1_times)):
+            bt = m1_times[j]
+            if bt.date() > signal_date or bt.hour >= session_end_hour_utc:
+                exit_reason = "TIME_STOP"; prev = j - 1
+                exit_price = m1_closes[prev] if prev >= 0 else entry
+                exit_time = m1_times[prev] if prev >= 0 else bt; break
+            hi, lo, cl = m1_highs[j], m1_lows[j], m1_closes[j]
+            if hi is None or lo is None:
+                continue
+
+            # TP/SL still apply as protection in all alt modes
+            if direction == "LONG":
+                if hi >= tp: exit_reason="TP"; exit_price=tp; exit_time=bt; break
+                if lo <= sl: exit_reason="SL"; exit_price=sl; exit_time=bt; break
+            else:
+                if lo <= tp: exit_reason="TP"; exit_price=tp; exit_time=bt; break
+                if hi >= sl: exit_reason="SL"; exit_price=sl; exit_time=bt; break
+
+            # Trailing stop
+            if exit_mode == "trailing_atr":
+                if direction == "LONG":
+                    if hi > best_favorable:
+                        best_favorable = hi
+                        new_trail = best_favorable - trailing_atr_mult * atr
+                        if new_trail > trailing_stop:
+                            trailing_stop = new_trail
+                    if lo <= trailing_stop:
+                        exit_reason = "TRAIL"; exit_price = trailing_stop; exit_time = bt; break
+                else:
+                    if lo < best_favorable or best_favorable == entry:
+                        best_favorable = lo if best_favorable == entry else min(best_favorable, lo)
+                        new_trail = best_favorable + trailing_atr_mult * atr
+                        if new_trail < trailing_stop:
+                            trailing_stop = new_trail
+                    if hi >= trailing_stop:
+                        exit_reason = "TRAIL"; exit_price = trailing_stop; exit_time = bt; break
+
+            # SMA cross
+            elif exit_mode == "sma_cross" and sma_arr is not None:
+                sma = sma_arr[j]
+                if sma is None:
+                    continue
+                if direction == "LONG":
+                    if cl < sma:
+                        exit_reason = "SMA_CROSS"; exit_price = cl; exit_time = bt; break
+                else:
+                    if cl > sma:
+                        exit_reason = "SMA_CROSS"; exit_price = cl; exit_time = bt; break
+
+            # Time-fixed
+            elif exit_mode == "time_fixed":
+                if j >= time_fixed_end:
+                    exit_reason = "TIME_FIXED"; exit_price = cl; exit_time = bt; break
+        else:
+            exit_reason = "TIME_STOP"
+            exit_price = m1_closes[-1]; exit_time = m1_times[-1]
+
+        if exit_price is None:
+            continue
+        risk_per_unit = sl_atr_mult * atr
+        pnl = (exit_price - entry) if direction == "LONG" else (entry - exit_price)
+        r_gross = pnl / risk_per_unit if risk_per_unit > 0 else 0.0
+        r_net = r_gross - friction_r
+        results.append({
+            "time": setup_time, "symbol": symbol, "setup_type": setup_type,
+            "direction": direction, "entry_price": entry, "tp_price": tp, "sl_price": sl,
+            "exit_time": exit_time, "exit_price": exit_price, "exit_reason": exit_reason,
+            "r_multiple": r_net,
+        })
+    if not results:
+        return _empty_trades()
+    return pl.DataFrame(results)
+
+
+def run_discovery_phase_e(
+    output_path: str = "reports/external/math_discovery_m1_phase_e.md",
+) -> pl.DataFrame:
+    """Phase E: 3 alternate exits (trailing ATR, SMA cross, time-fixed) on Phase C bests."""
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    best_path = REPORTS_DIR / "math_discovery_m1_phase_c_best.parquet"
+    if not best_path.exists():
+        print("[PhaseE] Phase C best missing.", flush=True)
+        return pl.DataFrame()
+    best = pl.read_parquet(best_path)
+
+    from src.engine.run_math_momentum import detect_setups as mom_detect
+    from src.engine.run_math_fade import detect_setups as fade_detect
+
+    rows = []
+    t0 = time.time()
+    m1_cache = {}
+    bars_cache = {}
+    setups_cache = {}
+
+    variants = [
+        ("V4_trailing_1.0_atr", "trailing_atr", {"trailing_atr_mult": 1.0}),
+        ("V4_trailing_1.5_atr", "trailing_atr", {"trailing_atr_mult": 1.5}),
+        ("V5_sma20_cross",      "sma_cross",    {"sma_window": 20}),
+        ("V5_sma50_cross",      "sma_cross",    {"sma_window": 50}),
+        ("V6_time_fixed_60",    "time_fixed",   {"time_fixed_m1_bars": 60}),
+        ("V6_time_fixed_240",   "time_fixed",   {"time_fixed_m1_bars": 240}),
+    ]
+
+    print(f"[PhaseE] {len(best)} strategies × {len(variants)} variants = {len(best)*len(variants)} backtests", flush=True)
+
+    for s in best.iter_rows(named=True):
+        sym, tf, setup, ses = s["symbol"], s["tf"], s["setup_type"], s["session"]
+        is_fade = s.get("is_fade", False)
+        invert = bool(s["invert"])
+        tp, sl = s["tp_mult"], s["sl_mult"]
+
+        if sym not in m1_cache:
+            m1 = load_m1(sym)
+            if m1 is None: continue
+            m1_cache[sym] = precompute_m1_arrays(m1)
+        m1_arrays = m1_cache[sym]
+        bk = (sym, tf)
+        if bk not in bars_cache:
+            bars_cache[bk] = _load_and_enrich_math_tf(sym, tf)
+        bars = bars_cache[bk]
+        sk = (sym, tf, setup, is_fade)
+        if sk not in setups_cache:
+            df_fn = fade_detect if is_fade else mom_detect
+            setups_cache[sk] = df_fn(bars, setup)
+        all_setups = setups_cache[sk]
+        ses_setups = _filter_by_session(all_setups, ses)
+        if len(ses_setups) < 30:
+            continue
+        friction = _friction_for(sym)
+        end_h = _session_end_hour(ses)
+
+        for variant_name, exit_mode, kwargs in variants:
+            try:
+                trades = _run_with_alt_exit(
+                    setups=ses_setups, m1_arrays=m1_arrays,
+                    setup_type=setup, is_fade=is_fade,
+                    tp_atr_mult=tp, sl_atr_mult=sl,
+                    session_end_hour_utc=end_h, friction_r=friction,
+                    symbol=sym, signal_tf=tf, invert=invert,
+                    exit_mode=exit_mode, bars_signal_tf=bars,
+                    **kwargs,
+                )
+            except Exception as e:
+                print(f"[PhaseE][ERR] {variant_name} {sym}/{tf}/{setup}: {e}", flush=True)
+                continue
+            mm = compute_phase_a_metrics(trades)
+            rows.append({"variant": variant_name, "symbol": sym, "tf": tf,
+                         "setup_type": setup, "session": ses, "invert": invert,
+                         "tp_mult": tp, "sl_mult": sl, **mm})
+
+    elapsed = time.time() - t0
+    print(f"\n[PhaseE] complete in {elapsed:.0f}s — {len(rows)} runs", flush=True)
+    df = pl.DataFrame(rows)
+    out_path = Path(output_path)
+    if df.is_empty():
+        out_path.write_text("# Phase E\n- No runs.\n", encoding="utf-8")
+        return df
+
+    # Combine with Phase D V1/V2/V3 to get a full per-strategy table
+    phase_d_path = REPORTS_DIR / "math_discovery_m1_phase_d.parquet"
+    if phase_d_path.exists():
+        d = pl.read_parquet(phase_d_path)
+        all_runs = pl.concat([d, df], how="diagonal_relaxed")
+    else:
+        all_runs = df
+
+    best_variant = (
+        all_runs.sort("calmar", descending=True)
+        .group_by(["symbol", "tf", "setup_type", "session", "invert"])
+        .agg([
+            pl.col("variant").first().alias("best_variant"),
+            pl.col("tp_mult").first().alias("tp_mult"),
+            pl.col("sl_mult").first().alias("sl_mult"),
+            pl.col("n_trades").first().alias("n_trades"),
+            pl.col("wr").first().alias("wr"),
+            pl.col("pf").first().alias("pf"),
+            pl.col("expectancy_r").first().alias("expectancy_r"),
+            pl.col("max_dd_r").first().alias("max_dd_r"),
+            pl.col("calmar").first().alias("calmar"),
+        ])
+        .sort("calmar", descending=True)
+    )
+
+    lines = ["# MATH Discovery Phase E — exits alternativos (con D combined)", "",
+             f"- Phase C best strategies: {len(best)}",
+             f"- New variants tested: {len(variants)} (trailing ATR x2, SMA cross x2, time fixed x2)",
+             f"- Phase E runs: {len(df)}",
+             f"- Combined runs (D + E): {len(all_runs)}", "",
+             "## Best variant per strategy (across all D + E variants)", "",
+             "| sym | tf | setup | session | inv | best | tp | sl | n | wr | pf | exp_R | dd_R | calmar |",
+             "|-----|-----|-------|---------|-----|------|----|----|----|------|------|-------|------|--------|"]
+    for r in best_variant.iter_rows(named=True):
+        lines.append(
+            f"| {r['symbol']} | {r['tf']} | {r['setup_type']} | {r['session']} | "
+            f"{r['invert']} | {r['best_variant']} | "
+            f"{r['tp_mult']:.2f} | {r['sl_mult']:.2f} | {r['n_trades']} | "
+            f"{r['wr']:.3f} | {r['pf']:.3f} | {r['expectancy_r']:.3f} | "
+            f"{r['max_dd_r']:.1f} | {r['calmar']:.3f} |"
+        )
+    lines.append(""); lines.append("## All Phase E runs"); lines.append("")
+    lines.append("| variant | sym | tf | setup | session | n | wr | pf | exp_R | calmar |")
+    lines.append("|---------|-----|----|-------|---------|---|----|----|-------|--------|")
+    for r in df.sort(["symbol", "tf", "setup_type", "session", "variant"]).iter_rows(named=True):
+        lines.append(
+            f"| {r['variant']} | {r['symbol']} | {r['tf']} | {r['setup_type']} | "
+            f"{r['session']} | {r['n_trades']} | {r['wr']:.3f} | {r['pf']:.3f} | "
+            f"{r['expectancy_r']:.3f} | {r['calmar']:.3f} |"
+        )
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+    df.write_parquet(REPORTS_DIR / "math_discovery_m1_phase_e.parquet")
+    best_variant.write_parquet(REPORTS_DIR / "math_discovery_m1_phase_e_best.parquet")
+    return df
+
+
 def _run_with_opposite_exit(
     setups, m1_arrays, setup_type, is_fade, tp_atr_mult, sl_atr_mult,
     session_end_hour_utc, friction_r, symbol, signal_tf, invert,
@@ -1060,6 +1506,10 @@ if __name__ == "__main__":
         df = run_discovery_phase_c()
     elif p == "d":
         df = run_discovery_phase_d()
+    elif p == "e":
+        df = run_discovery_phase_e()
+    elif p == "f":
+        df = run_discovery_phase_f()
     else:
         raise SystemExit(f"unknown phase: {phase}")
     # Avoid polars table unicode chars failing on Windows cp1252.

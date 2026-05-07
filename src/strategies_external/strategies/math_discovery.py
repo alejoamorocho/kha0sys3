@@ -18,7 +18,7 @@ from src.engine.run_indicator_discovery import _load_and_enrich, _filter_by_sess
 
 # ── Constants ──────────────────────────────────────────────────────────────────
 
-_TF_MINUTES = {"M15": 15, "H1": 60, "H4": 240}
+_TF_MINUTES = {"M1": 1, "M15": 15, "H1": 60, "H4": 240}
 CACHE_DIR = Path("data/enriched_math_tf")
 
 MOMENTUM_SETUP_TYPES = (
