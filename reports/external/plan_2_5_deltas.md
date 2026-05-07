@@ -34,7 +34,11 @@ Re-runs de cada strategy aplicando los 7 fixes del Plan 2.5 documentados en
 | Perdices Fib | dd_R | 292.9 | 292.9 | 0 | |
 | Perdices Fib | calmar | -1.001 | -1.001 | 0 | Espera M5 para test real |
 | **COT-1** | n | 0¹ | 0² | — | ¹Plan 2 no corrió standalone, ²HTTP 403 cftc.gov |
-| **SMA-18** | — | calmar=0.544 | (in progress) | — | Re-run en curso. Cambio stop=intra-bar → 2 cierres consecutivos |
+| **SMA-18** | n | 4241 | 4344 | +103 | valid_until 60→90d permite más signals |
+| SMA-18 | wr | 0.315 | 0.302 | -0.013 | |
+| SMA-18 | pf | 1.129 | **0.793** | **-0.336** | Cambio crítico: 2-cierres deja correr pérdidas |
+| SMA-18 | dd_R | 812 | 730 | -82 | |
+| SMA-18 | calmar | **0.544** | **-0.622** | **-1.166** | **Win era artefactual del bug** |
 
 ## Issues abiertos para Plan 2.6
 
@@ -54,6 +58,25 @@ Re-runs de cada strategy aplicando los 7 fixes del Plan 2.5 documentados en
 | Doble Suelo | ❌ NO viable | Detector OK pero estrategia necesita filtro macro/contexto |
 | Perdices Fib | ⏳ PENDING M5 | H1 placeholder no funciona, esperar datos M5 |
 | COT-1 | ⚠️ BLOCKED | HTTP 403 cftc.gov — fix downloader y re-run |
-| SMA-18 | ⏳ IN-PROGRESS | Re-run con doc strict pendiente — el verdadero test |
+| SMA-18 | ❌ NO viable | El "win" calmar=0.544 era artefactual del bug stop=intra-bar; con regla literal calmar=-0.622, PF<1 |
 
-**La única estrategia con potencial real** sigue siendo SMA-18, pendiente del re-run con la regla literal de "2 cierres consecutivos". Si ese re-run mejora calmar materialmente vs el 0.544 anterior, tendremos un candidato real para forward-test.
+**Conclusión Plan 2.5**: ninguna estrategia del documento es viable con la data disponible
+y reglas literales. El único "win" aparente (SMA-18 calmar=0.544) era artefacto del bug en
+el modo stop. La regla correcta del documento ("2 cierres consecutivos contra SMA-18")
+deja correr pérdidas y produce PF<1.
+
+**Diagnóstico**: los autores del documento (Rosputnia, Williams, Schulz, Perdices) probablemente
+combinan estas reglas literales con:
+- Discrecionalidad humana (filtrar setups en tiempo real por contexto)
+- Filtros macro no capturados (calendario económico, VIX, NFP, FOMC)
+- Selección de mercados específicos (futuros directos vs CFDs Vantage)
+- TFs distintos (RTH NY puro vs broker 24h)
+
+**Próximos pasos sugeridos:**
+1. **Plan 3 (FADE/MATH con M1)** — re-evaluar las estrategias del bot live (las únicas que
+   realmente operan en Vantage) con M1 polars sobre los activos overlap. Eso responde la
+   pregunta del usuario sobre el comportamiento de "nuestras estrategias" con M1.
+2. **Plan 2.6 (issues abiertos)** — fix COT downloader, "1 trade open per symbol" filter,
+   parcial TP1+trail BE, pirámide SMA-18. Estos quedan archivados como mejoras opcionales.
+3. **Pivot**: dado que ninguna estrategia del documento pasa el filtro, considerar abandonar
+   esta línea y enfocarse 100% en mejorar las FADE/MATH del bot que ya están en producción.
