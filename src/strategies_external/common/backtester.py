@@ -64,18 +64,15 @@ def run_backtest(
         entry_ts = sig.setup_ts
         first_idx = 0
 
-        # Busca fill
+        # Busca fill. El bot live NO aplica slippage al entry; el coste de
+        # ejecución se modela íntegramente como friction R-based al cierre.
+        # Esto mantiene paridad con run_portfolio_backtest_rr.py.
         for i, bar in enumerate(rows):
             if _fill_condition(sig.side, sig.entry_type,
                                sig.entry_price, bar["open"], bar["high"], bar["low"]):
                 filled = True
                 entry_ts = bar["time"]
-                # Slippage: 1 tick adverso. Usamos 0.05 como proxy genérico
-                # para índices/commodities; FX se maneja con pip-equiv abajo.
-                slip = 0.05 if sig.symbol not in {"EURUSD", "GBPUSD", "USDJPY",
-                                                   "AUDUSD", "EURJPY", "GBPAUD",
-                                                   "GBPJPY"} else 0.00005
-                entry_price = sig.entry_price + slip if sig.side == "long" else sig.entry_price - slip
+                entry_price = sig.entry_price
                 first_idx = i
                 break
 
