@@ -340,6 +340,540 @@ def run_discovery_phase_b(
     return df
 
 
+def _load_phase_b_survivors() -> pl.DataFrame:
+    path = REPORTS_DIR / "math_discovery_m1_phase_b.parquet"
+    if not path.exists():
+        raise FileNotFoundError(f"Phase B parquet not found: {path}")
+    return pl.read_parquet(path)
+
+
+def run_discovery_phase_c(
+    output_path: str = "reports/external/math_discovery_m1_phase_c.md",
+) -> pl.DataFrame:
+    """Phase C: grid fino TP/SL sobre los supervivientes de Phase B.
+
+    Para cada superviviente: grid 12x12 = 144 combos (TP, SL) en step 0.25.
+    Reporta el mejor (tp, sl) por estrategia y todas las combinaciones que
+    siguen pasando los gates.
+    """
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    survivors = _load_phase_b_survivors()
+    if survivors.is_empty():
+        print("[PhaseC] No Phase B survivors to refine.", flush=True)
+        return pl.DataFrame()
+
+    # Grid finer than Phase B
+    tp_values = [round(0.5 + i * 0.25, 2) for i in range(11)]   # 0.5..3.0
+    sl_values = [round(0.3 + i * 0.25, 2) for i in range(11)]   # 0.3..2.8
+    n_grid = sum(1 for tp in tp_values for sl in sl_values)
+    total = len(survivors) * n_grid
+    print(f"[PhaseC] Refining {len(survivors)} survivors × {n_grid} grid = {total} backtests", flush=True)
+
+    from src.engine.run_math_momentum import detect_setups as mom_detect
+    from src.engine.run_math_fade import detect_setups as fade_detect
+
+    rows = []
+    backtest_count = 0
+    t0 = time.time()
+
+    # Cache per (sym, tf): bars + m1_arrays + setups
+    bars_cache: dict[tuple[str, str], pl.DataFrame] = {}
+    m1_cache: dict[str, dict] = {}
+    setups_cache: dict[tuple[str, str, str, bool], pl.DataFrame] = {}
+
+    for surv in survivors.iter_rows(named=True):
+        sym = surv["symbol"]
+        tf = surv["tf"]
+        setup_type = surv["setup_type"]
+        session = surv["session"]
+        is_fade = surv["is_fade"]
+        invert = bool(surv.get("invert", False))
+
+        # Cache m1 per symbol
+        if sym not in m1_cache:
+            m1 = load_m1(sym)
+            if m1 is None:
+                continue
+            m1_cache[sym] = precompute_m1_arrays(m1)
+        m1_arrays = m1_cache[sym]
+
+        # Cache bars per (sym, tf)
+        bk = (sym, tf)
+        if bk not in bars_cache:
+            bars_cache[bk] = _load_and_enrich_math_tf(sym, tf)
+        bars = bars_cache[bk]
+
+        # Cache setups per (sym, tf, setup_type, is_fade)
+        sk = (sym, tf, setup_type, is_fade)
+        if sk not in setups_cache:
+            detect_fn = fade_detect if is_fade else mom_detect
+            try:
+                setups_cache[sk] = detect_fn(bars, setup_type)
+            except Exception as e:
+                print(f"[PhaseC][SKIP] {sym}/{tf}/{setup_type}: {e}", flush=True)
+                setups_cache[sk] = pl.DataFrame()
+        all_setups = setups_cache[sk]
+        if all_setups.is_empty():
+            continue
+        ses_setups = _filter_by_session(all_setups, session)
+        if len(ses_setups) < 30:
+            continue
+
+        friction = _friction_for(sym)
+        for tp in tp_values:
+            for sl in sl_values:
+                if tp <= 0 or sl <= 0:
+                    continue
+                backtest_count += 1
+                if backtest_count % 200 == 0:
+                    elapsed = time.time() - t0
+                    pct = 100 * backtest_count / total
+                    print(f"[PhaseC] {backtest_count}/{total} ({pct:.0f}%) — {elapsed:.0f}s", flush=True)
+                try:
+                    trades = run_setup_backtest_m1(
+                        setups=ses_setups,
+                        bars_signal_tf=bars,
+                        m1_df=None,
+                        setup_type=setup_type,
+                        is_fade=is_fade,
+                        tp_atr_mult=tp,
+                        sl_atr_mult=sl,
+                        session_end_hour_utc=_session_end_hour(session),
+                        friction_r=friction,
+                        symbol=sym,
+                        signal_tf=tf,
+                        m1_arrays=m1_arrays,
+                        invert_direction=invert,
+                    )
+                except Exception:
+                    continue
+                m_dict = compute_phase_a_metrics(trades)
+                if (m_dict["n_trades"] >= PA_MIN_TRADES
+                        and m_dict["wr"] >= PA_MIN_WR
+                        and m_dict["pf"] >= PA_MIN_PF):
+                    rows.append({
+                        "symbol": sym, "tf": tf,
+                        "setup_type": setup_type, "session": session,
+                        "is_fade": is_fade, "invert": invert,
+                        "tp_mult": tp, "sl_mult": sl,
+                        **m_dict,
+                    })
+
+    elapsed = time.time() - t0
+    print(f"\n[PhaseC] Sweep complete in {elapsed:.0f}s", flush=True)
+    print(f"[PhaseC] {backtest_count} backtests, {len(rows)} survivors", flush=True)
+
+    if not rows:
+        out_path = Path(output_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text("# Phase C\n- Survivors: 0\n", encoding="utf-8")
+        return pl.DataFrame()
+
+    df = pl.DataFrame(rows).sort("calmar", descending=True)
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Best (tp, sl) per (sym, tf, setup_type, session, invert)
+    best_per_strat = (
+        df.sort("calmar", descending=True)
+        .group_by(["symbol", "tf", "setup_type", "session", "invert"])
+        .agg([
+            pl.col("tp_mult").first().alias("tp_mult"),
+            pl.col("sl_mult").first().alias("sl_mult"),
+            pl.col("n_trades").first().alias("n_trades"),
+            pl.col("wr").first().alias("wr"),
+            pl.col("pf").first().alias("pf"),
+            pl.col("expectancy_r").first().alias("expectancy_r"),
+            pl.col("max_dd_r").first().alias("max_dd_r"),
+            pl.col("calmar").first().alias("calmar"),
+        ])
+        .sort("calmar", descending=True)
+    )
+
+    lines = [
+        "# MATH Discovery Phase C — fine TP/SL grid on Phase B survivors",
+        "",
+        f"- Phase B survivors refined: **{len(survivors)}**",
+        f"- Backtests run: **{backtest_count}**",
+        f"- Phase-C survivors (gates: n>=30 wr>=0.5 pf>=1): **{len(df)}**",
+        f"- Best (tp, sl) per strategy: **{len(best_per_strat)}**",
+        f"- Runtime: {elapsed:.0f}s",
+        "",
+        "## Best (tp, sl) per strategy",
+        "",
+        "| sym | tf | setup | session | invert | tp | sl | n | wr | pf | exp_R | dd_R | calmar |",
+        "|-----|-----|-------|---------|--------|-----|-----|---|-----|-----|-------|------|--------|",
+    ]
+    for r in best_per_strat.iter_rows(named=True):
+        lines.append(
+            f"| {r['symbol']} | {r['tf']} | {r['setup_type']} | {r['session']} | "
+            f"{r['invert']} | {r['tp_mult']:.2f} | {r['sl_mult']:.2f} | {r['n_trades']} | "
+            f"{r['wr']:.3f} | {r['pf']:.3f} | {r['expectancy_r']:.3f} | "
+            f"{r['max_dd_r']:.1f} | {r['calmar']:.3f} |"
+        )
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+    df.write_parquet(REPORTS_DIR / "math_discovery_m1_phase_c.parquet")
+    best_per_strat.write_parquet(REPORTS_DIR / "math_discovery_m1_phase_c_best.parquet")
+
+    print(f"\n[PhaseC] Top 5 by Calmar (best per strategy):", flush=True)
+    for r in best_per_strat.head(5).iter_rows(named=True):
+        print(f"  {r['symbol']:10s} {r['tf']:4s} {r['setup_type']:25s} "
+              f"{r['session']:10s} INV={r['invert']}  "
+              f"TP={r['tp_mult']:.2f} SL={r['sl_mult']:.2f}  "
+              f"n={r['n_trades']:4d} WR={r['wr']:.3f} PF={r['pf']:.2f} "
+              f"Calmar={r['calmar']:.4f}", flush=True)
+
+    return df
+
+
+def run_discovery_phase_d(
+    output_path: str = "reports/external/math_discovery_m1_phase_d.md",
+) -> pl.DataFrame:
+    """Phase D: salidas alternativas — exit en señal opuesta.
+
+    Para cada estrategia con su mejor (tp, sl) de Phase C, probar:
+      V1 (baseline): TP/SL fijos
+      V2: exit cuando aparece próxima señal opuesta (mismo setup, dir invertida)
+      V3: exit en señal opuesta + TP/SL como cap de protección
+    """
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+    best_path = REPORTS_DIR / "math_discovery_m1_phase_c_best.parquet"
+    if not best_path.exists():
+        print("[PhaseD] Phase C best not found; run Phase C first.", flush=True)
+        return pl.DataFrame()
+    best = pl.read_parquet(best_path)
+    if best.is_empty():
+        print("[PhaseD] No Phase C survivors.", flush=True)
+        return pl.DataFrame()
+    print(f"[PhaseD] {len(best)} strategies × 3 variants = {len(best)*3} backtests", flush=True)
+
+    from src.engine.run_math_momentum import detect_setups as mom_detect
+    from src.engine.run_math_fade import detect_setups as fade_detect
+
+    rows = []
+    t0 = time.time()
+    m1_cache: dict[str, dict] = {}
+    bars_cache: dict[tuple[str, str], pl.DataFrame] = {}
+    setups_cache: dict[tuple[str, str, str, bool], pl.DataFrame] = {}
+
+    for s in best.iter_rows(named=True):
+        sym, tf, setup, ses = s["symbol"], s["tf"], s["setup_type"], s["session"]
+        is_fade = s.get("is_fade", False)
+        invert = bool(s["invert"])
+        tp, sl = s["tp_mult"], s["sl_mult"]
+
+        if sym not in m1_cache:
+            m1 = load_m1(sym)
+            if m1 is None:
+                continue
+            m1_cache[sym] = precompute_m1_arrays(m1)
+        m1_arrays = m1_cache[sym]
+        bk = (sym, tf)
+        if bk not in bars_cache:
+            bars_cache[bk] = _load_and_enrich_math_tf(sym, tf)
+        bars = bars_cache[bk]
+        sk = (sym, tf, setup, is_fade)
+        if sk not in setups_cache:
+            detect_fn = fade_detect if is_fade else mom_detect
+            setups_cache[sk] = detect_fn(bars, setup)
+        all_setups = setups_cache[sk]
+        ses_setups = _filter_by_session(all_setups, ses)
+        if len(ses_setups) < 30:
+            continue
+        friction = _friction_for(sym)
+        end_h = _session_end_hour(ses)
+
+        # V1 baseline
+        try:
+            t_v1 = run_setup_backtest_m1(
+                setups=ses_setups, bars_signal_tf=bars, m1_df=None,
+                setup_type=setup, is_fade=is_fade,
+                tp_atr_mult=tp, sl_atr_mult=sl,
+                session_end_hour_utc=end_h, friction_r=friction,
+                symbol=sym, signal_tf=tf, m1_arrays=m1_arrays,
+                invert_direction=invert,
+            )
+            m1_metrics = compute_phase_a_metrics(t_v1)
+            rows.append({"variant": "V1_baseline", "symbol": sym, "tf": tf,
+                         "setup_type": setup, "session": ses, "invert": invert,
+                         "tp_mult": tp, "sl_mult": sl, **m1_metrics})
+        except Exception as e:
+            print(f"[PhaseD][V1 ERR] {sym}/{tf}/{setup}: {e}", flush=True)
+
+        # V2 + V3 require exit on opposite signal: pre-compute opposite signal times.
+        # Opposite signals = the same setup with direction OPPOSITE to what we trade.
+        # Recall: invert=True means our trade direction is OPPOSITE of detector's direction.
+        # So our LONG = detector SHORT; our SHORT = detector LONG. Opposite-of-our-trade
+        # signals are detector signals matching our same trade direction (since they
+        # would invert again to the OPPOSITE). i.e. detector's same-direction signals.
+        # Complicated. Implement plainly:
+        # opposite_for_long_trade = detector signals that lead to short trades
+        # opposite_for_short_trade = detector signals that lead to long trades
+        # Under invert: detector LONG → our SHORT; detector SHORT → our LONG.
+        #   so for our LONG trade (open from detector SHORT), opposite signal arrives
+        #   as the next detector LONG (our next SHORT trade).
+        # Without invert: detector LONG → our LONG; opposite = next detector SHORT.
+
+        # Build opposite_ts_long / opposite_ts_short sorted lists of timestamps.
+        det_dir_col = ses_setups["direction"].to_list()
+        det_time_col = ses_setups["time"].to_list()
+        if invert:
+            # our_trade_direction = INVERT(det_dir)
+            our_dirs = ["SHORT" if d == "LONG" else "LONG" for d in det_dir_col]
+        else:
+            our_dirs = list(det_dir_col)
+        # opposite_for_long_trade = times of "SHORT" our_trades
+        opp_for_long = [det_time_col[i] for i, d in enumerate(our_dirs) if d == "SHORT"]
+        opp_for_short = [det_time_col[i] for i, d in enumerate(our_dirs) if d == "LONG"]
+
+        # V2 / V3: re-implement a lighter loop here that uses our_dirs as both entries
+        # and exits on opposite. To keep this manageable, we delegate to a helper.
+        # For now, run V1-like trades but cap exit when next opposite-our signal arrives.
+        try:
+            t_v2 = _run_with_opposite_exit(
+                setups=ses_setups, m1_arrays=m1_arrays,
+                setup_type=setup, is_fade=is_fade,
+                tp_atr_mult=tp, sl_atr_mult=sl,
+                session_end_hour_utc=end_h, friction_r=friction,
+                symbol=sym, signal_tf=tf, invert=invert,
+                opp_long_ts=sorted(opp_for_long),
+                opp_short_ts=sorted(opp_for_short),
+                use_tp_sl_protection=False,
+            )
+            mm = compute_phase_a_metrics(t_v2)
+            rows.append({"variant": "V2_opposite_only", "symbol": sym, "tf": tf,
+                         "setup_type": setup, "session": ses, "invert": invert,
+                         "tp_mult": tp, "sl_mult": sl, **mm})
+        except Exception as e:
+            print(f"[PhaseD][V2 ERR] {sym}/{tf}/{setup}: {e}", flush=True)
+
+        try:
+            t_v3 = _run_with_opposite_exit(
+                setups=ses_setups, m1_arrays=m1_arrays,
+                setup_type=setup, is_fade=is_fade,
+                tp_atr_mult=tp, sl_atr_mult=sl,
+                session_end_hour_utc=end_h, friction_r=friction,
+                symbol=sym, signal_tf=tf, invert=invert,
+                opp_long_ts=sorted(opp_for_long),
+                opp_short_ts=sorted(opp_for_short),
+                use_tp_sl_protection=True,
+            )
+            mm = compute_phase_a_metrics(t_v3)
+            rows.append({"variant": "V3_opposite_with_tpsl", "symbol": sym, "tf": tf,
+                         "setup_type": setup, "session": ses, "invert": invert,
+                         "tp_mult": tp, "sl_mult": sl, **mm})
+        except Exception as e:
+            print(f"[PhaseD][V3 ERR] {sym}/{tf}/{setup}: {e}", flush=True)
+
+    elapsed = time.time() - t0
+    print(f"\n[PhaseD] complete in {elapsed:.0f}s — {len(rows)} variant runs", flush=True)
+
+    df = pl.DataFrame(rows)
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    if df.is_empty():
+        out_path.write_text("# Phase D\n- No runs.\n", encoding="utf-8")
+        return df
+
+    # Per strategy: pick best variant by calmar
+    best_variant = (
+        df.sort("calmar", descending=True)
+        .group_by(["symbol", "tf", "setup_type", "session", "invert"])
+        .agg([
+            pl.col("variant").first().alias("best_variant"),
+            pl.col("tp_mult").first().alias("tp_mult"),
+            pl.col("sl_mult").first().alias("sl_mult"),
+            pl.col("n_trades").first().alias("n_trades"),
+            pl.col("wr").first().alias("wr"),
+            pl.col("pf").first().alias("pf"),
+            pl.col("expectancy_r").first().alias("expectancy_r"),
+            pl.col("max_dd_r").first().alias("max_dd_r"),
+            pl.col("calmar").first().alias("calmar"),
+        ])
+        .sort("calmar", descending=True)
+    )
+
+    lines = [
+        "# MATH Discovery Phase D — Salidas alternativas",
+        "",
+        f"- Strategies tested: {len(best)}",
+        f"- Variants per strategy: 3 (V1 baseline, V2 opposite_only, V3 opposite+tpsl)",
+        f"- Total runs: {len(df)}",
+        "",
+        "## Best variant per strategy",
+        "",
+        "| sym | tf | setup | session | invert | best | tp | sl | n | wr | pf | exp_R | dd_R | calmar |",
+        "|-----|-----|-------|---------|--------|------|-----|-----|---|-----|-----|-------|------|--------|",
+    ]
+    for r in best_variant.iter_rows(named=True):
+        lines.append(
+            f"| {r['symbol']} | {r['tf']} | {r['setup_type']} | {r['session']} | "
+            f"{r['invert']} | {r['best_variant']} | "
+            f"{r['tp_mult']:.2f} | {r['sl_mult']:.2f} | {r['n_trades']} | "
+            f"{r['wr']:.3f} | {r['pf']:.3f} | {r['expectancy_r']:.3f} | "
+            f"{r['max_dd_r']:.1f} | {r['calmar']:.3f} |"
+        )
+    lines.append("")
+    lines.append("## All runs (all 3 variants per strategy)")
+    lines.append("")
+    lines.append("| variant | sym | tf | setup | session | n | wr | pf | exp_R | calmar |")
+    lines.append("|---------|-----|-----|-------|---------|---|-----|-----|-------|--------|")
+    df_sorted = df.sort(["symbol", "tf", "setup_type", "session", "variant"])
+    for r in df_sorted.iter_rows(named=True):
+        lines.append(
+            f"| {r['variant']} | {r['symbol']} | {r['tf']} | {r['setup_type']} | "
+            f"{r['session']} | {r['n_trades']} | {r['wr']:.3f} | {r['pf']:.3f} | "
+            f"{r['expectancy_r']:.3f} | {r['calmar']:.3f} |"
+        )
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+    df.write_parquet(REPORTS_DIR / "math_discovery_m1_phase_d.parquet")
+    best_variant.write_parquet(REPORTS_DIR / "math_discovery_m1_phase_d_best.parquet")
+
+    return df
+
+
+def _run_with_opposite_exit(
+    setups, m1_arrays, setup_type, is_fade, tp_atr_mult, sl_atr_mult,
+    session_end_hour_utc, friction_r, symbol, signal_tf, invert,
+    opp_long_ts, opp_short_ts, use_tp_sl_protection,
+):
+    """Like run_setup_backtest_m1 but adds exit on next opposite-direction signal.
+
+    If use_tp_sl_protection=False, ONLY exit reasons are: SIGNAL_OPP, TIME_STOP, end-of-data.
+    If True: also TP/SL hits before SIGNAL_OPP.
+    """
+    import bisect
+    from datetime import timedelta
+    if len(setups) == 0:
+        return _empty_trades()
+
+    tf_minutes = _TF_MINUTES.get(signal_tf, 15)
+    wait_m1_bars = WAIT_BARS * tf_minutes
+
+    # Apply invert + dedup like base function
+    if invert:
+        setups = setups.with_columns(
+            pl.when(pl.col("direction") == "LONG").then(pl.lit("SHORT"))
+              .otherwise(pl.lit("LONG")).alias("direction")
+        )
+        if "stop_price" in setups.columns and "atr_14" in setups.columns and "close" in setups.columns:
+            setups = setups.with_columns(
+                pl.when(pl.col("direction") == "LONG")
+                  .then(pl.col("close") + 0.5 * pl.col("atr_14"))
+                  .otherwise(pl.col("close") - 0.5 * pl.col("atr_14"))
+                  .alias("stop_price")
+            )
+
+    setups = (
+        setups.with_columns(pl.col("time").dt.date().alias("_date"))
+        .sort("time")
+        .unique(subset=["_date"], keep="first")
+        .drop("_date")
+    )
+
+    m1_times = m1_arrays["times"]
+    m1_highs = m1_arrays["highs"]
+    m1_lows = m1_arrays["lows"]
+    m1_closes = m1_arrays["closes"]
+
+    results = []
+    for s in setups.iter_rows(named=True):
+        atr = s.get("atr_14")
+        if atr is None or atr <= 0:
+            continue
+        direction = s.get("direction")
+        if direction is None:
+            continue
+        if is_fade:
+            order_price = s.get("close")
+        else:
+            order_price = s.get("stop_price") if "stop_price" in setups.columns else s.get("close")
+        if order_price is None:
+            continue
+
+        setup_time = s["time"]
+        bar_close_time = setup_time + timedelta(minutes=tf_minutes)
+        start_idx = bisect.bisect_right(m1_times, bar_close_time)
+        if start_idx >= len(m1_times):
+            continue
+        end_wait = min(start_idx + wait_m1_bars, len(m1_times))
+
+        # find fill
+        fill_idx = None
+        for i in range(start_idx, end_wait):
+            hi, lo = m1_highs[i], m1_lows[i]
+            if hi is None or lo is None:
+                continue
+            if is_fade:
+                if direction == "LONG" and lo <= order_price:
+                    fill_idx = i; break
+                if direction == "SHORT" and hi >= order_price:
+                    fill_idx = i; break
+            else:
+                if direction == "LONG" and hi >= order_price:
+                    fill_idx = i; break
+                if direction == "SHORT" and lo <= order_price:
+                    fill_idx = i; break
+        if fill_idx is None:
+            continue
+
+        entry = order_price
+        if direction == "LONG":
+            tp = entry + tp_atr_mult * atr
+            sl = entry - sl_atr_mult * atr
+        else:
+            tp = entry - tp_atr_mult * atr
+            sl = entry + sl_atr_mult * atr
+
+        # Find opposite-direction signal time AFTER fill_time
+        fill_time = m1_times[fill_idx]
+        opp_list = opp_short_ts if direction == "LONG" else opp_long_ts
+        idx_opp = bisect.bisect_right(opp_list, fill_time)
+        opp_signal_ts = opp_list[idx_opp] if idx_opp < len(opp_list) else None
+
+        exit_reason = None; exit_price = None; exit_time = None
+        signal_date = setup_time.date()
+
+        for j in range(fill_idx + 1, len(m1_times)):
+            bt = m1_times[j]
+            if bt.date() > signal_date or bt.hour >= session_end_hour_utc:
+                exit_reason = "TIME_STOP"; prev = j - 1
+                exit_price = m1_closes[prev] if prev >= 0 else entry
+                exit_time = m1_times[prev] if prev >= 0 else bt; break
+            if opp_signal_ts is not None and bt >= opp_signal_ts:
+                exit_reason = "SIGNAL_OPP"; exit_price = m1_closes[j]; exit_time = bt; break
+            if use_tp_sl_protection:
+                hi, lo = m1_highs[j], m1_lows[j]
+                if hi is None or lo is None:
+                    continue
+                if direction == "LONG":
+                    if hi >= tp: exit_reason="TP"; exit_price=tp; exit_time=bt; break
+                    if lo <= sl: exit_reason="SL"; exit_price=sl; exit_time=bt; break
+                else:
+                    if lo <= tp: exit_reason="TP"; exit_price=tp; exit_time=bt; break
+                    if hi >= sl: exit_reason="SL"; exit_price=sl; exit_time=bt; break
+        else:
+            exit_reason = "TIME_STOP"
+            exit_price = m1_closes[-1]; exit_time = m1_times[-1]
+
+        if exit_price is None:
+            continue
+        risk_per_unit = sl_atr_mult * atr
+        pnl = (exit_price - entry) if direction == "LONG" else (entry - exit_price)
+        r_gross = pnl / risk_per_unit if risk_per_unit > 0 else 0.0
+        r_net = r_gross - friction_r
+        results.append({
+            "time": setup_time, "symbol": symbol, "setup_type": setup_type,
+            "direction": direction, "entry_price": entry, "tp_price": tp, "sl_price": sl,
+            "exit_time": exit_time, "exit_price": exit_price, "exit_reason": exit_reason,
+            "r_multiple": r_net,
+        })
+
+    if not results:
+        return _empty_trades()
+    return pl.DataFrame(results)
+
+
 def run_discovery_phase_a(
     output_path: str = "reports/external/math_discovery_m1_phase_a.md",
 ) -> pl.DataFrame:
@@ -514,10 +1048,17 @@ def run_discovery_phase_a(
 if __name__ == "__main__":
     import sys
     phase = sys.argv[1] if len(sys.argv) > 1 else "b"
-    if phase.lower() == "a":
+    p = phase.lower()
+    if p == "a":
         df = run_discovery_phase_a()
-    else:
+    elif p == "b":
         df = run_discovery_phase_b()
+    elif p == "c":
+        df = run_discovery_phase_c()
+    elif p == "d":
+        df = run_discovery_phase_d()
+    else:
+        raise SystemExit(f"unknown phase: {phase}")
     # Avoid polars table unicode chars failing on Windows cp1252.
     print(f"\nTotal rows: {len(df)}", flush=True)
     print(f"\n{len(df)} survivors")
