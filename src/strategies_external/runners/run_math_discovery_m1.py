@@ -518,6 +518,8 @@ if __name__ == "__main__":
         df = run_discovery_phase_a()
     else:
         df = run_discovery_phase_b()
+    # Avoid polars table unicode chars failing on Windows cp1252.
+    print(f"\nTotal rows: {len(df)}", flush=True)
     print(f"\n{len(df)} survivors")
     if not df.is_empty():
         print(df.head(20))
