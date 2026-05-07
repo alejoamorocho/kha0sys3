@@ -106,6 +106,7 @@ def run_setup_backtest_m1(
     symbol: str,
     signal_tf: str = "M15",
     m1_arrays: dict | None = None,
+    invert_direction: bool = False,
 ) -> pl.DataFrame:
     """Simulate MOMENTUM or FADE fill + TP/SL tracking on M1 bars.
 
@@ -127,6 +128,22 @@ def run_setup_backtest_m1(
 
     tf_minutes = _TF_MINUTES.get(signal_tf, 15)
     wait_m1_bars = WAIT_BARS * tf_minutes
+
+    # Plan 4 fix: bot live MATH uses direction_mode=INVERT (contrarian).
+    # When invert_direction=True, flip LONG↔SHORT and recompute stop_price
+    # for momentum (close ± 0.5*ATR mirror).
+    if invert_direction:
+        setups = setups.with_columns(
+            pl.when(pl.col("direction") == "LONG").then(pl.lit("SHORT"))
+              .otherwise(pl.lit("LONG")).alias("direction")
+        )
+        if "stop_price" in setups.columns and "atr_14" in setups.columns and "close" in setups.columns:
+            setups = setups.with_columns(
+                pl.when(pl.col("direction") == "LONG")
+                  .then(pl.col("close") + 0.5 * pl.col("atr_14"))
+                  .otherwise(pl.col("close") - 0.5 * pl.col("atr_14"))
+                  .alias("stop_price")
+            )
 
     # Dedup: 1 per (setup_type, date)
     setups = (

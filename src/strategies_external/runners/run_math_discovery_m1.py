@@ -183,8 +183,9 @@ def run_discovery_phase_b(
         * (len(MOMENTUM_SETUP_TYPES) + len(FADE_SETUP_TYPES))
         * len(INDICATOR_SESSIONS)
     )
-    total = total_combos * n_grid
-    print(f"[PhaseB] Starting grid sweep: {total_combos} combos × {n_grid} (TP,SL) = {total} backtests", flush=True)
+    # 2 invert modes × n_grid per combo
+    total = total_combos * n_grid * 2
+    print(f"[PhaseB] Starting grid sweep: {total_combos} combos × {n_grid} (TP,SL) × 2 invert = {total} backtests", flush=True)
 
     rows = []
     combo_count = 0
@@ -234,39 +235,44 @@ def run_discovery_phase_b(
                             continue
 
                         for tp, sl in tp_sl_grid:
-                            backtest_count += 1
-                            if backtest_count % 1000 == 0:
+                            # 2 invert modes inside the inner loop -> count both
+                            backtest_count += 2
+                            if backtest_count % 2000 == 0:
                                 elapsed = time.time() - t0
                                 pct = 100 * backtest_count / total
                                 print(f"[PhaseB] {backtest_count}/{total} ({pct:.0f}%) — {elapsed:.0f}s", flush=True)
-                            try:
-                                trades = run_setup_backtest_m1(
-                                    setups=ses_setups,
-                                    bars_signal_tf=bars,
-                                    m1_df=None,
-                                    setup_type=setup_type,
-                                    is_fade=is_fade,
-                                    tp_atr_mult=tp,
-                                    sl_atr_mult=sl,
-                                    session_end_hour_utc=_session_end_hour(session),
-                                    friction_r=friction,
-                                    symbol=sym,
-                                    signal_tf=tf,
-                                    m1_arrays=m1_arrays,
-                                )
-                            except Exception:
-                                continue
-                            m_dict = compute_phase_a_metrics(trades)
-                            if (m_dict["n_trades"] >= PA_MIN_TRADES
-                                    and m_dict["wr"] >= PA_MIN_WR
-                                    and m_dict["pf"] >= PA_MIN_PF):
-                                rows.append({
-                                    "symbol": sym, "tf": tf,
-                                    "setup_type": setup_type, "session": session,
-                                    "is_fade": is_fade,
-                                    "tp_mult": tp, "sl_mult": sl,
-                                    **m_dict,
-                                })
+                            # Plan 4: probar tanto NORMAL como INVERT (bot live MATH usa INVERT).
+                            for invert in (False, True):
+                                try:
+                                    trades = run_setup_backtest_m1(
+                                        setups=ses_setups,
+                                        bars_signal_tf=bars,
+                                        m1_df=None,
+                                        setup_type=setup_type,
+                                        is_fade=is_fade,
+                                        tp_atr_mult=tp,
+                                        sl_atr_mult=sl,
+                                        session_end_hour_utc=_session_end_hour(session),
+                                        friction_r=friction,
+                                        symbol=sym,
+                                        signal_tf=tf,
+                                        m1_arrays=m1_arrays,
+                                        invert_direction=invert,
+                                    )
+                                except Exception:
+                                    continue
+                                m_dict = compute_phase_a_metrics(trades)
+                                if (m_dict["n_trades"] >= PA_MIN_TRADES
+                                        and m_dict["wr"] >= PA_MIN_WR
+                                        and m_dict["pf"] >= PA_MIN_PF):
+                                    rows.append({
+                                        "symbol": sym, "tf": tf,
+                                        "setup_type": setup_type, "session": session,
+                                        "is_fade": is_fade,
+                                        "invert": invert,
+                                        "tp_mult": tp, "sl_mult": sl,
+                                        **m_dict,
+                                    })
 
     elapsed = time.time() - t0
     print(f"\n[PhaseB] Sweep complete in {elapsed:.0f}s ({elapsed/60:.1f} min)", flush=True)
