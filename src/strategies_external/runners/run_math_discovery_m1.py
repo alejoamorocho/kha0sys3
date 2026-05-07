@@ -54,6 +54,18 @@ MOMENTUM_SL = 1.0
 FADE_TP = 0.5
 FADE_SL = 2.5
 
+# Phase B grid (per-combo TP/SL search). Each (tp, sl) is in ATR multiples.
+# Selected to span 3 regimes: high-RR mom, balanced, high-WR fade.
+PHASE_B_GRID: tuple[tuple[float, float], ...] = (
+    (2.0, 1.0),  # high-RR momentum (default mom)
+    (1.5, 1.0),  # mid-RR momentum
+    (1.0, 1.0),  # 1:1
+    (0.7, 0.5),  # tight high-WR (MATH bot default style)
+    (1.0, 2.0),  # mild fade
+    (0.5, 2.5),  # default fade
+    (1.5, 2.5),  # ratio close to 1:1.7 fade
+)
+
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -152,6 +164,175 @@ def _write_phase_a_report(output_path: Path, df: pl.DataFrame, total_combos: int
 
 
 # ── Main sweep ─────────────────────────────────────────────────────────────────
+
+def run_discovery_phase_b(
+    output_path: str = "reports/external/math_discovery_m1_phase_b.md",
+    tp_sl_grid: tuple[tuple[float, float], ...] = PHASE_B_GRID,
+) -> pl.DataFrame:
+    """Phase B: per-combo grid search over (TP, SL) in ATR multiples.
+
+    For each (sym, tf, setup, session), tests every (tp, sl) in the grid.
+    Reports survivors that pass gates: n_trades >= 30, WR >= 0.50, PF >= 1.0.
+    Each survivor is keyed by (sym, tf, setup, session, tp, sl).
+    """
+    REPORTS_DIR.mkdir(parents=True, exist_ok=True)
+
+    n_grid = len(tp_sl_grid)
+    total_combos = (
+        len(M1_AVAILABLE) * len(TFS)
+        * (len(MOMENTUM_SETUP_TYPES) + len(FADE_SETUP_TYPES))
+        * len(INDICATOR_SESSIONS)
+    )
+    total = total_combos * n_grid
+    print(f"[PhaseB] Starting grid sweep: {total_combos} combos × {n_grid} (TP,SL) = {total} backtests", flush=True)
+
+    rows = []
+    combo_count = 0
+    backtest_count = 0
+    t0 = time.time()
+
+    for sym in M1_AVAILABLE:
+        m1 = load_m1(sym)
+        if m1 is None:
+            print(f"[PhaseB][SKIP] {sym}: no M1 data", flush=True)
+            combo_count += len(TFS) * (len(MOMENTUM_SETUP_TYPES) + len(FADE_SETUP_TYPES)) * len(INDICATOR_SESSIONS)
+            backtest_count += combo_count * n_grid
+            continue
+        print(f"[PhaseB] {sym}: arrays...", flush=True)
+        m1_arrays = precompute_m1_arrays(m1)
+        friction = _friction_for(sym)
+
+        for tf in TFS:
+            try:
+                bars = _load_and_enrich_math_tf(sym, tf)
+            except Exception as e:
+                print(f"[PhaseB][SKIP] {sym} {tf}: {e}", flush=True)
+                combo_count += (len(MOMENTUM_SETUP_TYPES) + len(FADE_SETUP_TYPES)) * len(INDICATOR_SESSIONS)
+                continue
+
+            for is_fade, setups_list in [
+                (False, MOMENTUM_SETUP_TYPES),
+                (True, FADE_SETUP_TYPES),
+            ]:
+                from src.engine.run_math_momentum import detect_setups as mom_detect
+                from src.engine.run_math_fade import detect_setups as fade_detect
+                detect_fn = fade_detect if is_fade else mom_detect
+
+                for setup_type in setups_list:
+                    try:
+                        all_setups = detect_fn(bars, setup_type)
+                    except Exception as exc:
+                        print(f"[PhaseB][SKIP] {sym}/{tf}/{setup_type}: {exc}", flush=True)
+                        combo_count += len(INDICATOR_SESSIONS)
+                        continue
+
+                    for session in INDICATOR_SESSIONS:
+                        combo_count += 1
+                        ses_setups = _filter_by_session(all_setups, session)
+                        if len(ses_setups) < 30:
+                            backtest_count += n_grid
+                            continue
+
+                        for tp, sl in tp_sl_grid:
+                            backtest_count += 1
+                            if backtest_count % 1000 == 0:
+                                elapsed = time.time() - t0
+                                pct = 100 * backtest_count / total
+                                print(f"[PhaseB] {backtest_count}/{total} ({pct:.0f}%) — {elapsed:.0f}s", flush=True)
+                            try:
+                                trades = run_setup_backtest_m1(
+                                    setups=ses_setups,
+                                    bars_signal_tf=bars,
+                                    m1_df=None,
+                                    setup_type=setup_type,
+                                    is_fade=is_fade,
+                                    tp_atr_mult=tp,
+                                    sl_atr_mult=sl,
+                                    session_end_hour_utc=_session_end_hour(session),
+                                    friction_r=friction,
+                                    symbol=sym,
+                                    signal_tf=tf,
+                                    m1_arrays=m1_arrays,
+                                )
+                            except Exception:
+                                continue
+                            m_dict = compute_phase_a_metrics(trades)
+                            if (m_dict["n_trades"] >= PA_MIN_TRADES
+                                    and m_dict["wr"] >= PA_MIN_WR
+                                    and m_dict["pf"] >= PA_MIN_PF):
+                                rows.append({
+                                    "symbol": sym, "tf": tf,
+                                    "setup_type": setup_type, "session": session,
+                                    "is_fade": is_fade,
+                                    "tp_mult": tp, "sl_mult": sl,
+                                    **m_dict,
+                                })
+
+    elapsed = time.time() - t0
+    print(f"\n[PhaseB] Sweep complete in {elapsed:.0f}s ({elapsed/60:.1f} min)", flush=True)
+    print(f"[PhaseB] {backtest_count} backtests, {len(rows)} survivors", flush=True)
+
+    if not rows:
+        df = pl.DataFrame()
+        out_path = Path(output_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(
+            f"# MATH Discovery Phase B — TP/SL grid\n\n"
+            f"- Total backtests: {backtest_count}\n- Survivors: 0\n",
+            encoding="utf-8",
+        )
+        return df
+
+    df = pl.DataFrame(rows).sort("calmar", descending=True)
+    out_path = Path(output_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+
+    lines = [
+        "# MATH Discovery Phase B — M15+H1+H4 + M1 Tracking + TP/SL Grid",
+        "",
+        f"- Backtests run: **{backtest_count}** ({total_combos} combos × {n_grid} grid points)",
+        f"- Survivors: **{len(df)}**",
+        f"- Gates: n_trades >= {PA_MIN_TRADES}, WR >= {PA_MIN_WR}, PF >= {PA_MIN_PF}",
+        f"- Runtime: {elapsed:.0f}s ({elapsed/60:.1f} min)",
+        "",
+        "## Top 50 by Calmar",
+        "",
+        "| sym | tf | setup | session | kind | tp | sl | n | wr | pf | exp_R | dd_R | calmar |",
+        "|-----|-----|-------|---------|------|-----|-----|---|-----|-----|-------|------|--------|",
+    ]
+    for r in df.head(50).iter_rows(named=True):
+        kind = "FADE" if r["is_fade"] else "MOM"
+        lines.append(
+            f"| {r['symbol']} | {r['tf']} | {r['setup_type']} | {r['session']} | "
+            f"{kind} | {r['tp_mult']:.1f} | {r['sl_mult']:.1f} | {r['n_trades']} | "
+            f"{r['wr']:.3f} | {r['pf']:.3f} | {r['expectancy_r']:.3f} | "
+            f"{r['max_dd_r']:.1f} | {r['calmar']:.3f} |"
+        )
+    lines.append("")
+    lines.append("## Per-TF survivors")
+    lines.append("")
+    by_tf = df.group_by("tf").agg(pl.len().alias("n")).sort("n", descending=True)
+    for r in by_tf.iter_rows(named=True):
+        lines.append(f"- {r['tf']}: {r['n']}")
+    lines.append("")
+    lines.append("## Per-symbol survivors")
+    lines.append("")
+    by_sym = df.group_by("symbol").agg(pl.len().alias("n")).sort("n", descending=True)
+    for r in by_sym.iter_rows(named=True):
+        lines.append(f"- {r['symbol']}: {r['n']}")
+    out_path.write_text("\n".join(lines), encoding="utf-8")
+
+    df.write_parquet(REPORTS_DIR / "math_discovery_m1_phase_b.parquet")
+
+    print(f"\n[PhaseB] Top 5 survivors by Calmar:", flush=True)
+    for r in df.head(5).iter_rows(named=True):
+        kind = "MOM" if not r["is_fade"] else "FADE"
+        print(f"  {r['symbol']:10s} {r['tf']:4s} {r['setup_type']:25s} "
+              f"{r['session']:10s} {kind:4s}  TP={r['tp_mult']:.1f} SL={r['sl_mult']:.1f}  "
+              f"WR={r['wr']:.3f}  PF={r['pf']:.2f}  Calmar={r['calmar']:.4f}", flush=True)
+
+    return df
+
 
 def run_discovery_phase_a(
     output_path: str = "reports/external/math_discovery_m1_phase_a.md",
@@ -325,7 +506,12 @@ def run_discovery_phase_a(
 
 
 if __name__ == "__main__":
-    df = run_discovery_phase_a()
+    import sys
+    phase = sys.argv[1] if len(sys.argv) > 1 else "b"
+    if phase.lower() == "a":
+        df = run_discovery_phase_a()
+    else:
+        df = run_discovery_phase_b()
     print(f"\n{len(df)} survivors")
     if not df.is_empty():
         print(df.head(20))
