@@ -98,6 +98,7 @@ class ORBBreakFadeAdapter(Strategy):
         m1_times = m1_sorted["time"].to_list()
         m1_highs = m1_sorted["high"].to_list()
         m1_lows = m1_sorted["low"].to_list()
+        m1_closes = m1_sorted["close"].to_list()
 
         signals: list[Signal] = []
 
@@ -146,12 +147,14 @@ class ORBBreakFadeAdapter(Strategy):
             valid_until = setup_ts.replace(hour=23, minute=59, second=0, microsecond=0)
 
             if break_dir == "UP":
-                # INVERSE: SHORT. entry STOP just above OR_HIGH (already broken).
-                # entry = or_high + 1 tick — fills on next bar that touches.
-                entry = or_high + self.tick_size
+                # INVERSE: SHORT. MARKET entry at the close of the M1 break bar.
+                # This represents what a live system would see at the moment of
+                # the break. Using STOP entries at or_high+tick caused look-ahead
+                # bias in v1 (filled on retracement, leading to artifact WR=100%).
+                entry = m1_closes[break_idx]
                 signals.append(Signal(
                     symbol=symbol, strategy=self.name, side="short",
-                    setup_ts=break_ts, entry_type="stop",
+                    setup_ts=break_ts, entry_type="market",
                     entry_price=entry,
                     valid_until=valid_until,
                     stop=0.0, tp1=None, tp2=None,
@@ -164,10 +167,11 @@ class ORBBreakFadeAdapter(Strategy):
                 ))
             else:
                 # INVERSE: LONG.
-                entry = or_low - self.tick_size
+                # INVERSE: LONG. MARKET entry at the close of the M1 break bar.
+                entry = m1_closes[break_idx]
                 signals.append(Signal(
                     symbol=symbol, strategy=self.name, side="long",
-                    setup_ts=break_ts, entry_type="stop",
+                    setup_ts=break_ts, entry_type="market",
                     entry_price=entry,
                     valid_until=valid_until,
                     stop=0.0, tp1=None, tp2=None,
