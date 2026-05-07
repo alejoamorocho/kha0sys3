@@ -200,8 +200,14 @@ def run_setup_backtest_m1(
 
         setup_time = s["time"]
 
-        # Find first M1 bar AFTER setup_time
-        start_idx = bisect.bisect_right(m1_time_list, setup_time)
+        # LOOK-AHEAD FIX (Plan 4 v2):
+        # Polars bars use label="left" — `setup_time` is the START of the bar
+        # but the detector evaluates indicators at its CLOSE (T + tf_minutes).
+        # We must NOT begin searching for a fill until the close of the bar,
+        # otherwise we trade with information not yet available in real time.
+        from datetime import timedelta
+        bar_close_time = setup_time + timedelta(minutes=tf_minutes)
+        start_idx = bisect.bisect_right(m1_time_list, bar_close_time)
         if start_idx >= len(m1_times):
             continue
 
