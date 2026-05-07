@@ -45,12 +45,34 @@ WAIT_BARS = 5  # signal-TF bars to wait for fill
 # ── T1: TF-parametric enrichment ──────────────────────────────────────────────
 
 def _load_and_enrich_math_tf(symbol: str, tf: str) -> pl.DataFrame:
-    """Load + enrich for any TF (M15/H1/H4). Caches to data/enriched_math_tf/."""
+    """Load + enrich for any TF (M1/M15/H1/H4). Caches to data/enriched_math_tf/.
+
+    M1 lives at data/M1/<symbol>.csv (no date suffix). Other TFs use the
+    standard `<symbol>_<tf>_*.csv` pattern via run_indicator_discovery's loader.
+    """
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
     cache_path = CACHE_DIR / f"{symbol}_{tf}.parquet"
     if cache_path.exists():
         return pl.read_parquet(cache_path)
-    bars = _load_and_enrich(symbol, tf)          # base enrichment (IndicatorEnricher + ATR)
+    if tf == "M1":
+        from src.strategies_external.data_loader import load_m1
+        from src.application.indicators import IndicatorEnricher
+        bars = load_m1(symbol)
+        if bars is None:
+            raise FileNotFoundError(f"No M1 file at data/M1/{symbol}.csv")
+        # Add ATR(14) inline (Wilder)
+        bars = bars.with_columns(
+            pl.max_horizontal(
+                pl.col("high") - pl.col("low"),
+                (pl.col("high") - pl.col("close").shift(1)).abs(),
+                (pl.col("low") - pl.col("close").shift(1)).abs(),
+            ).alias("_tr")
+        ).with_columns(
+            pl.col("_tr").ewm_mean(alpha=1/14, adjust=False, min_periods=14).alias("atr_14")
+        ).drop("_tr")
+        bars = IndicatorEnricher.enrich_all(bars)
+    else:
+        bars = _load_and_enrich(symbol, tf)
     bars = MathIndicatorEnricher.enrich_all_math(bars)
     bars.write_parquet(cache_path)
     return bars

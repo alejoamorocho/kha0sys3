@@ -345,29 +345,33 @@ def run_discovery_phase_b(
 
 def run_discovery_phase_f(
     output_path: str = "reports/external/math_discovery_m1_phase_f.md",
+    symbols: tuple[str, ...] | None = None,
 ) -> pl.DataFrame:
     """Phase F: discovery con entries en M1 (no en M15/H1/H4).
 
-    Para cada sym × 12 setups × 5 sesiones × 7 (tp,sl) × 2 invert.
-    Tracking M1 (mismo data → entry close usa el mismo M1 bar).
+    Default symbols: those with Phase B survivors (USDJPY, NASDAQ100, EURUSD,
+    XAUUSD). Each M1 enrichment takes ~14 min and ~705 MB cache, so by default
+    we limit scope. Pass symbols=M1_AVAILABLE to do the full sweep (~2.3h + 7GB).
     """
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     from src.engine.run_math_momentum import detect_setups as mom_detect
     from src.engine.run_math_fade import detect_setups as fade_detect
 
+    if symbols is None:
+        symbols = ("USDJPY", "NASDAQ100", "EURUSD", "XAUUSD")
     SESSIONS = ("ASIA", "LONDON", "NY", "LONDON_NY", "ALL_DAY")
     grid = PHASE_B_GRID
     all_setup_types = MOMENTUM_SETUP_TYPES + FADE_SETUP_TYPES
-    n_total = len(M1_AVAILABLE) * len(all_setup_types) * len(SESSIONS) * len(grid) * 2
-    print(f"[PhaseF] M1 entries — {n_total} backtests", flush=True)
+    n_total = len(symbols) * len(all_setup_types) * len(SESSIONS) * len(grid) * 2
+    print(f"[PhaseF] M1 entries — {n_total} backtests over {len(symbols)} symbols", flush=True)
 
     rows = []
     backtest_count = 0
     t0 = time.time()
     setups_cache: dict[tuple[str, str, bool], pl.DataFrame] = {}
 
-    for sym in M1_AVAILABLE:
+    for sym in symbols:
         m1 = load_m1(sym)
         if m1 is None:
             continue
