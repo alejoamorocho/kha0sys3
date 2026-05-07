@@ -57,21 +57,30 @@ class DocExitManager(ExitManager):
         raise ValueError(f"unknown strategy: {self.strategy}")
 
     def _oops(self, s: Signal) -> Signal:
+        # Doc target = EOD: el backtester cierra al close de la última barra antes
+        # de valid_until cuando no hay tp/stop hit. tp1=None, tp2=None.
         if s.side == "long":
             stop = _require_anchor(s, "today_low")
-            R = s.entry_price - stop
-            tp1 = s.entry_price + 2 * R
         else:
             stop = _require_anchor(s, "today_high")
-            R = stop - s.entry_price
-            tp1 = s.entry_price - 2 * R
-        return replace(s, stop=stop, tp1=tp1, tp2=None)
+        return replace(s, stop=stop, tp1=None, tp2=None)
 
     def _sma18(self, s: Signal) -> Signal:
-        # Stop = SMA-18 (señal contraria definida como cruce de SMA).
-        # No fixed TP — let the trade run.
         sma = _require_anchor(s, "sma18")
-        return replace(s, stop=sma, tp1=None, tp2=None)
+        atr = _require_anchor(s, "atr14")
+        # Stop "hard" como protección extrema: SMA - 3*ATR (long) en caso de gap brutal
+        if s.side == "long":
+            hard_stop = sma - 3 * atr
+        else:
+            hard_stop = sma + 3 * atr
+        # Backtester cierra cuando 2 cierres daily consecutivos cruzan la SMA en contra.
+        return replace(
+            s,
+            stop=hard_stop,
+            tp1=None, tp2=None,
+            exit_on_two_closes_against=sma,
+            exit_close_count_required=2,
+        )
 
     def _double_bottom(self, s: Signal) -> Signal:
         consol_low = _require_anchor(s, "consol_low")
@@ -95,7 +104,12 @@ class DocExitManager(ExitManager):
         else:
             stop = _require_anchor(s, "swing_high") + 0.2
             tp1 = _require_anchor(s, "swing_low")
-        return replace(s, stop=stop, tp1=tp1, tp2=None, timestop_bars=240)  # 240 M1 bars = 4h
+        # Doc: "cerrar si tras 4h la posición no avanza 1R a favor" — condicional, no fijo.
+        return replace(
+            s, stop=stop, tp1=tp1, tp2=None,
+            timestop_bars=None,
+            exit_after_bars_if_below_R=(240, 1.0),
+        )
 
     def _cot1(self, s: Signal) -> Signal:
         atr = _require_anchor(s, "atr14")
@@ -109,7 +123,8 @@ class DocExitManager(ExitManager):
             R = stop - s.entry_price
             tp1 = s.entry_price - 1.5 * R
             tp2 = s.entry_price - 3.0 * R
-        return replace(s, stop=stop, tp1=tp1, tp2=tp2)
+        # NO timestop_bars: el doc dice "5 días hábiles" que ya está en valid_until.
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2, timestop_bars=None)
 
 
 class ATRExitManager(ExitManager):
@@ -210,7 +225,8 @@ class IndicatorExitManager(ExitManager):
             stop = _require_anchor(s, "swing_high") + 0.2
             tp1 = _require_anchor(s, "swing_low")
             tp2 = _require_anchor(s, "fib_1618")
-        return replace(s, stop=stop, tp1=tp1, tp2=tp2, timestop_bars=240)
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2, timestop_bars=None,
+                       exit_after_bars_if_below_R=(240, 1.0))
 
     def _cot1(self, s: Signal) -> Signal:
         # Same anchors as doc; if a clearer "indicator" anchoring emerges later, refine.
@@ -225,4 +241,5 @@ class IndicatorExitManager(ExitManager):
             R = stop - s.entry_price
             tp1 = s.entry_price - 1.5 * R
             tp2 = s.entry_price - 3.0 * R
-        return replace(s, stop=stop, tp1=tp1, tp2=tp2)
+        # NO timestop_bars (same as DocExitManager._cot1)
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2, timestop_bars=None)

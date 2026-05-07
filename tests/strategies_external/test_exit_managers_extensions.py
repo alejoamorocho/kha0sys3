@@ -25,12 +25,12 @@ def _signal_long_sma18_raw() -> Signal:
 def test_doc_exit_manager_sma18_long():
     raw = _signal_long_sma18_raw()
     s = DocExitManager(strategy="sma18").attach_levels(raw)
-    # Doc SMA-18: stop = sma18 (señal contraria); no fixed TP — the backtester
-    # handles "exit on 2 closes against SMA" via timestop or signal_inverso later.
-    # For now: stop=sma18, tp1=None, tp2=None.
-    assert s.stop == pytest.approx(2025.0)
+    # Plan 2.5: hard stop = sma18 - 3*atr14; exit_on_two_closes_against = sma18
+    assert s.stop == pytest.approx(2025.0 - 3 * 15.0)   # 1980.0
     assert s.tp1 is None
     assert s.tp2 is None
+    assert s.exit_on_two_closes_against == pytest.approx(2025.0)
+    assert s.exit_close_count_required == 2
 
 
 def test_indicator_exit_manager_sma18_long():
@@ -87,9 +87,12 @@ def _signal_long_perdices_raw():
 
 def test_doc_exit_manager_perdices_long():
     s = DocExitManager(strategy="perdices_fib").attach_levels(_signal_long_perdices_raw())
-    # Doc Perdices: stop = swing_low - 2pip ~= swing_low - 0.2 (oro), tp1 = swing_high
+    # Plan 2.5: stop = swing_low - 0.2, tp1 = swing_high, no fixed timestop,
+    # exit_after_bars_if_below_R = (240, 1.0) (conditional)
     assert s.stop == pytest.approx(1999.8, abs=0.01)
     assert s.tp1 == pytest.approx(2050.0)
+    assert s.timestop_bars is None
+    assert s.exit_after_bars_if_below_R == (240, 1.0)
 
 
 def test_indicator_exit_manager_perdices_long():
@@ -107,7 +110,7 @@ def _signal_long_cot1_raw():
         entry_type="stop", entry_price=2050.0,
         valid_until=datetime(2024, 1, 10),
         stop=0.0, tp1=None, tp2=None,
-        timestop_bars=120,
+        timestop_bars=None,   # Plan 2.5: no timestop_bars
         indicator_anchors={"atr14": 15.0, "cot_index": 85.0,
                            "season_5d": 0.012,
                            "swing_high_5d": 2055.0, "swing_low_5d": 2030.0},
@@ -116,16 +119,18 @@ def _signal_long_cot1_raw():
 
 def test_doc_exit_manager_cot1_long():
     s = DocExitManager(strategy="cot1").attach_levels(_signal_long_cot1_raw())
-    # Doc COT1: stop = swing_low_5d - 0.5*atr; tp1 = entry + 1.5R; tp2 = entry + 3R
+    # Plan 2.5: stop = swing_low_5d - 0.5*atr; tp1 = entry + 1.5R; tp2 = entry + 3R; no timestop
     assert s.stop == pytest.approx(2030.0 - 0.5 * 15.0)
     R = 2050.0 - (2030.0 - 0.5 * 15.0)
     assert s.tp1 == pytest.approx(2050.0 + 1.5 * R, abs=0.5)
     assert s.tp2 == pytest.approx(2050.0 + 3.0 * R, abs=0.5)
+    assert s.timestop_bars is None
 
 
 def test_indicator_exit_manager_cot1_long():
     s = IndicatorExitManager(strategy="cot1").attach_levels(_signal_long_cot1_raw())
-    # Indicator COT1: stop = swing_low_5d - 0.5*atr; tp1/tp2 inherit doc style for now
+    # Indicator COT1: stop = swing_low_5d - 0.5*atr; tp1/tp2 inherit doc style; no timestop
     assert s.stop == pytest.approx(2030.0 - 0.5 * 15.0)
     assert s.tp1 is not None
     assert s.tp2 is not None
+    assert s.timestop_bars is None

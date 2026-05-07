@@ -97,7 +97,7 @@ class COT1Strategy(Strategy):
             }
             valid_until = cur_ts + timedelta(days=5)
 
-            # Long bias
+            # Long bias: pin bar
             if applicable_cot >= self.cot_threshold_long and seasonal >= self.seasonal_threshold:
                 if _is_pin_bar(cur["open"], cur["high"], cur["low"], cur["close"], "long"):
                     signals.append(Signal(
@@ -106,10 +106,10 @@ class COT1Strategy(Strategy):
                         entry_price=cur["high"] + 0.01,
                         valid_until=valid_until,
                         stop=0.0, tp1=None, tp2=None,
-                        timestop_bars=120,  # ~5 days × 24h M1 if tracking M1, else fewer
+                        timestop_bars=None,  # Plan 2.5: 5d via valid_until
                         indicator_anchors=anchors,
                     ))
-            # Short bias
+            # Short bias: pin bar
             if applicable_cot <= self.cot_threshold_short and seasonal <= -self.seasonal_threshold:
                 if _is_pin_bar(cur["open"], cur["high"], cur["low"], cur["close"], "short"):
                     signals.append(Signal(
@@ -118,7 +118,7 @@ class COT1Strategy(Strategy):
                         entry_price=cur["low"] - 0.01,
                         valid_until=valid_until,
                         stop=0.0, tp1=None, tp2=None,
-                        timestop_bars=120,
+                        timestop_bars=None,  # Plan 2.5: 5d via valid_until
                         indicator_anchors=anchors,
                     ))
         return signals
