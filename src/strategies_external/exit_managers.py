@@ -45,6 +45,8 @@ class DocExitManager(ExitManager):
     def attach_levels(self, signal_raw: Signal) -> Signal:
         if self.strategy == "oops":
             return self._oops(signal_raw)
+        if self.strategy == "sma18":
+            return self._sma18(signal_raw)
         # Otras estrategias: implementadas en Plan 2.
         raise ValueError(f"unknown strategy: {self.strategy}")
 
@@ -58,6 +60,12 @@ class DocExitManager(ExitManager):
             R = stop - s.entry_price
             tp1 = s.entry_price - 2 * R
         return replace(s, stop=stop, tp1=tp1, tp2=None)
+
+    def _sma18(self, s: Signal) -> Signal:
+        # Stop = SMA-18 (señal contraria definida como cruce de SMA).
+        # No fixed TP — let the trade run.
+        sma = _require_anchor(s, "sma18")
+        return replace(s, stop=sma, tp1=None, tp2=None)
 
 
 class ATRExitManager(ExitManager):
@@ -98,6 +106,8 @@ class IndicatorExitManager(ExitManager):
     def attach_levels(self, signal_raw: Signal) -> Signal:
         if self.strategy == "oops":
             return self._oops(signal_raw)
+        if self.strategy == "sma18":
+            return self._sma18(signal_raw)
         raise ValueError(f"unknown strategy: {self.strategy}")
 
     def _oops(self, s: Signal) -> Signal:
@@ -112,4 +122,17 @@ class IndicatorExitManager(ExitManager):
             stop = _require_anchor(s, "today_high")
             tp1 = prev_high - prev_range / 2.0
             tp2 = prev_low - prev_range
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2)
+
+    def _sma18(self, s: Signal) -> Signal:
+        sma = _require_anchor(s, "sma18")
+        atr = _require_anchor(s, "atr14")
+        if s.side == "long":
+            stop = sma - 0.5 * atr
+            tp1 = sma + 2.0 * atr
+            tp2 = sma + 4.0 * atr
+        else:
+            stop = sma + 0.5 * atr
+            tp1 = sma - 2.0 * atr
+            tp2 = sma - 4.0 * atr
         return replace(s, stop=stop, tp1=tp1, tp2=tp2)
