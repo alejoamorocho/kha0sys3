@@ -10,6 +10,10 @@ data/live_state/
 
 # Indicator discovery: enriched cache + generated parquets
 data/enriched/
+
+# Fine TF data (M1, M5) — too large to track (~1.8 GB for M1 across 10 symbols)
+data/M1/
+data/M5/
 reports/indicator_phase1_all.parquet
 reports/indicator_survivors_phase1.parquet
 reports/indicator_survivors.parquet
