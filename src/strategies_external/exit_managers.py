@@ -12,7 +12,7 @@ from typing import ClassVar, Literal
 from src.strategies_external.common.signal import Signal
 
 
-_KNOWN_STRATEGIES = frozenset({"oops", "sma18", "double_bottom", "perdices_fib", "cot1"})
+_KNOWN_STRATEGIES = frozenset({"oops", "sma18", "double_bottom", "perdices_fib", "cot1", "fade"})
 
 
 class ExitManager(ABC):
@@ -53,7 +53,8 @@ class DocExitManager(ExitManager):
             return self._perdices_fib(signal_raw)
         if self.strategy == "cot1":
             return self._cot1(signal_raw)
-        # Otras estrategias: implementadas en Plan 2.
+        if self.strategy == "fade":
+            return self._fade(signal_raw)
         raise ValueError(f"unknown strategy: {self.strategy}")
 
     def _oops(self, s: Signal) -> Signal:
@@ -126,6 +127,20 @@ class DocExitManager(ExitManager):
         # NO timestop_bars: el doc dice "5 días hábiles" que ya está en valid_until.
         return replace(s, stop=stop, tp1=tp1, tp2=tp2, timestop_bars=None)
 
+    def _fade(self, s: Signal) -> Signal:
+        tp_mult = _require_anchor(s, "tp_mult")
+        sl_mult = _require_anchor(s, "sl_mult")
+        or_width = _require_anchor(s, "or_width")
+        if s.side == "short":
+            # FADE_UP: entry at or_high, TP toward or_low, SL above or_high
+            stop = s.entry_price + sl_mult * or_width
+            tp1 = s.entry_price - tp_mult * or_width
+        else:
+            # FADE_DOWN: entry at or_low, TP toward or_high, SL below or_low
+            stop = s.entry_price - sl_mult * or_width
+            tp1 = s.entry_price + tp_mult * or_width
+        return replace(s, stop=stop, tp1=tp1, tp2=None)
+
 
 class ATRExitManager(ExitManager):
     """Stops/TPs uniformes como múltiplos de ATR."""
@@ -173,6 +188,8 @@ class IndicatorExitManager(ExitManager):
             return self._perdices_fib(signal_raw)
         if self.strategy == "cot1":
             return self._cot1(signal_raw)
+        if self.strategy == "fade":
+            return self._fade(signal_raw)
         raise ValueError(f"unknown strategy: {self.strategy}")
 
     def _oops(self, s: Signal) -> Signal:
@@ -243,3 +260,17 @@ class IndicatorExitManager(ExitManager):
             tp2 = s.entry_price - 3.0 * R
         # NO timestop_bars (same as DocExitManager._cot1)
         return replace(s, stop=stop, tp1=tp1, tp2=tp2, timestop_bars=None)
+
+    def _fade(self, s: Signal) -> Signal:
+        # Delegate to DocExitManager logic: OR-width based TP/SL.
+        # No structural anchor improvements needed for V1.
+        tp_mult = _require_anchor(s, "tp_mult")
+        sl_mult = _require_anchor(s, "sl_mult")
+        or_width = _require_anchor(s, "or_width")
+        if s.side == "short":
+            stop = s.entry_price + sl_mult * or_width
+            tp1 = s.entry_price - tp_mult * or_width
+        else:
+            stop = s.entry_price - sl_mult * or_width
+            tp1 = s.entry_price + tp_mult * or_width
+        return replace(s, stop=stop, tp1=tp1, tp2=None)

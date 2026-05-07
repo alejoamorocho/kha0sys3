@@ -134,3 +134,78 @@ def test_indicator_exit_manager_cot1_long():
     assert s.tp1 is not None
     assert s.tp2 is not None
     assert s.timestop_bars is None
+
+
+# ── FADE exit manager tests ───────────────────────────────────────────────────
+
+
+def _signal_fade_up_raw() -> Signal:
+    """FADE_UP: short signal at OR_HIGH with or_width=10."""
+    return Signal(
+        symbol="EURUSD", strategy="fade", side="short",
+        setup_ts=datetime(2024, 1, 2, 8, 0),
+        entry_type="limit", entry_price=110.0,
+        valid_until=datetime(2024, 1, 2, 14, 0),
+        stop=0.0, tp1=None, tp2=None,
+        indicator_anchors={
+            "tp_mult": 0.5, "sl_mult": 2.5,
+            "or_high": 110.0, "or_low": 100.0, "or_width": 10.0,
+            "magic_time": 420.0, "duration": 60.0,
+        },
+    )
+
+
+def _signal_fade_down_raw() -> Signal:
+    """FADE_DOWN: long signal at OR_LOW with or_width=10."""
+    return Signal(
+        symbol="EURUSD", strategy="fade", side="long",
+        setup_ts=datetime(2024, 1, 2, 8, 0),
+        entry_type="limit", entry_price=100.0,
+        valid_until=datetime(2024, 1, 2, 14, 0),
+        stop=0.0, tp1=None, tp2=None,
+        indicator_anchors={
+            "tp_mult": 0.75, "sl_mult": 2.5,
+            "or_high": 110.0, "or_low": 100.0, "or_width": 10.0,
+            "magic_time": 420.0, "duration": 60.0,
+        },
+    )
+
+
+def test_doc_exit_manager_fade_up_short():
+    """DocExitManager FADE_UP: stop above entry, TP below entry."""
+    s = DocExitManager(strategy="fade").attach_levels(_signal_fade_up_raw())
+    # entry=110, or_width=10, sl_mult=2.5, tp_mult=0.5
+    assert s.stop == pytest.approx(110.0 + 2.5 * 10.0)   # 135.0
+    assert s.tp1 == pytest.approx(110.0 - 0.5 * 10.0)    # 105.0
+    assert s.tp2 is None
+
+
+def test_doc_exit_manager_fade_down_long():
+    """DocExitManager FADE_DOWN: stop below entry, TP above entry."""
+    s = DocExitManager(strategy="fade").attach_levels(_signal_fade_down_raw())
+    # entry=100, or_width=10, sl_mult=2.5, tp_mult=0.75
+    assert s.stop == pytest.approx(100.0 - 2.5 * 10.0)   # 75.0
+    assert s.tp1 == pytest.approx(100.0 + 0.75 * 10.0)   # 107.5
+    assert s.tp2 is None
+
+
+def test_indicator_exit_manager_fade_up_short():
+    """IndicatorExitManager FADE_UP: identical to doc for V1."""
+    s = IndicatorExitManager(strategy="fade").attach_levels(_signal_fade_up_raw())
+    assert s.stop == pytest.approx(110.0 + 2.5 * 10.0)
+    assert s.tp1 == pytest.approx(110.0 - 0.5 * 10.0)
+    assert s.tp2 is None
+
+
+def test_indicator_exit_manager_fade_down_long():
+    """IndicatorExitManager FADE_DOWN: identical to doc for V1."""
+    s = IndicatorExitManager(strategy="fade").attach_levels(_signal_fade_down_raw())
+    assert s.stop == pytest.approx(100.0 - 2.5 * 10.0)
+    assert s.tp1 == pytest.approx(100.0 + 0.75 * 10.0)
+    assert s.tp2 is None
+
+
+def test_doc_exit_manager_fade_unknown_raises():
+    """DocExitManager rejects unknown strategy."""
+    with pytest.raises(ValueError, match="unknown strategy"):
+        DocExitManager(strategy="unknown_xyz")
