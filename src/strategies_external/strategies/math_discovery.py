@@ -78,10 +78,25 @@ def _empty_trades() -> pl.DataFrame:
     })
 
 
+def precompute_m1_arrays(m1_df: pl.DataFrame) -> dict:
+    """Pre-compute M1 numeric arrays once per symbol so they can be reused
+    across many setup_type/session combos without re-converting polars→python list.
+
+    Returns dict with keys: times (list[datetime]), highs/lows/closes (list[float]).
+    """
+    m1_sorted = m1_df.sort("time")
+    return {
+        "times": m1_sorted["time"].to_list(),
+        "highs": m1_sorted["high"].to_list(),
+        "lows": m1_sorted["low"].to_list(),
+        "closes": m1_sorted["close"].to_list(),
+    }
+
+
 def run_setup_backtest_m1(
     setups: pl.DataFrame,
     bars_signal_tf: pl.DataFrame,   # M15/H1/H4 bars (for dedup ATR key lookup if needed)
-    m1_df: pl.DataFrame,            # M1 tracking bars
+    m1_df: pl.DataFrame,            # M1 tracking bars (or None if m1_arrays passed)
     setup_type: str,
     is_fade: bool,
     tp_atr_mult: float,
@@ -90,6 +105,7 @@ def run_setup_backtest_m1(
     friction_r: float,
     symbol: str,
     signal_tf: str = "M15",
+    m1_arrays: dict | None = None,
 ) -> pl.DataFrame:
     """Simulate MOMENTUM or FADE fill + TP/SL tracking on M1 bars.
 
@@ -106,7 +122,7 @@ def run_setup_backtest_m1(
     Known simplification: direction guard skipped (V1). Setup detection
     pre-filters; guard only affects edge-case fills.
     """
-    if len(setups) == 0 or len(m1_df) == 0:
+    if len(setups) == 0:
         return _empty_trades()
 
     tf_minutes = _TF_MINUTES.get(signal_tf, 15)
@@ -120,12 +136,23 @@ def run_setup_backtest_m1(
         .drop("_date")
     )
 
-    # M1 arrays
-    m1_sorted = m1_df.sort("time")
-    m1_times = m1_sorted["time"].to_list()
-    m1_highs = m1_sorted["high"].to_list()
-    m1_lows = m1_sorted["low"].to_list()
-    m1_closes = m1_sorted["close"].to_list()
+    # M1 arrays — reuse precomputed if provided (avoids re-converting per combo).
+    if m1_arrays is not None:
+        m1_times = m1_arrays["times"]
+        m1_highs = m1_arrays["highs"]
+        m1_lows = m1_arrays["lows"]
+        m1_closes = m1_arrays["closes"]
+    else:
+        if m1_df is None or len(m1_df) == 0:
+            return _empty_trades()
+        m1_sorted = m1_df.sort("time")
+        m1_times = m1_sorted["time"].to_list()
+        m1_highs = m1_sorted["high"].to_list()
+        m1_lows = m1_sorted["low"].to_list()
+        m1_closes = m1_sorted["close"].to_list()
+
+    if len(m1_times) == 0:
+        return _empty_trades()
 
     # Build a searchable index: we use bisect to find starting position
     import bisect

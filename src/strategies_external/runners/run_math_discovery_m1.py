@@ -24,6 +24,7 @@ from src.strategies_external.strategies.math_discovery import (
     _load_and_enrich_math_tf,
     _filter_by_session,
     run_setup_backtest_m1,
+    precompute_m1_arrays,
     MOMENTUM_SETUP_TYPES,
     FADE_SETUP_TYPES,
 )
@@ -158,10 +159,10 @@ def run_discovery_phase_a(
     REPORTS_DIR.mkdir(parents=True, exist_ok=True)
 
     total = len(M1_AVAILABLE) * len(TFS) * (len(MOMENTUM_SETUP_TYPES) + len(FADE_SETUP_TYPES)) * len(INDICATOR_SESSIONS)
-    print(f"[PhaseA] Starting sweep: {total} combos")
+    print(f"[PhaseA] Starting sweep: {total} combos", flush=True)
     print(f"[PhaseA] {len(M1_AVAILABLE)} symbols × {len(TFS)} TFs "
           f"× {len(MOMENTUM_SETUP_TYPES) + len(FADE_SETUP_TYPES)} setups "
-          f"× {len(INDICATOR_SESSIONS)} sessions")
+          f"× {len(INDICATOR_SESSIONS)} sessions", flush=True)
 
     rows = []
     combo_count = 0
@@ -170,17 +171,21 @@ def run_discovery_phase_a(
     def _progress(extra: str = "") -> None:
         pct = 100 * combo_count / total if total > 0 else 0
         elapsed = time.time() - t0
-        print(f"[PhaseA] {combo_count}/{total} ({pct:.0f}%) — {elapsed:.0f}s  {extra}")
+        print(f"[PhaseA] {combo_count}/{total} ({pct:.0f}%) — {elapsed:.0f}s  {extra}", flush=True)
 
     for sym in M1_AVAILABLE:
         # Load M1 once per symbol
         m1 = load_m1(sym)
         if m1 is None:
-            print(f"[PhaseA][SKIP] {sym}: no M1 data")
+            print(f"[PhaseA][SKIP] {sym}: no M1 data", flush=True)
             combo_count += len(TFS) * (len(MOMENTUM_SETUP_TYPES) + len(FADE_SETUP_TYPES)) * len(INDICATOR_SESSIONS)
             continue
 
-        print(f"[PhaseA] {sym}: M1 rows={len(m1)}")
+        # Pre-convert M1 to lists ONCE per symbol — reused across all combos
+        # for this symbol (huge speedup: avoids ~180 list-conversions × 3M rows).
+        print(f"[PhaseA] {sym}: M1 rows={len(m1)} — converting arrays...", flush=True)
+        m1_arrays = precompute_m1_arrays(m1)
+        print(f"[PhaseA] {sym}: arrays ready ({len(m1_arrays['times'])} M1 bars)", flush=True)
 
         friction = _friction_for(sym)
 
@@ -218,7 +223,7 @@ def run_discovery_phase_a(
                         trades = run_setup_backtest_m1(
                             setups=ses_setups,
                             bars_signal_tf=bars,
-                            m1_df=m1,
+                            m1_df=None,
                             setup_type=setup_type,
                             is_fade=False,
                             tp_atr_mult=MOMENTUM_TP,
@@ -227,9 +232,10 @@ def run_discovery_phase_a(
                             friction_r=friction,
                             symbol=sym,
                             signal_tf=tf,
+                            m1_arrays=m1_arrays,
                         )
                     except Exception as exc:
-                        print(f"[PhaseA][ERR] {sym}/{tf}/{setup_type}/{session}: {exc}")
+                        print(f"[PhaseA][ERR] {sym}/{tf}/{setup_type}/{session}: {exc}", flush=True)
                         continue
 
                     m_dict = compute_phase_a_metrics(trades)
@@ -266,7 +272,7 @@ def run_discovery_phase_a(
                         trades = run_setup_backtest_m1(
                             setups=ses_setups,
                             bars_signal_tf=bars,
-                            m1_df=m1,
+                            m1_df=None,
                             setup_type=setup_type,
                             is_fade=True,
                             tp_atr_mult=FADE_TP,
@@ -275,9 +281,10 @@ def run_discovery_phase_a(
                             friction_r=friction,
                             symbol=sym,
                             signal_tf=tf,
+                            m1_arrays=m1_arrays,
                         )
                     except Exception as exc:
-                        print(f"[PhaseA][ERR] {sym}/{tf}/{setup_type}/{session}: {exc}")
+                        print(f"[PhaseA][ERR] {sym}/{tf}/{setup_type}/{session}: {exc}", flush=True)
                         continue
 
                     m_dict = compute_phase_a_metrics(trades)
