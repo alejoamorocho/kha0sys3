@@ -296,19 +296,23 @@ def run_setup_backtest_m1(
             lo = m1_lows[j]
             if hi is None or lo is None:
                 continue
+            # Conservative resolution: SL first (worst case on intra-bar ties).
+            # Required for M1 entries where TP and SL are very close in price
+            # and a single M1 OHLC bar can touch both. Without this, WR is
+            # optimistically biased on tight-grid M1 strategies.
             if direction == "LONG":
-                if hi >= tp:
-                    exit_reason, exit_price, exit_time = "TP", tp, bt
-                    break
                 if lo <= sl:
                     exit_reason, exit_price, exit_time = "SL", sl, bt
                     break
-            else:
-                if lo <= tp:
+                if hi >= tp:
                     exit_reason, exit_price, exit_time = "TP", tp, bt
                     break
+            else:
                 if hi >= sl:
                     exit_reason, exit_price, exit_time = "SL", sl, bt
+                    break
+                if lo <= tp:
+                    exit_reason, exit_price, exit_time = "TP", tp, bt
                     break
         else:
             # Reached end of M1 data without exit
