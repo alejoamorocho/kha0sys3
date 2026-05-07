@@ -1,171 +1,209 @@
-# MATH Discovery con M1 Tracking — Informe Final v2
+# MATH Discovery con M1 — Informe Final v3 (CONSERVADOR)
 
 **Branch:** `feature/strategies-external-plan-2`
 **Periodo backtest:** 2018-01 a 2026-05 (8.33 años)
-**Activos M1 evaluados (10):** EURUSD, USDJPY, GBPAUD, XAUUSD, XAGUSD, WTI, BRENT, NATGAS, SP500, NASDAQ100
-**TFs señal:** M15, H1, H4 (M1 entries → Phase F en ejecución)
+**Activos M1 evaluados:** 10 (M15/H1/H4) + 4 (M1 entries: USDJPY, NASDAQ100, EURUSD, XAUUSD)
+**TFs señal:** M15, H1, H4, **M1**
 **Setups:** 6 momentum + 6 fade = 12
 **Sesiones:** ASIA, LONDON, NY, LONDON_NY, ALL_DAY (5)
 
+**🔧 Bias correcciones aplicadas:**
+1. **Look-ahead fix** (commit 0bd21cc): start_idx shift por tf_minutes — el detector usa info al cierre del bar, no al inicio.
+2. **SL-first intra-bar** (commit 550e758): TP/SL ties dentro del mismo bar resuelven a SL (worst case). Crítico en M1 con TP/SL juntos.
+
 ---
 
-## Pipeline ejecutado
+## Pipeline ejecutado completo
 
 | Phase | Backtests | Survivors | Tiempo | Notas |
 |-------|----------:|----------:|-------:|-------|
-| **A** (defaults TP/SL) | 1,800 | 0 | 103 s | Friction destruye economía con defaults del documento |
-| **B** (grid 7×TP/SL × 2 invert) | 24,815 | 12 | 5.5 min | **Look-ahead fixed** descartó 462 ficticios (97%) |
-| **C** (grid fino 11×11 TP/SL) | 1,452 | 8 únicos | 8 s | Refina TP/SL óptimo per strategy |
-| **D** (3 variantes salida) | 24 | 8 best | 3 s | V1 baseline / V2 opposite / V3 opposite+tpsl |
-| **E** (6 exits alternos) | 48 | 8 best (combined D+E) | 6 s | Trailing 1.0/1.5 ATR, SMA20/50 cross, time-fixed 60/240 |
-| **F** (entries en M1) | en curso | — | ~45 min | 4 syms con M1 enrichment cacheado |
-
-**Look-ahead bias detectado y corregido (commit 0bd21cc):**
-- **Antes**: 462 supervivientes, top WR=96.9% PF=224 Calmar=6.96
-- **Después**: 12 supervivientes, top WR=51.7% PF=1.68 Calmar=0.018
-- Causa: detector evalúa al cierre del bar T pero `time` apunta al inicio del bar; el backtester buscaba fill desde `time + 1 M1 bar` con info no disponible en vivo.
-- Fix: shift `start_idx` por `tf_minutes` para empezar tracking desde el cierre real del bar.
+| **A** (defaults) | 1,800 | 0 | 103 s | Friction destruye economía |
+| **B** (grid 7×TP/SL × 2 invert, M15/H1/H4) | 24,815 | 12 | 5.5 min | Look-ahead fix descartó 462 falsos |
+| **C** (grid fino 11×11 TP/SL) | 1,452 | 7 únicos | 8 s | Refina TP/SL óptimo |
+| **D** (3 variantes salida con señal opuesta) | 21 | 7 best | 3 s | V1 baseline / V2 opp / V3 opp+tpsl |
+| **E** (6 exits: trailing, SMA, time_fixed) | 42 | 7 best | 5 s | V4 trailing 1.0/1.5 ATR · V5 SMA20/50 cross · V6 time_fixed 60/240 |
+| **F** (entries M1, 4 syms) | 3,360 | 49 únicos | 61 s | M1 entries dan más candidates pero Calmar bajos |
 
 ---
 
-## TABLA COMPLETA — 12 supervivientes Phase B (con trades/año)
+## TOP 10 GLOBAL (mezcla M15/H1/H4 + M1)
 
-| # | sym | tf | setup | session | INV | TP | SL | n | trades/yr | WR | PF | exp_R | DD_R | Calmar |
-|---|-----|----|-------|---------|-----|------|------|-----|----------:|------|------|-------|------|--------|
-| 1 | USDJPY | M15 | SPECTRAL_TREND_MOM | LONDON | F | 0.70 | 0.50 | 118 | 14.2 | 0.517 | 1.68 | 0.395 | 22.4 | 0.0176 |
-| 2 | USDJPY | M15 | KAMA_CROSS_MOM | ASIA | F | 1.50 | 1.00 | 134 | 16.1 | 0.552 | 1.18 | 0.093 | 6.2 | 0.0150 |
-| 3 | NASDAQ100 | M15 | KAMA_CROSS_MOM | ASIA | F | 0.70 | 0.50 | 36 | 4.3 | 0.583 | 1.19 | 0.102 | 7.4 | 0.0138 |
-| 4 | EURUSD | H1 | KAMA_CROSS_MOM | NY | T | 1.50 | 1.00 | 67 | 8.0 | 0.507 | 1.17 | 0.068 | 7.0 | 0.0097 |
-| 5 | NASDAQ100 | M15 | KAMA_CROSS_MOM | ASIA | F | 2.00 | 1.00 | 36 | 4.3 | 0.500 | 1.09 | 0.051 | 6.2 | 0.0083 |
-| 6 | USDJPY | M15 | SPECTRAL_TREND_MOM | LONDON | F | 1.00 | 1.00 | 118 | 14.2 | 0.551 | 1.17 | 0.082 | 12.9 | 0.0064 |
-| 7 | NASDAQ100 | M15 | KAMA_CROSS_MOM | ASIA | F | 1.50 | 1.00 | 36 | 4.3 | 0.556 | 1.09 | 0.042 | 7.5 | 0.0056 |
-| 8 | USDJPY | M15 | SPECTRAL_TREND_MOM | LONDON_NY | F | 1.00 | 1.00 | 214 | 25.7 | 0.519 | 1.16 | 0.089 | 39.6 | 0.0022 |
-| 9 | EURUSD | M15 | KAMA_CROSS_MOM | NY | F | 0.70 | 0.50 | 183 | 22.0 | 0.546 | 1.08 | 0.045 | 26.9 | 0.0017 |
-| 10 | XAUUSD | M15 | SPECTRAL_TREND_MOM | NY | F | 0.70 | 0.50 | 203 | 24.4 | 0.522 | 1.05 | 0.031 | 21.1 | 0.0015 |
-| 11 | XAUUSD | M15 | VELOCITY_ACCEL_GO | NY | F | 0.70 | 0.50 | 1551 | **186.2** | 0.504 | 1.06 | 0.035 | 50.9 | 0.0007 |
-| 12 | USDJPY | M15 | KAMA_CROSS_MOM | ASIA | F | 0.70 | 0.50 | 134 | 16.1 | 0.537 | 1.01 | 0.004 | 9.3 | 0.0004 |
-
-**Filas 1-3 + 6 son duplicados (mismo sym/tf/setup/session/invert pero distinto TP/SL)** → al hacer "best per strategy" en Phase C quedan 8 únicos.
+| Rank | sym | tf | setup | session | INV | TP/SL | best_exit | n | tr/yr | WR | PF | DD | **Calmar** |
+|----:|-----|----|-------|---------|-----|-------|-----------|----|------:|------|------|----|---:|
+| **1** | EURUSD | H1 | KAMA_CROSS_MOM | NY | T | 1.75/1.05 | V3 opp+tpsl | 67 | 8.0 | 0.522 | 1.43 | 3.0 | **0.0515** |
+| **2** | NASDAQ100 | M15 | KAMA_CROSS_MOM | ASIA | F | 1.50/0.80 | V4 trailing 1.5 ATR | 36 | 4.3 | 0.528 | 1.23 | 2.8 | **0.0454** |
+| **3** | USDJPY | M15 | SPECTRAL_TREND_MOM | LONDON | F | 0.50/0.55 | V6 time_fixed 240 | 118 | 14.2 | 0.593 | 1.57 | 10.3 | **0.0265** |
+| 4 | USDJPY | M15 | KAMA_CROSS_MOM | ASIA | F | 1.50/0.80 | V3 opp+tpsl | 134 | 16.1 | 0.500 | 1.24 | 8.5 | 0.0165 |
+| 5 | EURUSD | M1 | VELOCITY_ACCEL_GO | ALL_DAY | T | 2.00/1.00 | V1 baseline | 1861 | 223.4 | 0.519 | 1.41 | 17.1 | 0.0150 |
+| 6 | EURUSD | M1 | KALMAN_INNOV_EXPAND | ALL_DAY | T | 2.00/1.00 | V1 baseline | 1888 | 226.7 | 0.516 | 1.40 | 18.6 | 0.0134 |
+| 7 | USDJPY | M1 | VELOCITY_ACCEL_GO | ASIA | F | 2.00/1.00 | V1 baseline | 1614 | 193.8 | 0.519 | 1.41 | 19.8 | 0.0130 |
+| 8 | EURUSD | M1 | VELOCITY_ACCEL_GO | ASIA | F | 2.00/1.00 | V1 baseline | 1604 | 192.6 | 0.501 | 1.31 | 18.0 | 0.0113 |
+| 9 | USDJPY | M15 | SPECTRAL_TREND_MOM | LONDON_NY | F | 0.50/0.55 | V5 sma50_cross | 214 | 25.7 | 0.528 | 1.65 | 34.5 | 0.0097 |
+| 10 | EURUSD | M15 | KAMA_CROSS_MOM | NY | F | 1.25/0.80 | V6 time_fixed 60 | 183 | 22.0 | 0.525 | 1.15 | 12.1 | 0.0071 |
 
 ---
 
-## Top 8 — best variant per strategy (Phase C TP/SL optimal × Phase D+E exit)
+## Comparativa M15/H1 vs M1 entries
 
-Los 9 exits probados: V1 baseline (TP/SL fijo) · V2 opposite_only · V3 opposite+tpsl · V4 trailing_1.0_atr · V4 trailing_1.5_atr · V5 sma20_cross · V5 sma50_cross · V6 time_fixed_60 · V6 time_fixed_240
+| Métrica | Best M15/H1 (#1) | Best M1 (#5 global) |
+|---------|-----------------:|--------------------:|
+| **Calmar** | **0.052** | 0.015 |
+| WR | 0.522 | 0.519 |
+| PF | 1.43 | 1.41 |
+| trades/año | 8.0 | 223.4 |
+| DD_R | 3.0 | 17.1 |
+| Expectancy R | 0.154 | 0.257 |
+| Total R esperado/año | ~1.2 | ~57.4 |
 
-| # | sym | tf | setup | session | INV | TP | SL | best_variant | n | tr/yr | WR | PF | exp_R | DD | Calmar |
-|---|-----|----|-------|---------|-----|------|------|-------------|----|------:|------|------|-------|----|--------|
-| **1** | **USDJPY** | M15 | SPECTRAL_TREND_MOM | LONDON | F | 0.75 | 0.55 | **V6_time_fixed_60** | 118 | 14.2 | 0.508 | **1.58** | 0.335 | **7.9** | **0.0425** |
-| **2** | **EURUSD** | H1 | KAMA_CROSS_MOM | NY | T | 1.75 | 1.05 | **V3_opposite_with_tpsl** | 67 | 8.0 | 0.522 | **1.43** | 0.154 | **4.9** | **0.0314** |
-| **3** | **NASDAQ100** | M15 | KAMA_CROSS_MOM | ASIA | F | 1.50 | 0.80 | **V4_trailing_1.5_atr** | 36 | 4.3 | 0.528 | 1.23 | 0.127 | 4.5 | 0.0284 |
-| 4 | USDJPY | M15 | KAMA_CROSS_MOM | ASIA | F | 1.50 | 0.80 | V6_time_fixed_60 | 134 | 16.1 | 0.507 | 1.24 | 0.134 | 7.5 | 0.0177 |
-| 5 | USDJPY | M15 | SPECTRAL_TREND_MOM | LONDON_NY | F | 0.50 | 0.55 | V2_opposite_only | 214 | 25.7 | 0.444 | 1.32 | 0.413 | 42.7 | 0.0097 |
-| 6 | EURUSD | M15 | KAMA_CROSS_MOM | NY | F | 1.25 | 0.80 | V6_time_fixed_240 | 183 | 22.0 | 0.519 | 1.11 | 0.068 | 9.3 | 0.0073 |
-| 7 | XAUUSD | M15 | SPECTRAL_TREND_MOM | NY | F | 0.75 | 0.55 | V5_sma20_cross | 203 | 24.4 | 0.473 | 1.05 | 0.025 | 18.3 | 0.0014 |
-| 8 | XAUUSD | M15 | VELOCITY_ACCEL_GO | NY | F | 0.75 | 0.55 | V6_time_fixed_240 | 1551 | 186.2 | 0.502 | 1.00 | 0.000 | 62.5 | 0.0000 |
+**Lectura**: M1 entries generan **27× más trades/año** y **48× más R total/año**, pero con **5-7× más DD**. El Calmar resultante es similar pero M15/H1 gana por DD bajo.
 
-### Mejoras aportadas por exits alternativos (Phase E vs Phase B baseline)
+**Trade-off**:
+- M15/H1: bajo riesgo absoluto, baja frecuencia, edge limpio.
+- M1: alto throughput, pero requiere capital robusto para soportar DD ~20R + alta frecuencia exige infraestructura ejecución de baja latencia.
 
-| sym + setup + session | Calmar baseline | Calmar best alt | Mejor exit | Mejora |
-|----------------------|----------------:|----------------:|------------|-------:|
-| USDJPY M15 SPECTRAL LONDON | 0.018 | **0.042** | V6_time_fixed_60 | **+138%** |
-| NASDAQ100 M15 KAMA ASIA | 0.014 | **0.028** | V4_trailing_1.5_atr | **+103%** |
-| EURUSD H1 KAMA NY (INV) | 0.010 | **0.031** | V3_opposite_with_tpsl | **+218%** |
-| USDJPY M15 KAMA ASIA | 0.015 | 0.018 | V6_time_fixed_60 | +20% |
-| EURUSD M15 KAMA NY | 0.002 | 0.007 | V6_time_fixed_240 | +250% |
+---
 
-**V6_time_fixed_60** (cerrar a 60 M1 bars = 1h fija) y **V4_trailing_1.5_atr** (trailing stop 1.5×ATR) son los que más aportan. **V2_opposite_only** (puro signal opposite sin TP/SL) puede ayudar pero a costa de DD muy alto.
+## TODOS los M15/H1 (7 estrategias únicas)
 
-### Distribución de exits ganadores
+| # | sym | tf | setup | session | INV | TP/SL | best_exit | n | tr/yr | WR | PF | DD | Calmar |
+|---|-----|----|-------|---------|-----|-------|-----------|----|------:|------|------|----|--------|
+| 1 | EURUSD | H1 | KAMA_CROSS_MOM | NY | T | 1.75/1.05 | V3 opp+tpsl | 67 | 8.0 | 0.522 | 1.43 | 3.0 | 0.0515 |
+| 2 | NASDAQ100 | M15 | KAMA_CROSS_MOM | ASIA | F | 1.50/0.80 | V4 trail 1.5 | 36 | 4.3 | 0.528 | 1.23 | 2.8 | 0.0454 |
+| 3 | USDJPY | M15 | SPECTRAL_TREND_MOM | LONDON | F | 0.50/0.55 | V6 time 240 | 118 | 14.2 | 0.593 | 1.57 | 10.3 | 0.0265 |
+| 4 | USDJPY | M15 | KAMA_CROSS_MOM | ASIA | F | 1.50/0.80 | V3 opp+tpsl | 134 | 16.1 | 0.500 | 1.24 | 8.5 | 0.0165 |
+| 5 | USDJPY | M15 | SPECTRAL_TREND_MOM | LONDON_NY | F | 0.50/0.55 | V5 sma50_cross | 214 | 25.7 | 0.528 | 1.65 | 34.5 | 0.0097 |
+| 6 | EURUSD | M15 | KAMA_CROSS_MOM | NY | F | 1.25/0.80 | V6 time_fixed 60 | 183 | 22.0 | 0.525 | 1.15 | 12.1 | 0.0071 |
+| 7 | XAUUSD | M15 | SPECTRAL_TREND_MOM | NY | F | 0.75/0.55 | V5 sma20_cross | 203 | 24.4 | 0.473 | 1.05 | 18.7 | 0.0014 |
+
+---
+
+## TOP 15 M1 entries (49 únicos en total)
+
+| # | sym | setup | session | INV | TP/SL | n | tr/yr | WR | PF | DD | Calmar |
+|---|-----|-------|---------|-----|-------|----|------:|------|------|----|--------|
+| 1 | EURUSD | VELOCITY_ACCEL_GO | ALL_DAY | T | 2.00/1.00 | 1861 | 223.4 | 0.519 | 1.41 | 17.1 | 0.0150 |
+| 2 | EURUSD | KALMAN_INNOV_EXPAND | ALL_DAY | T | 2.00/1.00 | 1888 | 226.7 | 0.516 | 1.40 | 18.6 | 0.0134 |
+| 3 | USDJPY | VELOCITY_ACCEL_GO | ASIA | F | 2.00/1.00 | 1614 | 193.8 | 0.519 | 1.41 | 19.8 | 0.0130 |
+| 4 | EURUSD | VELOCITY_ACCEL_GO | ASIA | F | 2.00/1.00 | 1604 | 192.6 | 0.501 | 1.31 | 18.0 | 0.0113 |
+| 5 | EURUSD | HURST_TREND_MOM | ASIA | F | 1.50/1.00 | 1490 | 178.9 | 0.560 | 1.18 | 20.5 | 0.0049 |
+| 6 | EURUSD | KALMAN_INNOV_EXPAND | ASIA | F | 1.50/1.00 | 1564 | 187.8 | 0.554 | 1.15 | 23.2 | 0.0037 |
+| 7 | EURUSD | HURST_TREND_MOM | ALL_DAY | T | 1.50/1.00 | 1831 | 219.8 | 0.549 | 1.13 | 21.0 | 0.0036 |
+| 8 | EURUSD | HURST_TREND_MOM | ALL_DAY | F | 1.50/1.00 | 1676 | 201.2 | 0.548 | 1.12 | 21.0 | 0.0033 |
+| 9 | EURUSD | OLS_SLOPE_STRONG | ALL_DAY | T | 1.50/1.00 | 1846 | 221.6 | 0.550 | 1.13 | 26.6 | 0.0029 |
+| 10 | XAUUSD | VELOCITY_ACCEL_GO | NY | F | 0.70/0.50 | 1567 | 188.1 | 0.569 | 1.12 | 26.0 | 0.0025 |
+| 11 | XAUUSD | KALMAN_INNOV_EXPAND | LONDON_NY | T | 0.70/0.50 | 1534 | 184.2 | 0.561 | 1.08 | 19.6 | 0.0024 |
+| 12 | USDJPY | KALMAN_INNOV_EXPAND | ALL_DAY | T | 1.50/1.00 | 1859 | 223.2 | 0.554 | 1.15 | 37.3 | 0.0023 |
+| 13 | EURUSD | KALMAN_INNOV_EXPAND | ASIA | T | 1.50/1.00 | 1547 | 185.7 | 0.547 | 1.11 | 36.3 | 0.0019 |
+| 14 | EURUSD | VELOCITY_ACCEL_GO | ALL_DAY | F | 1.50/1.00 | 1803 | 216.4 | 0.539 | 1.08 | 27.9 | 0.0017 |
+| 15 | XAUUSD | KALMAN_INNOV_EXPAND | LONDON | T | 0.70/0.50 | 1534 | 184.2 | 0.561 | 1.08 | 27.8 | 0.0017 |
+
+---
+
+## Distribución Phase F (M1)
 
 ```
-V6_time_fixed_60   : 2 strategies  (preferido en M15 USDJPY)
-V6_time_fixed_240  : 2 strategies  (preferido en M15 con DD largo)
-V4_trailing_1.5_atr: 1 strategy
-V3_opposite+tpsl   : 1 strategy
-V2_opposite_only   : 1 strategy  (caveat: DD enorme)
-V5_sma20_cross     : 1 strategy
+Por symbol: EURUSD=24, USDJPY=15, XAUUSD=8, NASDAQ100=2  (total 49 unique combos)
+Por setup:  KALMAN_INNOV_EXPAND=12, VELOCITY_ACCEL_GO=11, HURST_TREND_MOM=8,
+            OLS_SLOPE_STRONG=8, KAMA_CROSS_MOM=6, SPECTRAL_TREND_MOM=4
+            ✅ TODOS los 6 momentum setups producen edges en M1
+            (vs solo 3 en M15/H1)
+Por invert: True=26, False=23  (50/50, ambas direcciones funcionan)
 ```
 
 ---
 
-## Trades/año — interpretación
+## 9 modos de salida probados
 
-- **Baja frecuencia (4-8 tr/yr)**: NASDAQ100 ASIA × KAMA, EURUSD H1 × KAMA NY. Pocas señales pero relativamente limpias. Ideal para position sizing alto.
-- **Media (14-26 tr/yr)**: USDJPY × ASIA/LONDON/LONDON_NY, EURUSD M15 NY, XAUUSD NY × SPECTRAL. Frecuencia razonable.
-- **Muy alta (186 tr/yr)**: XAUUSD VELOCITY_ACCEL_GO NY. Casi diario. Pero PF=1.00 = nada.
+| Variant | Descripción | # estrategias donde gana |
+|---------|-------------|-------------------------:|
+| V1 baseline (TP/SL fijo) | Phase B/C grid TP/SL | 5 (M1 dominado) |
+| V2 opposite_only | Salir en señal opuesta | 0 |
+| V3 opposite + TP/SL | Señal opuesta o TP/SL | 2 |
+| V4 trailing 1.0 ATR | Trailing 1×ATR | 0 |
+| V4 trailing 1.5 ATR | Trailing 1.5×ATR | 1 |
+| V5 sma20 cross | Cierre cruza SMA(20) | 1 |
+| V5 sma50 cross | Cierre cruza SMA(50) | 1 |
+| V6 time_fixed 60 | 60 M1 bars (1h) | 1 |
+| V6 time_fixed 240 | 240 M1 bars (4h) | 1 |
+
+**Conclusión exits**: ningún exit domina universalmente. El óptimo varía por estrategia. **TP/SL fijo (V1)** es lo más simple y funciona en M1; en M15/H1 los exits alternativos sí aportan (V3, V4, V6).
 
 ---
 
-## Hallazgos importantes
+## Hallazgos clave
 
-### 1. Look-ahead bias destruido 97% de los "edges" iniciales
-El test diagnóstico sobre el top combo Phase B (XAGUSD H4 KAMA_CROSS_MOM): WR cayó de 96.9% a 13.6% post-fix.
+### 1. Bias detectados y corregidos
+- **Look-ahead bias**: 97% de los "edges" iniciales eran ficticios.
+- **Intra-bar TP/SL bias**: en M1 con TP/SL juntos, el orden de chequeo TP-first inflaba WR ~9pp (de 67% a 58%).
 
-### 2. H4 desaparece completamente post-fix
-Los 138 H4 "candidatos" pre-fix eran 100% bias.
+### 2. M15/H1 vs M1 entries — diferentes perfiles
+- **M15/H1**: pocos supervivientes (7) pero **DD bajo** (3-35R), low frequency. Más limpio.
+- **M1**: muchos supervivientes (49) pero **DD alto** (17-37R), alta frecuencia. Edge real pero requiere capital robusto.
 
-### 3. Sólo 3 setups producen edges reales
-- **KAMA_CROSS_MOM** (5 supervivientes únicos)
-- **SPECTRAL_TREND_MOM** (3 supervivientes únicos)
-- **VELOCITY_ACCEL_GO** (1, marginal)
+### 3. Setups que funcionan
+- **M15/H1**: solo 3 (KAMA_CROSS_MOM, SPECTRAL_TREND_MOM, VELOCITY_ACCEL_GO).
+- **M1**: TODOS los 6 momentum setups producen edges. Los FADE siguen sin servir.
 
-Los otros 9 (HURST_TREND_MOM, OLS_SLOPE_STRONG, todos FADE, etc.) → 0.
+### 4. TP/SL óptimos
+- M15/H1: **TPs cortos** (0.5-1.5×ATR) con stops similares.
+- M1: **TP/SL = 2.0/1.0** (TP=2× SL) domina top, edge por R:R favorable.
 
-### 4. 0 supervivientes FADE
-Ninguno de los 6 setups FADE (KALMAN_PEAK_FADE, GARCH_Z_FADE, etc.) produce edge real bajo M1 tracking + look-ahead-clean.
-
-### 5. Time-fixed exit (60-240 M1 bars) es el mejor exit alternativo
-Sale en tiempo específico independiente del PnL. Mejora Calmar significativamente porque evita los trades que "se quedan" sin resolver hasta session-end.
-
-### 6. Comparación con bot live MATH
-- Bot live `bot_config_math.json`: WR esperado 0.65-0.85, PF 1.5-3.0
-- Nuestros top 3 post-E: WR 0.51-0.53, PF 1.43-1.58
-- **Gap probable**: comisiones reales del broker no modeladas (usamos friction genérica 0.3-0.4R), validación in-sample del bot live (curve-fit posible), diferencias session boundaries / timestop precisas.
+### 5. INVERT (direction reverse)
+- M15/H1: 1 INV vs 6 sin INVERT.
+- M1: ~50/50 INV vs sin invert. La dirección no importa tanto en M1.
 
 ---
 
 ## ⚠️ Caveats que persisten
 
-1. **Calmar 0.000-0.042** — edges marginales sobre el riesgo. Top candidato 0.042 = expectancy_R × trades_year / max_DD ≈ 0.335 × 14 / 7.9.
-2. **WR 50-58%, PF 1.0-1.6** — apenas sobre breakeven. Cambios de régimen pueden invertir.
-3. **Sin walk-forward IS/OOS**. Hay riesgo de overfitting al periodo 2018-2026.
-4. **Sin Monte Carlo bootstrap**. No medimos prob_ruin todavía.
-5. **Trade count bajo** en NASDAQ100 ASIA (4.3/año). Estadísticamente débil.
-6. **3 candidatos top usan invert=False**, 1 usa invert=True. Inconsistencia con bot live que usa direction_mode=INVERT por default.
+1. **Calmar 0.001-0.052**. Edges marginales sobre el riesgo.
+2. **Sin walk-forward IS/OOS**. Riesgo de overfitting al periodo 2018-2026.
+3. **Sin Monte Carlo bootstrap**. No medimos prob_ruin.
+4. **M1 entries**: alta frecuencia + TP/SL cercanos = sensibilidad extrema a slippage real del broker (no modelado en friction genérica 0.3-0.4R).
+5. **Comparación con bot live MATH**: WR 0.50-0.59 vs live 0.65-0.85, PF 1.05-1.65 vs 1.5-3.0. El gap puede ser overfitting in-sample del bot live, comisiones reales no modeladas, o ambos.
 
 ---
 
-## Phase F (entries en M1) — pendiente
+## TOP 3 recomendados (M15/H1) para validar primero
 
-En curso sobre 4 syms con histórico de supervivientes (USDJPY, NASDAQ100, EURUSD, XAUUSD). Cada M1 enrichment toma ~14 min. ETA total ~45 min. Resultado se actualizará a este informe.
+```
+🥇 EURUSD H1 KAMA_CROSS_MOM NY INV=True
+   TP=1.75 SL=1.05 (ATR mults), V3_opposite_with_tpsl
+   67 trades en 8 años (8/yr), WR=52.2% PF=1.43 DD=3.0R Calmar=0.052
+
+🥈 NASDAQ100 M15 KAMA_CROSS_MOM ASIA
+   TP=1.50 SL=0.80, V4_trailing_1.5_atr
+   36 trades en 8 años (4/yr), WR=52.8% PF=1.23 DD=2.8R Calmar=0.045
+
+🥉 USDJPY M15 SPECTRAL_TREND_MOM LONDON
+   TP=0.50 SL=0.55, V6_time_fixed_240 (4h)
+   118 trades en 8 años (14/yr), WR=59.3% PF=1.57 DD=10.3R Calmar=0.027
+```
+
+## TOP 3 recomendados (M1) para validar segundo
+
+```
+1. EURUSD M1 VELOCITY_ACCEL_GO ALL_DAY INV=True
+   TP=2.00 SL=1.00, V1 baseline
+   1861 trades (223/yr), WR=51.9% PF=1.41 DD=17.1R Calmar=0.015
+
+2. EURUSD M1 KALMAN_INNOV_EXPAND ALL_DAY INV=True
+   TP=2.00 SL=1.00, V1 baseline
+   1888 trades (227/yr), WR=51.6% PF=1.40 DD=18.6R Calmar=0.013
+
+3. USDJPY M1 VELOCITY_ACCEL_GO ASIA
+   TP=2.00 SL=1.00, V1 baseline
+   1614 trades (194/yr), WR=51.9% PF=1.41 DD=19.8R Calmar=0.013
+```
 
 ---
 
-## Recomendaciones
+## Recomendación final
 
-### Validación crítica antes de cualquier deployment
-1. **Walk-forward IS/OOS** sobre los 8 candidatos: 5 ventanas, entrenar TP/SL en IS, evaluar en OOS.
-2. **Monte Carlo bootstrap** 10k simulaciones por candidato: medir prob_ruin.
-3. **Re-correr con friction modelada exacta** del broker Vantage en lugar de 0.3-0.4 genérica.
+**No deployar nada sin antes**:
+1. **Walk-forward IS/OOS** sobre top 6 candidatos (3 M15/H1 + 3 M1).
+2. **Monte Carlo bootstrap** 10k para prob_ruin con threshold -10R (M15/H1) o -30R (M1).
+3. **Friction broker exacta** del Vantage en lugar de 0.3-0.4 genérica.
+4. **Forward demo 30 días mínimo** antes de risk real.
 
-### Priorización de candidatos
-- **Top tier (vale walk-forward)**: 1, 2, 3 (Calmar > 0.025, PF > 1.20, DD < 8R).
-- **Mid tier**: 4 (Calmar 0.018, OK pero margen estrecho).
-- **Borderline**: 5, 6 (DD alto o PF marginal).
-- **Descartar**: 7, 8 (PF ≈ 1.0, expectancy ≈ 0).
-
-### Mejoras al adapter
-1. Implementar **direction guard real** del bot live (cancelar si indicador se debilita en wait window).
-2. Probar **session-end timestop preciso** (matchear bot live exacto).
-3. Probar **TFs intermedios** (M30, H2) si los datos lo permiten.
-
----
-
-## Conclusión
-
-Pipeline reproducible de discovery con **8 candidatos marginales pero honestos**. El hallazgo más valioso fue **detectar y corregir look-ahead bias** que hubiera convertido falsos edges en producción.
-
-**Top candidato post-E**: **USDJPY M15 SPECTRAL_TREND_MOM LONDON TP=0.75/SL=0.55 V6_time_fixed_60** (PF 1.58, exp 0.335R, 14 tr/año, DD 7.9R, Calmar 0.042).
-
-No deployar sin walk-forward + MC + friction broker exacta.
+**Lo más valioso del ejercicio**: la pipeline detectó y corrigió **dos bias críticos** (look-ahead y intra-bar TP/SL). Sin estos fixes, hubiéramos confiado en falsos edges (462 → 12 → 7+49 reales).
