@@ -23,8 +23,11 @@ from src.strategies_external.data_loader import load_m1
 from src.strategies_external.strategies.math_discovery import (
     _load_and_enrich_math_tf,
     _filter_by_session,
+    _TF_MINUTES,
+    _empty_trades,
     run_setup_backtest_m1,
     precompute_m1_arrays,
+    WAIT_BARS,
     MOMENTUM_SETUP_TYPES,
     FADE_SETUP_TYPES,
 )
@@ -1061,6 +1064,3 @@ if __name__ == "__main__":
         raise SystemExit(f"unknown phase: {phase}")
     # Avoid polars table unicode chars failing on Windows cp1252.
     print(f"\nTotal rows: {len(df)}", flush=True)
-    print(f"\n{len(df)} survivors")
-    if not df.is_empty():
-        print(df.head(20))
