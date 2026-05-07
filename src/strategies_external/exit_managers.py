@@ -49,6 +49,8 @@ class DocExitManager(ExitManager):
             return self._sma18(signal_raw)
         if self.strategy == "double_bottom":
             return self._double_bottom(signal_raw)
+        if self.strategy == "perdices_fib":
+            return self._perdices_fib(signal_raw)
         # Otras estrategias: implementadas en Plan 2.
         raise ValueError(f"unknown strategy: {self.strategy}")
 
@@ -83,6 +85,15 @@ class DocExitManager(ExitManager):
             tp1 = neckline - altura
             tp2 = neckline - altura * 1.618
         return replace(s, stop=stop, tp1=tp1, tp2=tp2)
+
+    def _perdices_fib(self, s: Signal) -> Signal:
+        if s.side == "long":
+            stop = _require_anchor(s, "swing_low") - 0.2
+            tp1 = _require_anchor(s, "swing_high")
+        else:
+            stop = _require_anchor(s, "swing_high") + 0.2
+            tp1 = _require_anchor(s, "swing_low")
+        return replace(s, stop=stop, tp1=tp1, tp2=None, timestop_bars=240)  # 240 M1 bars = 4h
 
 
 class ATRExitManager(ExitManager):
@@ -127,6 +138,8 @@ class IndicatorExitManager(ExitManager):
             return self._sma18(signal_raw)
         if self.strategy == "double_bottom":
             return self._double_bottom(signal_raw)
+        if self.strategy == "perdices_fib":
+            return self._perdices_fib(signal_raw)
         raise ValueError(f"unknown strategy: {self.strategy}")
 
     def _oops(self, s: Signal) -> Signal:
@@ -169,3 +182,14 @@ class IndicatorExitManager(ExitManager):
             tp1 = neckline - altura
             tp2 = neckline - altura * 1.618
         return replace(s, stop=stop, tp1=tp1, tp2=tp2)
+
+    def _perdices_fib(self, s: Signal) -> Signal:
+        if s.side == "long":
+            stop = _require_anchor(s, "swing_low") - 0.2
+            tp1 = _require_anchor(s, "swing_high")
+            tp2 = _require_anchor(s, "fib_1618")
+        else:
+            stop = _require_anchor(s, "swing_high") + 0.2
+            tp1 = _require_anchor(s, "swing_low")
+            tp2 = _require_anchor(s, "fib_1618")
+        return replace(s, stop=stop, tp1=tp1, tp2=tp2, timestop_bars=240)
