@@ -62,6 +62,8 @@ def run_double_bottom_backtest(
                     if tp2 > tp1]
 
     output_path = Path(output_path)
+    # Plan 2.5: Doble Suelo = 1% risk per trade
+    risk_pct = 0.01
     strategy = DoubleBottomStrategy()
     doc_mgr = DocExitManager(strategy="double_bottom")
     ind_mgr = IndicatorExitManager(strategy="double_bottom")
@@ -80,9 +82,12 @@ def run_double_bottom_backtest(
         # Doc double_bottom: valid_until already set to setup_ts + 20 days from strategy.
         # Attach doc levels directly.
         doc_signals = [doc_mgr.attach_levels(s) for s in sigs]
-        trades_by_mode["doc"].extend(run_backtest(doc_signals, df_track, exit_mode="doc"))
+        trades_by_mode["doc"].extend(
+            run_backtest(doc_signals, df_track, exit_mode="doc", risk_pct=risk_pct)
+        )
         trades_by_mode["indicator"].extend(
-            run_backtest([ind_mgr.attach_levels(s) for s in sigs], df_track, exit_mode="indicator")
+            run_backtest([ind_mgr.attach_levels(s) for s in sigs],
+                         df_track, exit_mode="indicator", risk_pct=risk_pct)
         )
 
     # ATR sweep
@@ -95,7 +100,7 @@ def run_double_bottom_backtest(
         for sym, (sigs, df_track) in per_symbol.items():
             cand_trades.extend(
                 run_backtest([atr_mgr.attach_levels(s) for s in sigs],
-                             df_track, exit_mode="atr")
+                             df_track, exit_mode="atr", risk_pct=risk_pct)
             )
         m = evaluate(cand_trades)
         atr_grid_results.append({"sl": sl, "tp1": tp1, "tp2": tp2, **m})
@@ -118,7 +123,7 @@ def run_double_bottom_backtest(
         strategy_name="double_bottom",
         symbols=symbols,
         trades_by_mode=trades_by_mode,
-        config={"period": "2018-01-01..today", "risk_pct": 0.005,
+        config={"period": "2018-01-01..today", "risk_pct": risk_pct,
                 "atr_grid": atr_grid},
         walk_forward_windows=wf,
         monte_carlo_results=mc,

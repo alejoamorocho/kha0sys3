@@ -63,6 +63,8 @@ def run_perdices_fib_backtest(
         ]
 
     output_path = Path(output_path)
+    # Plan 2.5: Perdices Fib = 0.5% risk per trade
+    risk_pct = 0.005
     strategy = PerdicesFibStrategy()
     doc_mgr = DocExitManager(strategy="perdices_fib")
     ind_mgr = IndicatorExitManager(strategy="perdices_fib")
@@ -78,9 +80,12 @@ def run_perdices_fib_backtest(
 
     for sym, (sigs, df_track) in per_symbol.items():
         doc_signals = [doc_mgr.attach_levels(s) for s in sigs]
-        trades_by_mode["doc"].extend(run_backtest(doc_signals, df_track, exit_mode="doc"))
+        trades_by_mode["doc"].extend(
+            run_backtest(doc_signals, df_track, exit_mode="doc", risk_pct=risk_pct)
+        )
         trades_by_mode["indicator"].extend(
-            run_backtest([ind_mgr.attach_levels(s) for s in sigs], df_track, exit_mode="indicator")
+            run_backtest([ind_mgr.attach_levels(s) for s in sigs],
+                         df_track, exit_mode="indicator", risk_pct=risk_pct)
         )
 
     # ATR sweep
@@ -93,7 +98,7 @@ def run_perdices_fib_backtest(
         for sym, (sigs, df_track) in per_symbol.items():
             cand_trades.extend(
                 run_backtest([atr_mgr.attach_levels(s) for s in sigs],
-                             df_track, exit_mode="atr")
+                             df_track, exit_mode="atr", risk_pct=risk_pct)
             )
         m = evaluate(cand_trades)
         atr_grid_results.append({"sl": sl, "tp1": tp1, "tp2": tp2, **m})
@@ -116,7 +121,7 @@ def run_perdices_fib_backtest(
         strategy_name="perdices_fib",
         symbols=symbols,
         trades_by_mode=trades_by_mode,
-        config={"period": "2018-01-01..today", "risk_pct": 0.005,
+        config={"period": "2018-01-01..today", "risk_pct": risk_pct,
                 "atr_grid": atr_grid,
                 "note": "H1 signal TF; ATR grid limited to 5 combos for run-time"},
         walk_forward_windows=wf,

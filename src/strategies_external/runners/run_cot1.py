@@ -74,6 +74,8 @@ def run_cot1_backtest(
         atr_grid = [(1.0, 1.5, 3.0), (1.5, 2.0, 4.0), (2.0, 2.5, 4.0)]
 
     output_path = Path(output_path)
+    # Plan 2.5: COT-1 = 1% risk per trade
+    risk_pct = 0.01
 
     # Per symbol: ensure COT data, build cot_index series
     per_symbol_cot: dict[str, pl.DataFrame] = {}
@@ -129,9 +131,12 @@ def run_cot1_backtest(
 
     for sym, (sigs, df_track) in per_symbol.items():
         doc_signals = [doc_mgr.attach_levels(s) for s in sigs]
-        trades_by_mode["doc"].extend(run_backtest(doc_signals, df_track, exit_mode="doc"))
+        trades_by_mode["doc"].extend(
+            run_backtest(doc_signals, df_track, exit_mode="doc", risk_pct=risk_pct)
+        )
         trades_by_mode["indicator"].extend(
-            run_backtest([ind_mgr.attach_levels(s) for s in sigs], df_track, exit_mode="indicator")
+            run_backtest([ind_mgr.attach_levels(s) for s in sigs],
+                         df_track, exit_mode="indicator", risk_pct=risk_pct)
         )
 
     # ATR sweep
@@ -144,7 +149,7 @@ def run_cot1_backtest(
         for sym, (sigs, df_track) in per_symbol.items():
             cand_trades.extend(
                 run_backtest([atr_mgr.attach_levels(s) for s in sigs],
-                             df_track, exit_mode="atr")
+                             df_track, exit_mode="atr", risk_pct=risk_pct)
             )
         m = evaluate(cand_trades)
         atr_grid_results.append({"sl": sl, "tp1": tp1, "tp2": tp2, **m})
@@ -167,7 +172,7 @@ def run_cot1_backtest(
         strategy_name="cot1",
         symbols=symbols,
         trades_by_mode=trades_by_mode,
-        config={"period": "2018-01-01..today", "risk_pct": 0.005,
+        config={"period": "2018-01-01..today", "risk_pct": risk_pct,
                 "atr_grid": atr_grid,
                 "note": "COT data from cftc.gov; symbols without COT skipped gracefully"},
         walk_forward_windows=wf,

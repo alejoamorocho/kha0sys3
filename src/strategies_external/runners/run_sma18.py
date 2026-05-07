@@ -60,34 +60,40 @@ def run_sma18_backtest(
                     if tp2 > tp1]
 
     output_path = Path(output_path)
+    # Plan 2.5: SMA-18 = 1% risk per trade
+    risk_pct = 0.01
     strategy = SMA18Strategy()
     doc_mgr = DocExitManager(strategy="sma18")
     ind_mgr = IndicatorExitManager(strategy="sma18")
 
-    per_symbol: dict[str, tuple[list, pl.DataFrame]] = {}
+    per_symbol: dict[str, tuple[list, pl.DataFrame, pl.DataFrame]] = {}
     for sym in symbols:
         df_h1 = load_csv(sym, "H1", data_dir=data_dir)
         df_daily = aggregate_to_daily(df_h1)
         _, df_track = best_tracking_tf(sym, data_dir=data_dir)
         sigs = strategy.generate_signals(df_daily, symbol=sym)
-        per_symbol[sym] = (sigs, df_track)
+        per_symbol[sym] = (sigs, df_track, df_daily)
 
     trades_by_mode: dict[str, list[Trade]] = {"doc": [], "atr": [], "indicator": []}
 
-    for sym, (sigs, df_track) in per_symbol.items():
-        # SMA-18 doc has tp=None → backtester relies on stop+timestop+EOD only.
-        # We add a long-but-finite valid_until from the strategy (1 day after setup_ts);
-        # to give SMA-18 enough room to run, override valid_until to setup + 60 days
-        # for trades meant to "let the trend run".
+    for sym, (sigs, df_track, df_daily) in per_symbol.items():
+        # Plan 2.5: SMA-18 doc usa exit_on_two_closes_against (definido en
+        # DocExitManager._sma18). El backtester necesita signal_df=df_daily
+        # para detectar los cierres consecutivos. valid_until se extiende a
+        # 90 días para que el trade tenga tiempo de cumplir la condición.
         doc_signals = []
         for s in sigs:
             base = doc_mgr.attach_levels(s)
             from datetime import timedelta
             from dataclasses import replace as _replace
-            doc_signals.append(_replace(base, valid_until=base.setup_ts + timedelta(days=60)))
-        trades_by_mode["doc"].extend(run_backtest(doc_signals, df_track, exit_mode="doc"))
+            doc_signals.append(_replace(base, valid_until=base.setup_ts + timedelta(days=90)))
+        trades_by_mode["doc"].extend(
+            run_backtest(doc_signals, df_track, exit_mode="doc",
+                         signal_df=df_daily, risk_pct=risk_pct)
+        )
         trades_by_mode["indicator"].extend(
-            run_backtest([ind_mgr.attach_levels(s) for s in sigs], df_track, exit_mode="indicator")
+            run_backtest([ind_mgr.attach_levels(s) for s in sigs],
+                         df_track, exit_mode="indicator", risk_pct=risk_pct)
         )
 
     # ATR sweep
@@ -97,10 +103,10 @@ def run_sma18_backtest(
     for sl, tp1, tp2 in atr_grid:
         cand_trades: list[Trade] = []
         atr_mgr = ATRExitManager(sl_mult=sl, tp1_mult=tp1, tp2_mult=tp2)
-        for sym, (sigs, df_track) in per_symbol.items():
+        for sym, (sigs, df_track, df_daily) in per_symbol.items():
             cand_trades.extend(
                 run_backtest([atr_mgr.attach_levels(s) for s in sigs],
-                             df_track, exit_mode="atr")
+                             df_track, exit_mode="atr", risk_pct=risk_pct)
             )
         m = evaluate(cand_trades)
         atr_grid_results.append({"sl": sl, "tp1": tp1, "tp2": tp2, **m})
@@ -122,7 +128,7 @@ def run_sma18_backtest(
         strategy_name="sma18",
         symbols=symbols,
         trades_by_mode=trades_by_mode,
-        config={"period": "2018-01-01..today", "risk_pct": 0.005,
+        config={"period": "2018-01-01..today", "risk_pct": risk_pct,
                 "atr_grid": atr_grid},
         walk_forward_windows=wf,
         monte_carlo_results=mc,
