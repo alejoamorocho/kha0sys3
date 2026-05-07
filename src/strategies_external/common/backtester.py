@@ -67,7 +67,28 @@ def run_backtest(
         # Busca fill. El bot live NO aplica slippage al entry; el coste de
         # ejecución se modela íntegramente como friction R-based al cierre.
         # Esto mantiene paridad con run_portfolio_backtest_rr.py.
+        # Plan 3 fix: si cancel_on_opposite_breach está set y la barra rompe
+        # ese nivel ANTES del fill, abortar el signal (direction guard FADE).
+        cancelled = False
         for i, bar in enumerate(rows):
+            if sig.cancel_on_opposite_breach is not None:
+                guard = sig.cancel_on_opposite_breach
+                # Long: cancelar si bar.low <= guard (e.g. FADE_DOWN cancelled
+                # cuando OR_HIGH se rompe... espera no — FADE_DOWN compra @ OR_LOW,
+                # se cancela cuando OR_HIGH breakea por arriba). Mejor pensarlo
+                # como "el guard es el precio cuya breach indica trend opuesto".
+                # Convención: para long, guard se rompe si bar.low <= guard.
+                # Para short, guard se rompe si bar.high >= guard.
+                breached = (
+                    (sig.side == "long" and bar["low"] <= guard)
+                    or (sig.side == "short" and bar["high"] >= guard)
+                )
+                if breached and not _fill_condition(
+                    sig.side, sig.entry_type, sig.entry_price,
+                    bar["open"], bar["high"], bar["low"],
+                ):
+                    cancelled = True
+                    break
             if _fill_condition(sig.side, sig.entry_type,
                                sig.entry_price, bar["open"], bar["high"], bar["low"]):
                 filled = True
@@ -76,7 +97,7 @@ def run_backtest(
                 first_idx = i
                 break
 
-        if not filled:
+        if cancelled or not filled:
             continue
 
         # R uses the intended entry (sig.entry_price) so that slippage erodes

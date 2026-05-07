@@ -136,7 +136,8 @@ class FADEAdapter(Strategy):
             }
 
             if edge == "FADE_UP":
-                # SELL_LIMIT at OR_HIGH: price touches high and reverses
+                # SELL_LIMIT at OR_HIGH: price touches high and reverses.
+                # Direction guard: cancel if OR_LOW breaches first (trend down).
                 signals.append(Signal(
                     symbol=symbol,
                     strategy=self.name,
@@ -149,9 +150,11 @@ class FADEAdapter(Strategy):
                     tp1=None,
                     tp2=None,
                     indicator_anchors=anchors,
+                    cancel_on_opposite_breach=or_low,
                 ))
             elif edge == "FADE_DOWN":
-                # BUY_LIMIT at OR_LOW: price touches low and reverses
+                # BUY_LIMIT at OR_LOW: price touches low and reverses.
+                # Direction guard: cancel if OR_HIGH breaches first (trend up).
                 signals.append(Signal(
                     symbol=symbol,
                     strategy=self.name,
@@ -164,6 +167,7 @@ class FADEAdapter(Strategy):
                     tp1=None,
                     tp2=None,
                     indicator_anchors=anchors,
+                    cancel_on_opposite_breach=or_high,
                 ))
 
         return signals
