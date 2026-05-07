@@ -23,7 +23,7 @@ class DoubleBottomStrategy(Strategy):
         self,
         tolerance: float = 0.02,
         min_separation: int = 15,
-        max_separation: int = 80,
+        max_separation: int = 30,
         consol_min_bars: int = 3,
         consol_max_atr_mult: float = 1.0,
         sma_window: int = 18,
