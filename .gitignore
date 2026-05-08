@@ -10,6 +10,8 @@ data/live_state/
 
 # Indicator discovery: enriched cache + generated parquets
 data/enriched/
+data/enriched_math/
+data/enriched_math_tf/
 
 # Fine TF data (M1, M5) — too large to track (~1.8 GB for M1 across 10 symbols)
 data/M1/

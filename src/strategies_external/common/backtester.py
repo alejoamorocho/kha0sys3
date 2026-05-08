@@ -6,7 +6,7 @@ import polars as pl
 
 from src.strategies_external.common.signal import Signal
 from src.strategies_external.common.trade import Trade
-from src.strategies_external.constants import friction_for
+from src.strategies_external.constants import RISK_PER_TRADE_PCT_DEFAULT, friction_for
 
 
 ExitMode = Literal["doc", "atr", "indicator"]
@@ -39,11 +39,18 @@ def run_backtest(
     signals: list[Signal],
     tracking_df: pl.DataFrame,
     exit_mode: ExitMode,
+    signal_df: pl.DataFrame | None = None,
+    risk_pct: float = RISK_PER_TRADE_PCT_DEFAULT,
 ) -> list[Trade]:
     """Ejecuta cada señal contra el DataFrame de tracking_tf.
 
     Resolución conservadora intra-bar: si una barra toca stop y tp en la
     misma vela, gana stop (worst case).
+
+    Args:
+        signal_df: DataFrame de la TF de señal (p.ej. daily para SMA-18).
+            Necesario cuando exit_on_two_closes_against está set en la señal.
+        risk_pct: Fracción de balance arriesgada por trade (para pnl_pct).
     """
     trades: list[Trade] = []
     for sig in signals:
@@ -57,22 +64,40 @@ def run_backtest(
         entry_ts = sig.setup_ts
         first_idx = 0
 
-        # Busca fill
+        # Busca fill. El bot live NO aplica slippage al entry; el coste de
+        # ejecución se modela íntegramente como friction R-based al cierre.
+        # Esto mantiene paridad con run_portfolio_backtest_rr.py.
+        # Plan 3 fix: si cancel_on_opposite_breach está set y la barra rompe
+        # ese nivel ANTES del fill, abortar el signal (direction guard FADE).
+        cancelled = False
         for i, bar in enumerate(rows):
+            if sig.cancel_on_opposite_breach is not None:
+                guard = sig.cancel_on_opposite_breach
+                # Long: cancelar si bar.low <= guard (e.g. FADE_DOWN cancelled
+                # cuando OR_HIGH se rompe... espera no — FADE_DOWN compra @ OR_LOW,
+                # se cancela cuando OR_HIGH breakea por arriba). Mejor pensarlo
+                # como "el guard es el precio cuya breach indica trend opuesto".
+                # Convención: para long, guard se rompe si bar.low <= guard.
+                # Para short, guard se rompe si bar.high >= guard.
+                breached = (
+                    (sig.side == "long" and bar["low"] <= guard)
+                    or (sig.side == "short" and bar["high"] >= guard)
+                )
+                if breached and not _fill_condition(
+                    sig.side, sig.entry_type, sig.entry_price,
+                    bar["open"], bar["high"], bar["low"],
+                ):
+                    cancelled = True
+                    break
             if _fill_condition(sig.side, sig.entry_type,
                                sig.entry_price, bar["open"], bar["high"], bar["low"]):
                 filled = True
                 entry_ts = bar["time"]
-                # Slippage: 1 tick adverso. Usamos 0.05 como proxy genérico
-                # para índices/commodities; FX se maneja con pip-equiv abajo.
-                slip = 0.05 if sig.symbol not in {"EURUSD", "GBPUSD", "USDJPY",
-                                                   "AUDUSD", "EURJPY", "GBPAUD",
-                                                   "GBPJPY"} else 0.00005
-                entry_price = sig.entry_price + slip if sig.side == "long" else sig.entry_price - slip
+                entry_price = sig.entry_price
                 first_idx = i
                 break
 
-        if not filled:
+        if cancelled or not filled:
             continue
 
         # R uses the intended entry (sig.entry_price) so that slippage erodes
@@ -81,6 +106,29 @@ def run_backtest(
         R = abs(sig.entry_price - sig.stop)
         if R == 0:
             continue
+
+        # Pre-compute forced close via exit_on_two_closes_against (SMA-18 style).
+        # Scan signal_df rows after entry_ts for N consecutive closes crossing level.
+        forced_close_ts = None
+        forced_close_price = None
+        if sig.exit_on_two_closes_against is not None and signal_df is not None:
+            level = sig.exit_on_two_closes_against
+            count_req = sig.exit_close_count_required
+            sig_rows_after = (
+                signal_df.filter(pl.col("time") > entry_ts).sort("time").to_dicts()
+            )
+            consec = 0
+            for srow in sig_rows_after:
+                close_val = srow["close"]
+                triggered = (close_val < level) if sig.side == "long" else (close_val > level)
+                if triggered:
+                    consec += 1
+                    if consec >= count_req:
+                        forced_close_ts = srow["time"]
+                        forced_close_price = close_val
+                        break
+                else:
+                    consec = 0
 
         exit_reason = None
         exit_price = None
@@ -94,6 +142,28 @@ def run_backtest(
             high = bar["high"]
             low = bar["low"]
             close = bar["close"]
+
+            # NUEVO: forced close por exit_after_bars_if_below_R (Perdices Fib)
+            if sig.exit_after_bars_if_below_R is not None:
+                bars_threshold, r_threshold = sig.exit_after_bars_if_below_R
+                if bars_in_trade >= bars_threshold:
+                    if sig.side == "long":
+                        cur_R = (close - sig.entry_price) / R
+                    else:
+                        cur_R = (sig.entry_price - close) / R
+                    if cur_R < r_threshold:
+                        exit_reason = "timestop"
+                        exit_price = close
+                        exit_ts = bar["time"]
+                        break
+                    # Si supera el threshold, no cerrar (deja correr)
+
+            # NUEVO: forced close por 2 cierres consecutivos contra nivel (SMA-18)
+            if forced_close_ts is not None and bar["time"] >= forced_close_ts:
+                exit_reason = "signal_inverso"
+                exit_price = forced_close_price
+                exit_ts = forced_close_ts
+                break
 
             if sig.side == "long":
                 touches_stop = low <= sig.stop
@@ -132,9 +202,7 @@ def run_backtest(
 
         pnl_net_R = pnl_gross_R - friction_for(sig.symbol)
 
-        # pnl_pct con risk 0.5%
-        from src.strategies_external.constants import RISK_PER_TRADE_PCT_DEFAULT
-        pnl_pct = pnl_net_R * RISK_PER_TRADE_PCT_DEFAULT
+        pnl_pct = pnl_net_R * risk_pct
 
         trades.append(Trade(
             symbol=sig.symbol,

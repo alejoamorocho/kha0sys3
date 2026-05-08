@@ -28,10 +28,10 @@ def test_doc_exit_manager_oops_long():
     raw = _signal_long_oops_raw()
     mgr = DocExitManager(strategy="oops")
     s = mgr.attach_levels(raw)
-    # Doc OOPS long: stop = today_low, tp = entry + 2R, eod fallback
+    # Doc OOPS long: stop = today_low, target = EOD (tp1=None), eod fallback
     assert s.stop == pytest.approx(4470.0)
-    R = 4500.0 - 4470.0
-    assert s.tp1 == pytest.approx(4500.0 + 2 * R)
+    assert s.tp1 is None   # Plan 2.5: EOD via valid_until, no fixed tp1
+    assert s.tp2 is None
     assert s.timestop_bars is None  # eod handled by backtester via valid_until
 
 
@@ -75,10 +75,10 @@ def test_doc_exit_manager_oops_short():
     raw = _signal_short_oops_raw()
     mgr = DocExitManager(strategy="oops")
     s = mgr.attach_levels(raw)
-    # Doc OOPS short: stop = today_high, tp1 = entry - 2R
+    # Doc OOPS short: stop = today_high, target = EOD (tp1=None)
     assert s.stop == pytest.approx(4570.0)
-    R = 4570.0 - 4540.0
-    assert s.tp1 == pytest.approx(4540.0 - 2 * R)
+    assert s.tp1 is None   # Plan 2.5: EOD via valid_until, no fixed tp1
+    assert s.tp2 is None
 
 
 def test_indicator_exit_manager_oops_short():

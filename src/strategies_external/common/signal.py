@@ -26,3 +26,15 @@ class Signal:
     tp1_size_pct: float = 0.5
     timestop_bars: int | None = None
     indicator_anchors: dict[str, float] = field(default_factory=dict)
+    # NEW (Plan 2.5):
+    # Para SMA-18: el backtester cierra el trade si hay N cierres consecutivos
+    # del df_signal (típicamente daily) que cruzan este nivel en contra del side.
+    exit_on_two_closes_against: float | None = None
+    exit_close_count_required: int = 2
+    # Para Perdices Fib: tras N barras tracking_tf, si el pnl_R < threshold, cerrar.
+    # Tupla (bars, R_threshold). None desactiva.
+    exit_after_bars_if_below_R: tuple[int, float] | None = None
+    # Para FADE direction guard: si este precio breakea antes de que la orden
+    # se llene, cancelar la orden. Long: si bar.low <= guard cancela.
+    # Short: si bar.high >= guard cancela.
+    cancel_on_opposite_breach: float | None = None
