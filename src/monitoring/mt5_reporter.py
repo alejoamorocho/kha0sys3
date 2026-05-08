@@ -60,7 +60,13 @@ class PositionInfo:
 
 
 class MT5Reporter:
-    """Extrae metricas reales directamente desde MetaTrader 5."""
+    """Extrae metricas reales directamente desde MetaTrader 5.
+
+    All read methods accept an optional `magic` parameter. When set, results
+    are filtered to that magic number, so a single Reporter can be scoped to
+    a specific bot (e.g. magic=1338 for the MATH runner) without observing
+    state from other bots that share the account.
+    """
 
     def get_account(self) -> Optional[AccountSnapshot]:
         info = mt5.account_info()
@@ -79,10 +85,12 @@ class MT5Reporter:
             login=info.login,
         )
 
-    def get_open_positions(self) -> list[PositionInfo]:
+    def get_open_positions(self, magic: Optional[int] = None) -> list[PositionInfo]:
         positions = mt5.positions_get()
         if positions is None:
             return []
+        if magic is not None:
+            positions = [p for p in positions if getattr(p, "magic", 0) == magic]
         result = []
         for p in positions:
             direction = "LONG" if p.type == mt5.POSITION_TYPE_BUY else "SHORT"
@@ -104,13 +112,17 @@ class MT5Reporter:
             ))
         return result
 
-    def get_deals_history(self, from_date: datetime, to_date: datetime) -> list:
+    def get_deals_history(self, from_date: datetime, to_date: datetime,
+                          magic: Optional[int] = None) -> list:
         deals = mt5.history_deals_get(from_date, to_date)
         if deals is None:
             return []
+        if magic is not None:
+            deals = [d for d in deals if getattr(d, "magic", 0) == magic]
         return list(deals)
 
-    def calculate_pnl(self, period: str = "daily") -> Optional[PnLReport]:
+    def calculate_pnl(self, period: str = "daily",
+                      magic: Optional[int] = None) -> Optional[PnLReport]:
         """Calcula PnL realizado basado en historial real de MT5."""
         now = datetime.now(timezone.utc)
 
@@ -128,7 +140,7 @@ class MT5Reporter:
         else:
             from_date = now - timedelta(days=1)
 
-        deals = self.get_deals_history(from_date, now)
+        deals = self.get_deals_history(from_date, now, magic=magic)
 
         # Filtrar solo deals de cierre (DEAL_ENTRY_OUT) que tienen PnL
         close_deals = [d for d in deals if d.entry == mt5.DEAL_ENTRY_OUT]
@@ -176,10 +188,12 @@ class MT5Reporter:
             total_swap=sum(swaps),
         )
 
-    def get_pending_orders(self) -> list:
+    def get_pending_orders(self, magic: Optional[int] = None) -> list:
         orders = mt5.orders_get()
         if orders is None:
             return []
+        if magic is not None:
+            orders = [o for o in orders if getattr(o, "magic", 0) == magic]
         return list(orders)
 
     def is_mt5_connected(self) -> bool:

@@ -22,8 +22,8 @@ from src.monitoring.telegram_notifier import TelegramNotifier
 
 CHECK_INTERVAL = 300        # 5 minutos entre chequeos
 HEARTBEAT_MAX_AGE = 120     # 2 minutos — si heartbeat no se actualiza, está hung
-SERVICE_NAME = "Kha0sysBot3"
-HEARTBEAT_FILE = os.path.join(PROJECT_ROOT, "logs", "bot_heartbeat")
+SERVICE_NAME = "Kha0sysMathBot"
+HEARTBEAT_FILE = os.path.join(PROJECT_ROOT, "logs", "math_bot_heartbeat")
 
 
 def check_service_running() -> bool:

@@ -96,6 +96,22 @@ class MathTraderEngine:
         except Exception as e:
             print(f"[MATH] Telegram init skipped: {e}")
 
+        # Interactive Telegram command bot (scoped to magic=1338).
+        # Reuses the same token/chat as TelegramNotifier; commands like
+        # /status, /balance, /pnl, /positions, /orders, /stop, /resume
+        # operate ONLY on MathBot state. Optional — tolerate missing deps.
+        self.command_bot = None
+        try:
+            from src.monitoring.telegram_bot import TelegramCommandBot
+            self.command_bot = TelegramCommandBot(
+                stop_callback=self._on_stop_command,
+                resume_callback=self._on_resume_command,
+                magic_filter=MAGIC_NUMBER_MATH,
+                bot_label="MATH K3-97",
+            )
+        except Exception as e:
+            print(f"[MATH] TelegramCommandBot init skipped: {e}")
+
         # Risk allocator: prefer balance-tiered if present in config, else flat.
         rs = cfg.get("risk_scaling", {})
         min_wr = float(rs.get("min_wr", MATH_WR_MIN))
@@ -148,6 +164,33 @@ class MathTraderEngine:
         with self._pause_lock:
             self._paused = False
         self._tg("engine RESUMED")
+
+    def _on_stop_command(self):
+        """Telegram /stop callback: pause and cancel all magic=1338 pendings."""
+        self.pause()
+        if mt5 is None:
+            return
+        try:
+            orders = mt5.orders_get() or []
+        except Exception as e:
+            print(f"[MATH] /stop orders_get err: {e}")
+            return
+        cancelled = 0
+        for o in orders:
+            if getattr(o, "magic", 0) != MAGIC_NUMBER_MATH:
+                continue
+            try:
+                req = {"action": mt5.TRADE_ACTION_REMOVE, "order": int(o.ticket)}
+                r = mt5.order_send(req)
+                if r and getattr(r, "retcode", 0) == mt5.TRADE_RETCODE_DONE:
+                    cancelled += 1
+            except Exception as e:
+                print(f"[MATH] /stop cancel err {o.ticket}: {e}")
+        self._tg(f"/stop processed: cancelled {cancelled} pending order(s)")
+
+    def _on_resume_command(self):
+        """Telegram /resume callback."""
+        self.resume()
 
     def is_paused(self) -> bool:
         with self._pause_lock:
@@ -494,6 +537,15 @@ class MathTraderEngine:
 
         print(f"[MATH] Engine started ({n} setups, dry_run={self.dry_run})")
 
+        # Start interactive Telegram command bot (non-blocking, daemon thread).
+        if self.command_bot is not None:
+            try:
+                self.command_bot.start_polling()
+                print("[MATH] Telegram command bot polling started "
+                      "(/status /balance /pnl /positions /orders /stop /resume)")
+            except Exception as e:
+                print(f"[MATH] command bot start failed: {e}")
+
         try:
             while True:
                 now = self._utc_now()
@@ -590,6 +642,11 @@ class MathTraderEngine:
             self._tg("ENGINE STOPPED\nReason: KeyboardInterrupt")
             print("[MATH] Stopped.")
         finally:
+            if self.command_bot is not None:
+                try:
+                    self.command_bot.stop_polling()
+                except Exception as e:
+                    print(f"[MATH] command bot stop err: {e}")
             try:
                 self.client.disconnect()
             except Exception:

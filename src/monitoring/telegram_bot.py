@@ -40,12 +40,24 @@ class TelegramCommandBot:
 
     def __init__(self, config_path: str = "config/telegram.yaml",
                  stop_callback: Optional[Callable] = None,
-                 resume_callback: Optional[Callable] = None):
+                 resume_callback: Optional[Callable] = None,
+                 magic_filter: Optional[int] = None,
+                 bot_label: str = "KHA0SYS3"):
+        """Build an interactive Telegram bot.
+
+        magic_filter: when set, all MT5 reads (positions, orders, deals) are
+            scoped to that magic number — so a single account hosting multiple
+            bots can be monitored independently. None = unfiltered (legacy).
+        bot_label: title shown in /start, /status, etc. Lets each bot identify
+            itself when several bots run on the same Telegram channel.
+        """
         self._load_config(config_path)
         self.reporter = MT5Reporter()
         self.health_monitor = SystemHealthMonitor()
         self.stop_callback = stop_callback
         self.resume_callback = resume_callback
+        self.magic_filter = magic_filter
+        self.bot_label = bot_label
         self._bot_active = True
         self._start_time = time.time()
         self._app: Optional[Application] = None
@@ -181,7 +193,7 @@ class TelegramCommandBot:
 
         msg = (
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "    <b>KHA0SYS3 CONTROL PANEL</b>\n"
+            f"    <b>{self.bot_label} CONTROL PANEL</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  Estado    │ {bot_status}\n"
             f"  Uptime    │ {uptime:.1f}h\n"
@@ -206,10 +218,10 @@ class TelegramCommandBot:
             return
 
         acc = self.reporter.get_account()
-        daily = self.reporter.calculate_pnl("daily")
+        daily = self.reporter.calculate_pnl("daily", magic=self.magic_filter)
         health = self.health_monitor.get_health()
-        positions = self.reporter.get_open_positions()
-        orders = self.reporter.get_pending_orders()
+        positions = self.reporter.get_open_positions(magic=self.magic_filter)
+        orders = self.reporter.get_pending_orders(magic=self.magic_filter)
         alerts = self.health_monitor.get_critical_alerts()
 
         bot_status = "🟢 ACTIVO" if self._bot_active else "🔴 DETENIDO"
@@ -225,7 +237,7 @@ class TelegramCommandBot:
 
         msg = (
             "━━━━━━━━━━━━━━━━━━━━━━\n"
-            "    <b>ESTADO GENERAL KHA0SYS3</b>\n"
+            f"    <b>ESTADO GENERAL {self.bot_label}</b>\n"
             "━━━━━━━━━━━━━━━━━━━━━━\n"
             f"  Bot       │ {bot_status}\n"
             f"  Uptime    │ {uptime:.1f}h\n"
@@ -264,7 +276,7 @@ class TelegramCommandBot:
     async def cmd_pnl(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not self._is_admin(update):
             return
-        report = self.reporter.calculate_pnl("daily")
+        report = self.reporter.calculate_pnl("daily", magic=self.magic_filter)
         if not report:
             await update.message.reply_text("❌ No se pudo calcular P&L.")
             return
@@ -273,7 +285,7 @@ class TelegramCommandBot:
     async def cmd_weekly(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not self._is_admin(update):
             return
-        report = self.reporter.calculate_pnl("weekly")
+        report = self.reporter.calculate_pnl("weekly", magic=self.magic_filter)
         if not report:
             await update.message.reply_text("❌ No se pudo calcular P&L semanal.")
             return
@@ -282,7 +294,7 @@ class TelegramCommandBot:
     async def cmd_monthly(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not self._is_admin(update):
             return
-        report = self.reporter.calculate_pnl("monthly")
+        report = self.reporter.calculate_pnl("monthly", magic=self.magic_filter)
         if not report:
             await update.message.reply_text("❌ No se pudo calcular P&L mensual.")
             return
@@ -291,7 +303,7 @@ class TelegramCommandBot:
     async def cmd_positions(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not self._is_admin(update):
             return
-        positions = self.reporter.get_open_positions()
+        positions = self.reporter.get_open_positions(magic=self.magic_filter)
 
         if not positions:
             msg = (
@@ -321,7 +333,7 @@ class TelegramCommandBot:
     async def cmd_orders(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not self._is_admin(update):
             return
-        orders = self.reporter.get_pending_orders()
+        orders = self.reporter.get_pending_orders(magic=self.magic_filter)
 
         if not orders:
             msg = (
@@ -571,7 +583,7 @@ class TelegramCommandBot:
 
     def notify_heartbeat(self, uptime_hours: float, trades_today: int):
         acc = self.reporter.get_account()
-        daily = self.reporter.calculate_pnl("daily")
+        daily = self.reporter.calculate_pnl("daily", magic=self.magic_filter)
         health = self.health_monitor.get_health()
 
         balance_str = f"${acc.balance:,.2f}" if acc else "N/A"
@@ -580,7 +592,7 @@ class TelegramCommandBot:
         mt5_status = "🟢" if health.mt5_connected else "🔴"
 
         # Pending orders summary
-        pending = self.reporter.get_pending_orders()
+        pending = self.reporter.get_pending_orders(magic=self.magic_filter)
         if pending:
             orders_lines = []
             for o in pending:
@@ -594,7 +606,7 @@ class TelegramCommandBot:
             orders_section = "  Ordenes   │ 0\n"
 
         # Open positions summary
-        positions = self.reporter.get_open_positions()
+        positions = self.reporter.get_open_positions(magic=self.magic_filter)
         if positions:
             pos_lines = []
             for p in positions:

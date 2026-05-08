@@ -59,6 +59,39 @@ _STALE_STOP_MIN = 90          # minutes after which an idle STOP is nuked
 # (delegates to the already-validated mapping in run_math_momentum)
 
 
+# ── Comment formatting (single source of truth for placement + sweeps) ──
+# Stable, collision-free abbreviations. Keep total comment <= 31 chars
+# (MT5 limit). Format: "M|<TF>|<SETUP_TAG>|<SESSION_TAG>".
+SETUP_TAG = {
+    "KAMA_CROSS_MOM":      "KAMA",
+    "SPECTRAL_TREND_MOM":  "SPECTRAL",
+    "VELOCITY_ACCEL_GO":   "VELOCITY",
+    "KALMAN_INNOV_EXPAND": "KALMAN",
+    "HURST_TREND_MOM":     "HURST",
+    "OLS_SLOPE_STRONG":    "OLS",
+    "GARCH_Z_FADE":        "GARCH",
+}
+SESSION_TAG = {
+    "ASIA":      "ASIA",
+    "LONDON":    "LDN",
+    "NY":        "NY",
+    "LONDON_NY": "LDNNY",
+    "ALL_DAY":   "ALLDAY",
+}
+
+
+def make_order_comment(tf: str, setup_type: str, session: str) -> str:
+    """Build the MT5 order comment used for both placement and sweep matching.
+
+    Single source of truth: every call to mt5.order_send and every comment
+    lookup (dedup, session-end cancel, SLG, time-stop) routes through this
+    helper, so format drifts cannot cause silent mismatches.
+    """
+    setup_tag = SETUP_TAG.get(setup_type, setup_type[:8])
+    session_tag = SESSION_TAG.get(session, session[:6])
+    return f"M|{tf}|{setup_tag}|{session_tag}"
+
+
 def _flip(direction: str) -> str:
     """Invert LONG↔SHORT (INVERTED portfolio semantics)."""
     return "SHORT" if direction == "LONG" else "LONG"
@@ -136,18 +169,23 @@ class MathOrderManager:
             if (p.symbol == symbol and p.setup_type == setup_type
                     and p.placed_date == today):
                 return True
-        # In LIVE mode, also sweep MT5 for magic=1338 orders/positions
+        # In LIVE mode, also sweep MT5 for magic=1338 orders/positions.
+        # Match on the SETUP_TAG token between the second and third pipe of
+        # the comment ("M|<TF>|<SETUP_TAG>|<SESSION_TAG>") to avoid false
+        # positives (e.g. KAMA token matching inside another setup).
+        setup_tag = SETUP_TAG.get(setup_type, setup_type[:8])
+        target_token = f"|{setup_tag}|"
         if not self.dry_run and mt5 is not None:
             try:
                 orders = mt5.orders_get(symbol=symbol) or []
                 for o in orders:
                     if getattr(o, "magic", 0) == self.magic \
-                            and setup_type[:8] in (o.comment or ""):
+                            and target_token in (o.comment or ""):
                         return True
                 positions = mt5.positions_get(symbol=symbol) or []
                 for p in positions:
                     if getattr(p, "magic", 0) == self.magic \
-                            and setup_type[:8] in (p.comment or ""):
+                            and target_token in (p.comment or ""):
                         return True
             except Exception:
                 pass
@@ -428,7 +466,7 @@ class MathOrderManager:
                 "tp": tp_n,
                 "deviation": 10,
                 "magic": self.magic,
-                "comment": f"M|{tf}|{setup_type[:6]}|{session[:5]}",
+                "comment": make_order_comment(tf, setup_type, session),
                 # GTC + manual cancellation via sweep_stale (broker may reject
                 # ORDER_TIME_SPECIFIED <24h on ECN → retcode 10022).
                 "type_time": mt5.ORDER_TIME_GTC,
@@ -644,15 +682,17 @@ class MathOrderManager:
         from src.domain.constants import INDICATOR_SESSIONS
         h_now = datetime.now(timezone.utc).hour
 
-        # Build map: setup_type[:8]+session[:6] -> session_end_hour
-        # to match comments like 'M|OLS_SLOP|ASIA' / 'M|HURST_TR|LONDON'
+        # Build map: full comment ("M|<TF>|<SETUP_TAG>|<SESSION_TAG>") ->
+        # (session, end_hour). Uses the same helper as placement to guarantee
+        # an exact match against MT5 comments.
         end_h_by_comment = {}
         for s in all_setups:
             sess = s.get("session", "")
             if sess not in INDICATOR_SESSIONS:
                 continue
             end_h = INDICATOR_SESSIONS[sess][1]
-            comment_key = f"M|{s['setup_type'][:8]}|{sess[:6]}"
+            tf = s.get("tf", "M15")
+            comment_key = make_order_comment(tf, s["setup_type"], sess)
             end_h_by_comment[comment_key] = (sess, end_h)
 
         cancelled = 0
