@@ -173,6 +173,11 @@ class MathTraderEngine:
         return datetime.now(timezone.utc)
 
     @staticmethod
+    def _is_m1_close(now: datetime, tol_sec: int = 8) -> bool:
+        """True within `tol_sec` after an M1 boundary (every minute)."""
+        return now.second <= tol_sec
+
+    @staticmethod
     def _is_m15_close(now: datetime, tol_sec: int = 30) -> bool:
         """True within `tol_sec` after an M15 boundary (HH:00, :15, :30, :45)."""
         mins_since_hour = now.minute
@@ -196,6 +201,8 @@ class MathTraderEngine:
     @staticmethod
     def _bar_key_for_tf(now: datetime, tf: str) -> datetime:
         """Returns the truncated time stamping the most recent bar boundary."""
+        if tf == "M1":
+            return now.replace(second=0, microsecond=0)
         if tf == "M15":
             return now.replace(second=0, microsecond=0,
                                minute=(now.minute // 15) * 15)
@@ -207,6 +214,9 @@ class MathTraderEngine:
         return now.replace(second=0, microsecond=0)
 
     def _is_tf_close(self, now: datetime, tf: str, tol_sec: int = 30) -> bool:
+        if tf == "M1":
+            # M1 fires every minute — use a tighter tolerance to avoid double-firing
+            return self._is_m1_close(now, tol_sec=8)
         if tf == "M15":
             return self._is_m15_close(now, tol_sec)
         if tf == "H1":
@@ -267,15 +277,20 @@ class MathTraderEngine:
             self._server_offset_sec = new
 
     def _fetch_bars(self, broker_sym: str, tf: str = "M15",
-                    count: int = MATH_BARS_LOOKBACK) -> Optional[pl.DataFrame]:
+                    count: Optional[int] = None) -> Optional[pl.DataFrame]:
         if mt5 is None:
             return None
         try:
             tf_const = {
+                "M1":  mt5.TIMEFRAME_M1,
                 "M15": mt5.TIMEFRAME_M15,
                 "H1":  mt5.TIMEFRAME_H1,
                 "H4":  mt5.TIMEFRAME_H4,
             }.get(tf, mt5.TIMEFRAME_M15)
+            # Per-TF lookback: M1 needs more bars to warm up indicators
+            # (windows up to 100). M15+/H1+/H4 are fine with the default.
+            if count is None:
+                count = 800 if tf == "M1" else MATH_BARS_LOOKBACK
             rates = mt5.copy_rates_from_pos(broker_sym, tf_const, 0, count)
             if rates is None or len(rates) == 0:
                 return None
@@ -544,7 +559,7 @@ class MathTraderEngine:
                 if self.is_paused():
                     pass
                 else:
-                    for tf in ("M15", "H1", "H4"):
+                    for tf in ("M1", "M15", "H1", "H4"):
                         if not self._is_tf_close(now, tf):
                             continue
                         bar_key = self._bar_key_for_tf(now, tf)
