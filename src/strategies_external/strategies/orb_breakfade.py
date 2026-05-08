@@ -68,7 +68,9 @@ class ORBBreakFadeAdapter(Strategy):
         if post_or_first.is_empty() or m1_df is None or len(m1_df) == 0:
             return []
 
-        # Pre-compute ATR(14) on M15 for use as TP/SL reference
+        # Pre-compute ATR on M15 for use as TP/SL reference
+        # Column is always named "atr_14" internally for backward compat but
+        # computed with the caller-supplied `atr_window`.
         atr_df = (
             df_m15.with_columns(
                 pl.max_horizontal(
@@ -163,6 +165,7 @@ class ORBBreakFadeAdapter(Strategy):
                         "or_width": or_high - or_low,
                         "magic_time_min": float(_hhmm_to_minutes(magic_time)),
                         "duration_min": float(duration),
+                        "atr_window": float(atr_window),
                     },
                 ))
             else:
@@ -180,6 +183,7 @@ class ORBBreakFadeAdapter(Strategy):
                         "or_width": or_high - or_low,
                         "magic_time_min": float(_hhmm_to_minutes(magic_time)),
                         "duration_min": float(duration),
+                        "atr_window": float(atr_window),
                     },
                 ))
         return signals
