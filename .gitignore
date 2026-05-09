@@ -26,3 +26,8 @@ optuna_*.txt
 extract_*.txt
 *.png
 *.docx
+
+# Secrets — never commit
+config/broker.yaml
+config/broker.yaml.bak*
+config/telegram.yaml
