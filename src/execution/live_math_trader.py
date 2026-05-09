@@ -415,11 +415,15 @@ class MathTraderEngine:
         bal = eq = free = 0.0
         n_pos = 0
         pnl_d = 0.0
+        acct_login: Optional[int] = None
+        acct_server: str = ""
         if mt5 is not None:
             try:
                 a = mt5.account_info()
                 if a is not None:
                     bal = float(a.balance); eq = float(a.equity); free = float(a.margin_free)
+                    acct_login = int(a.login)
+                    acct_server = str(a.server)
                 positions = mt5.positions_get() or []
                 math_pos = [p for p in positions if p.magic == MAGIC_NUMBER_MATH]
                 n_pos = len(math_pos)
@@ -430,8 +434,12 @@ class MathTraderEngine:
         from collections import Counter as _Cnt
         tf_dist = _Cnt(s.get("tf", "M15") for s in self.setups)
         tf_line = " ".join(f"{k}:{v}" for k, v in tf_dist.most_common())
+        acct_line = (
+            f"Account:  {acct_login} ({acct_server})\n" if acct_login is not None else ""
+        )
         msg = (
             f"HEARTBEAT\n"
+            f"{acct_line}"
             f"Uptime:   {uptime_h:.1f}h\n"
             f"Setups:   {len(self.setups)} ({tf_line})\n"
             f"Pending:  {len(self.om._pending)}\n"
@@ -472,6 +480,24 @@ class MathTraderEngine:
             print("[MATH] MT5 connect failed.")
             self._tg("ENGINE FATAL\nMT5 connect failed\nEngine exiting")
             return
+
+        # Startup guard: refuse to operate on the wrong MT5 account.
+        # MT5Client validates login on initialize(), but we double-check here so
+        # the failure is visible in Telegram before any trading logic kicks in.
+        expected = getattr(self.client, "expected_login", None)
+        if expected is not None and mt5 is not None:
+            info = mt5.account_info()
+            actual = int(info.login) if info is not None else None
+            if actual != expected:
+                msg = (
+                    f"STARTUP ABORT\n"
+                    f"Wrong MT5 account: got {actual}, expected {expected}\n"
+                    f"Check terminal login / config/broker.yaml"
+                )
+                print(f"[MATH] {msg}")
+                self._tg(msg)
+                import sys
+                sys.exit(1)
 
         self._start_time = time.time()
         self._last_heartbeat = self._start_time

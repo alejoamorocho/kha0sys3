@@ -7,7 +7,29 @@ import MetaTrader5 as mt5
 import time
 import math
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Optional
+
+
+def _load_broker_config(path: str = "config/broker.yaml") -> Optional[dict]:
+    """Lee config/broker.yaml. Devuelve None si falta o esta vacio."""
+    p = Path(path)
+    if not p.exists():
+        return None
+    try:
+        import yaml
+        with open(p, "r", encoding="utf-8") as f:
+            cfg = yaml.safe_load(f) or {}
+        if not cfg.get("login"):
+            return None
+        return {
+            "login": int(cfg["login"]),
+            "password": str(cfg["password"]),
+            "server": str(cfg["server"]),
+        }
+    except Exception as e:
+        print(f"MT5Client: warning leyendo broker.yaml: {e}")
+        return None
 
 
 class MT5Client:
@@ -19,15 +41,56 @@ class MT5Client:
     def __init__(self):
         self.connected = False
         self._spread_cache: dict[str, tuple[str, float]] = {}  # {symbol: (date, avg_spread)}
+        self._broker_cfg: Optional[dict] = _load_broker_config()
+        self.expected_login: Optional[int] = (
+            self._broker_cfg["login"] if self._broker_cfg else None
+        )
+
+    def _initialize_mt5(self) -> bool:
+        """mt5.initialize() forzando login de broker.yaml si esta presente.
+
+        Si broker.yaml falta, cae al comportamiento legacy (initialize sin args)
+        y emite warning. Si esta presente, valida que account_info().login
+        coincida con el esperado y falla ruidosamente si no.
+        """
+        if self._broker_cfg is None:
+            print("MT5Client: WARNING — config/broker.yaml ausente; usando cuenta activa del terminal.")
+            return bool(mt5.initialize())
+
+        ok = mt5.initialize(
+            login=self._broker_cfg["login"],
+            password=self._broker_cfg["password"],
+            server=self._broker_cfg["server"],
+        )
+        if not ok:
+            print(
+                f"MT5Client: initialize() FAIL para login={self._broker_cfg['login']} "
+                f"server={self._broker_cfg['server']}: {mt5.last_error()}"
+            )
+            return False
+
+        info = mt5.account_info()
+        if info is None:
+            print(f"MT5Client: account_info() None tras initialize: {mt5.last_error()}")
+            return False
+        if int(info.login) != self._broker_cfg["login"]:
+            print(
+                f"MT5Client: cuenta equivocada — terminal logueado a {info.login}, "
+                f"se esperaba {self._broker_cfg['login']}."
+            )
+            return False
+        return True
 
     def connect(self) -> bool:
         """Inicializa conexion con MetaTrader 5."""
-        if not mt5.initialize():
-            print("MT5Client: initialize() failed. Check MT5 Terminal.")
+        if not self._initialize_mt5():
+            print("MT5Client: initialize() failed. Check MT5 Terminal / broker.yaml.")
             mt5.shutdown()
             return False
         self.connected = True
-        print("MT5Client: Conectado a MetaTrader 5.")
+        info = mt5.account_info()
+        login_str = f" (login={info.login}, server={info.server})" if info else ""
+        print(f"MT5Client: Conectado a MetaTrader 5{login_str}.")
         return True
 
     def ensure_connected(self) -> bool:
@@ -41,7 +104,7 @@ class MT5Client:
         for attempt in range(self.MAX_RECONNECT_ATTEMPTS):
             mt5.shutdown()
             time.sleep(self.RECONNECT_DELAY_BASE ** attempt)
-            if mt5.initialize():
+            if self._initialize_mt5():
                 self.connected = True
                 print(f"MT5Client: Reconectado en intento {attempt + 1}.")
                 return True
