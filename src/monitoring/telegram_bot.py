@@ -64,18 +64,39 @@ class TelegramCommandBot:
         self._thread: Optional[threading.Thread] = None
 
     def _load_config(self, config_path: str):
-        path = Path(config_path)
-        if path.exists():
-            import yaml
-            with open(path, "r") as f:
-                cfg = yaml.safe_load(f)
-            self.token = cfg["token"]
-            self.admin_chat_id = int(cfg["chat_id"])
-            self.group_chat_id = str(cfg.get("group_chat_id", ""))
-        else:
-            self.token = "8268613194:AAF1Dt15QXwUGAA4M_A8xrDqNMoSiYbpoyk"
-            self.admin_chat_id = 778542603
-            self.group_chat_id = "-5170985767"
+        """Carga credenciales desde .env / env vars o desde telegram.yaml.
+
+        Orden de precedencia:
+          1. variables de entorno (TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_GROUP_CHAT_ID)
+          2. config/telegram.yaml (legacy)
+        """
+        import os
+        from src.domain.env_loader import load_env
+        load_env()
+
+        token = os.environ.get("TELEGRAM_TOKEN")
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+        group_chat_id = os.environ.get("TELEGRAM_GROUP_CHAT_ID", "")
+
+        if not token or not chat_id:
+            path = Path(config_path)
+            if path.exists():
+                import yaml
+                with open(path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                token = token or cfg.get("token")
+                chat_id = chat_id or cfg.get("chat_id")
+                group_chat_id = group_chat_id or str(cfg.get("group_chat_id", ""))
+
+        if not token or not chat_id:
+            raise RuntimeError(
+                "TelegramCommandBot: faltan credenciales. Define TELEGRAM_TOKEN "
+                "y TELEGRAM_CHAT_ID en .env o crea config/telegram.yaml."
+            )
+
+        self.token = token
+        self.admin_chat_id = int(chat_id)
+        self.group_chat_id = str(group_chat_id)
 
     def _is_admin(self, update: Update) -> bool:
         return update.effective_chat.id == self.admin_chat_id

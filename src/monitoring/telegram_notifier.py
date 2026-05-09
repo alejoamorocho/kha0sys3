@@ -21,19 +21,40 @@ class TelegramNotifier:
         self._risk_display = f"{risk_percent * 100:.1f}%"
 
     def _load_config(self, config_path: str):
-        """Carga credenciales desde telegram.yaml o usa defaults."""
-        path = Path(config_path)
-        if path.exists():
-            import yaml
-            with open(path, "r") as f:
-                cfg = yaml.safe_load(f)
-            self.token = cfg["token"]
-            self.chat_id = str(cfg["chat_id"])
-            self.group_chat_id = str(cfg.get("group_chat_id", ""))
-        else:
-            self.token = "8268613194:AAF1Dt15QXwUGAA4M_A8xrDqNMoSiYbpoyk"
-            self.chat_id = "778542603"
-            self.group_chat_id = "-5170985767"
+        """Carga credenciales desde .env / env vars o desde telegram.yaml.
+
+        Orden de precedencia:
+          1. variables de entorno (TELEGRAM_TOKEN, TELEGRAM_CHAT_ID, TELEGRAM_GROUP_CHAT_ID)
+          2. config/telegram.yaml (legacy)
+        Si ninguno define el token, levanta RuntimeError.
+        """
+        import os
+        from src.domain.env_loader import load_env
+        load_env()
+
+        token = os.environ.get("TELEGRAM_TOKEN")
+        chat_id = os.environ.get("TELEGRAM_CHAT_ID")
+        group_chat_id = os.environ.get("TELEGRAM_GROUP_CHAT_ID", "")
+
+        if not token or not chat_id:
+            path = Path(config_path)
+            if path.exists():
+                import yaml
+                with open(path, "r", encoding="utf-8") as f:
+                    cfg = yaml.safe_load(f) or {}
+                token = token or cfg.get("token")
+                chat_id = chat_id or (str(cfg["chat_id"]) if cfg.get("chat_id") else None)
+                group_chat_id = group_chat_id or str(cfg.get("group_chat_id", ""))
+
+        if not token or not chat_id:
+            raise RuntimeError(
+                "TelegramNotifier: faltan credenciales. Define TELEGRAM_TOKEN y "
+                "TELEGRAM_CHAT_ID en .env o crea config/telegram.yaml."
+            )
+
+        self.token = token
+        self.chat_id = str(chat_id)
+        self.group_chat_id = str(group_chat_id)
 
     def _send(self, text: str, chat_id: Optional[str] = None) -> bool:
         """Envia mensaje a un chat especifico."""

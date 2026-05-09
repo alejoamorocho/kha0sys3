@@ -1,21 +1,43 @@
 """
 VPS Connection Module — Kha0sys3
 Gateway WinRM para ejecutar comandos remotos en el VPS Windows Server.
+
+Credenciales se leen desde .env (raiz del repo) o variables de entorno:
+    VPS_IP, VPS_PORT, VPS_USER, VPS_PASS
 """
 
+import os
+import sys
 import winrm
 from typing import Optional
+
+# Asegura que la raiz del repo este en sys.path para importar src.domain
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO_ROOT not in sys.path:
+    sys.path.insert(0, _REPO_ROOT)
+
+from src.domain.env_loader import load_env
+
+
+def _required_env(key: str) -> str:
+    val = os.environ.get(key)
+    if not val:
+        raise RuntimeError(
+            f"VPSConnection: variable de entorno {key!r} no esta definida. "
+            f"Crea .env en la raiz del repo (ver .env.example) o exportala."
+        )
+    return val
 
 
 class VPSConnection:
     """Conexion WinRM al VPS Windows Server. Patron Singleton por sesion."""
 
-    VPS_IP = "85.239.230.215"
-    VPS_PORT = 5986
-    VPS_USER = "Administrator"
-    VPS_PASS = "Violetica906"
-
     def __init__(self):
+        load_env()
+        self.VPS_IP = _required_env("VPS_IP")
+        self.VPS_PORT = int(os.environ.get("VPS_PORT", "5986"))
+        self.VPS_USER = _required_env("VPS_USER")
+        self.VPS_PASS = _required_env("VPS_PASS")
         self._session: Optional[winrm.Session] = None
 
     @property

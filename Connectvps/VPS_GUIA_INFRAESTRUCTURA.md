@@ -4,21 +4,25 @@ Referencia completa para conectar, desplegar y operar el bot Kha0sys3 en el VPS.
 
 ---
 
+> **Nota de seguridad:** todos los valores sensibles (IP, usuarios, passwords,
+> tokens) viven en `.env` (gitignored). Esta guia describe **estructura**, no
+> credenciales. Plantilla en `.env.example` en la raiz del repo.
+
 ## 1. Conexion al VPS
 
-| Campo        | Valor                        |
-|--------------|------------------------------|
-| IP           | `85.239.230.215`             |
-| Puerto       | `5986` (WinRM over HTTPS)    |
-| Protocolo    | WinRM (Windows Remote Mgmt)  |
-| Usuario      | `Administrator`              |
-| Password     | `Violetica906`               |
-| OS           | Windows Server               |
+| Campo        | Origen                        |
+|--------------|-------------------------------|
+| IP           | `$VPS_IP` (.env)              |
+| Puerto       | `$VPS_PORT` (default 5986)    |
+| Protocolo    | WinRM (HTTPS)                 |
+| Usuario      | `$VPS_USER` (.env)            |
+| Password     | `$VPS_PASS` (.env)            |
+| OS           | Windows Server                |
 
 ### Conectarse desde Python (modulo integrado)
 
 ```python
-from deploy.vps_connection import VPSConnection
+from deploy.vps_connection import VPSConnection  # lee .env automaticamente
 
 vps = VPSConnection()
 if vps.test_connection():
@@ -29,8 +33,10 @@ if vps.test_connection():
 ### Conectarse desde PowerShell (remoto)
 
 ```powershell
-$cred = Get-Credential  # Administrator / Violetica906
-$session = New-PSSession -ComputerName 85.239.230.215 -Port 5986 -UseSSL -Credential $cred -SessionOption (New-PSSessionOption -SkipCACheck -SkipCNCheck)
+# Credenciales se piden interactivamente — nunca se hardcodean.
+$cred = Get-Credential
+$session = New-PSSession -ComputerName $env:VPS_IP -Port 5986 -UseSSL `
+    -Credential $cred -SessionOption (New-PSSessionOption -SkipCACheck -SkipCNCheck)
 Enter-PSSession $session
 ```
 
@@ -38,68 +44,55 @@ Enter-PSSession $session
 
 ## 2. Credenciales MT5
 
-### Cuenta Live (ACTIVA)
+Las credenciales reales viven en `.env` (`MT5_LOGIN`, `MT5_PASSWORD`, `MT5_SERVER`)
+o en `config/broker.yaml` (gitignored). Este documento solo describe el formato.
 
-| Campo    | Valor                             |
-|----------|-----------------------------------|
-| Login    | `23540222`                        |
-| Password | `Frotas1429!`                     |
-| Server   | `VantageInternational-Live 5`     |
-| Broker   | Vantage International (ECN)       |
-| Leverage | 1:500                             |
-
-### Cuenta Demo
-
-| Campo    | Valor                             |
-|----------|-----------------------------------|
-| Login    | `11877944`                        |
-| Password | `Frotas1429.`                     |
-| Server   | `VantageInternational-Demo`       |
-
-### Archivos de configuracion
-
-- **Config activa:** `C:\Proyectos\kha0sys3\config\broker.yaml`
+### Estructura `config/broker.yaml`
 
 ```yaml
-login: 23540222
-password: "Frotas1429!"
-server: "VantageInternational-Live 5"
+login: <numero de cuenta MT5>
+password: "<password>"
+server: "<nombre del servidor MT5, p.ej. VantageInternational-Demo>"
 ```
 
-### Variables de entorno en VPS
+### Estructura `.env`
 
 ```
-MT5_LOGIN=23540222
-MT5_PASSWORD=Frotas1429!
-MT5_SERVER=VantageInternational-Live 5
+MT5_LOGIN=<numero>
+MT5_PASSWORD=<password>
+MT5_SERVER=<server>
 ```
+
+`MT5Client.connect()` lee `config/broker.yaml` y fuerza login con esas
+credenciales, validando que `account_info().login` coincida.
 
 ---
 
 ## 3. Credenciales Telegram Bot
 
-| Campo          | Valor                                                  |
-|----------------|--------------------------------------------------------|
-| Bot Token      | `8268613194:AAF1Dt15QXwUGAA4M_A8xrDqNMoSiYbpoyk`     |
-| Chat ID (personal) | `778542603`                                       |
-| Group Chat ID  | `-5170985767`                                          |
+| Campo          | Origen                                |
+|----------------|---------------------------------------|
+| Bot Token      | `$TELEGRAM_TOKEN` (.env)              |
+| Chat ID        | `$TELEGRAM_CHAT_ID` (.env)            |
+| Group Chat ID  | `$TELEGRAM_GROUP_CHAT_ID` (.env)      |
 
-### Archivo de configuracion
-
-- **Config activa:** `C:\Proyectos\kha0sys3\config\telegram.yaml`
+### Estructura `config/telegram.yaml` (legacy, gitignored)
 
 ```yaml
-token: "8268613194:AAF1Dt15QXwUGAA4M_A8xrDqNMoSiYbpoyk"
-chat_id: "778542603"
-group_chat_id: "-5170985767"
+token: "<bot token>"
+chat_id: "<personal chat id>"
+group_chat_id: "<group chat id>"
 ```
+
+`TelegramNotifier` y `TelegramCommandBot` priorizan variables de entorno y
+solo caen al yaml si las env vars no estan definidas.
 
 ### Como modificar el bot de Telegram
 
 1. **Cambiar el token/chat_id:** Editar `config/telegram.yaml` y hacer deploy con `deploy/pull_and_restart.py`
 2. **Modificar mensajes/alertas:** Editar `src/monitoring/telegram_bot.py` (interactivo) o `src/monitoring/telegram_notifier.py` (push legacy)
 3. **Agregar nuevo grupo:** Agregar `group_chat_id` en `telegram.yaml`, el bot manda mirror a ambos (personal + grupo)
-4. **Comandos admin:** Solo responde en chat personal (778542603), el grupo es solo lectura
+4. **Comandos admin:** Solo responde en el chat personal del admin (`$TELEGRAM_CHAT_ID`), el grupo es solo lectura
 
 ### Notificaciones que envia el bot
 
@@ -352,4 +345,4 @@ Monitorea posiciones abiertas cada 10s. Si detecta que el precio cruzo el SL sin
 *Documento actualizado: 2026-04-07*
 *Portfolio: 5 activos (USDJPY+, XAUUSD+, EURUSD+, USOUSD, SP500), TREND_UP, 3% riesgo*
 *TP Multiplier: 1.5R | Waterfall: 15m → 30m | SL Guardian activo*
-*Para Kha0sys3 ORB Bot corriendo en VPS 85.239.230.215*
+*Para Kha0sys3 ORB Bot corriendo en VPS (`$VPS_IP`)*

@@ -11,7 +11,8 @@ import sys
 import os
 import time
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _REPO_ROOT)
 from deploy.vps_connection import VPSConnection
 
 # --- Configuracion ---
@@ -129,21 +130,25 @@ def main():
     # --- 8. Crear configs ---
     step("8. Creando archivos de configuracion")
 
-    telegram_yaml = (
-        'token: "8268613194:AAF1Dt15QXwUGAA4M_A8xrDqNMoSiYbpoyk"\n'
-        'chat_id: "778542603"\n'
-        'group_chat_id: "-5170985767"\n'
-    )
+    # Lee configs locales (gitignored) y los sube tal cual al VPS.
+    # Si los archivos no existen, aborta antes de tocar el VPS.
+    local_telegram = os.path.join(_REPO_ROOT, "config", "telegram.yaml")
+    local_broker = os.path.join(_REPO_ROOT, "config", "broker.yaml")
+    for f in (local_telegram, local_broker):
+        if not os.path.exists(f):
+            raise SystemExit(
+                f"deploy_new_bot: falta {f}. Crea los configs locales antes "
+                f"de desplegar (ver .env.example y config/*.yaml)."
+            )
+    with open(local_telegram, "r", encoding="utf-8") as f:
+        telegram_yaml = f.read()
     vps.upload_file(telegram_yaml, f"{NEW_BOT_PATH}\\config\\telegram.yaml")
-    print("  telegram.yaml creado")
+    print("  telegram.yaml subido desde config/ local")
 
-    broker_yaml = (
-        "login: 23540222\n"
-        'password: "Frotas1429!"\n'
-        'server: "VantageInternational-Live 5"\n'
-    )
+    with open(local_broker, "r", encoding="utf-8") as f:
+        broker_yaml = f.read()
     vps.upload_file(broker_yaml, f"{NEW_BOT_PATH}\\config\\broker.yaml")
-    print("  broker.yaml creado")
+    print("  broker.yaml subido desde config/ local")
 
     # --- 9. Instalar dependencias ---
     step("9. Instalando dependencias Python")
