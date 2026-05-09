@@ -53,6 +53,10 @@ _RETCODE_INVALID_EXPIRATION = 10022
 _RETCODE_INVALID_FILL = 10030
 _SPREAD_MULT_LIMIT = 2.5      # current spread vs typical
 _STALE_STOP_MIN = 90          # minutes after which an idle STOP is nuked
+_TICK_MAX_AGE_SEC = 120       # tick freshness gate: skip if last tick > 2 min old
+                              # (weekend / market closed / feed stalled)
+_STOPS_BUFFER_POINTS = 1      # extra points beyond broker's stops_level when
+                              # validating that stop_price is far enough from bid/ask
 
 
 # Setup-type → original direction source column (for live direction guard)
@@ -272,6 +276,12 @@ class MathOrderManager:
         sl_price = round(sl_price, digits)
         _fmt = f".{digits}f"
 
+        # Pre-submit guards — silently skip when the broker would reject the
+        # order anyway, to avoid log/Telegram spam during market-closed and
+        # weekend-spread periods.
+        if not self._is_market_tradable(symbol, order_type, stop_price):
+            return None
+
         # Expiration: 5 M15 bars = 75 minutes
         expiration = datetime.now(timezone.utc) + timedelta(minutes=15 * MATH_WAIT_BARS)
 
@@ -488,12 +498,18 @@ class MathOrderManager:
             if rc == done_code:
                 return int(res.order)
             if rc == _RETCODE_INVALID_PRICE:
-                print(f"[MATH] {symbol} invalid price (10015) p={price_n} bid={getattr(tick,'bid','?')} ask={getattr(tick,'ask','?')} stops_level={stops_level_pts}pt -- skip")
-                self._tg(f"INVALID PRICE (retcode 10015)\nSymbol: {symbol}\nSetup:  {setup_type}\nPrice:  {price_n} (skipped)")
+                # Pre-submit guard usually catches these now; if one slips
+                # through (race vs tick refresh), log throttled, no Telegram.
+                self._market_skip_log(
+                    symbol,
+                    f"broker_invalid_price p={price_n} stops={stops_level_pts}pt"
+                )
                 return None
             if rc == _RETCODE_INVALID_STOPS:
-                print(f"[MATH] {symbol} invalid stops (10016) tp={tp_n} sl={sl_n} stops_level={stops_level_pts}pt -- skip")
-                self._tg(f"INVALID STOPS (retcode 10016)\nSymbol: {symbol}\nSetup:  {setup_type}\nTP:     {tp_n}\nSL:     {sl_n}\n(skipped)")
+                self._market_skip_log(
+                    symbol,
+                    f"broker_invalid_stops tp={tp_n} sl={sl_n} stops={stops_level_pts}pt"
+                )
                 return None
             if rc == _RETCODE_INVALID_EXPIRATION:
                 # Broker may still reject GTC for this account; try DAY as last resort
@@ -525,7 +541,7 @@ class MathOrderManager:
                 self._tg(f"INVALID FILL MODE (retcode 10030)\nSymbol: {symbol}\nSetup:  {setup_type}\nRetry:  FOK/IOC failed (skipped)")
                 return None
             if rc == _RETCODE_MARKET_CLOSED:
-                print(f"[MATH] {symbol} market closed (10018) -- skip quietly")
+                self._market_skip_log(symbol, "broker_market_closed")
                 return None
             # Other non-done: loud
             print(f"[MATH] order_send retcode={rc} req={req}")
@@ -535,6 +551,97 @@ class MathOrderManager:
             print(f"[MATH] _submit_stop error: {e}")
             self._tg(f"_submit_stop EXC {symbol} {setup_type}: {e}")
             return None
+
+    # ------- pre-submit market guard -------
+
+    def _is_market_tradable(self, symbol: str, order_type: str,
+                            stop_price: float) -> bool:
+        """Pre-submit guard for STOP placement. Returns False when the broker
+        would reject the order with INVALID_PRICE/MARKET_CLOSED, so we skip
+        quietly instead of generating retcode-noise during weekends or
+        market-closed windows.
+
+        Three checks:
+          1. Tick freshness — last tick newer than _TICK_MAX_AGE_SEC.
+            Stale tick => market closed or feed stalled => skip.
+          2. trade_mode — symbol must be FULL (4). Anything else (DISABLED,
+            CLOSE_ONLY, etc) => skip.
+          3. Stop price vs bid/ask + stops_level — BUY_STOP must be at least
+            stops_level_points + buffer above ask; SELL_STOP must be at least
+            below bid. Anything inside the spread is rejected by the broker
+            with retcode 10015.
+
+        Throttled logging: prints one warning per (symbol, reason) per 5 min
+        so the log stays useful instead of drowning in identical lines.
+        """
+        if mt5 is None:
+            return True
+        try:
+            info = mt5.symbol_info(symbol)
+            if info is None:
+                return False
+            tick = mt5.symbol_info_tick(symbol)
+            if tick is None or int(getattr(tick, "time", 0)) == 0:
+                self._market_skip_log(symbol, "no_tick")
+                return False
+
+            now_ts = int(datetime.now(timezone.utc).timestamp())
+            srv_off = int(getattr(self, "_server_offset_sec", 0))
+            tick_age = now_ts - (int(tick.time) - srv_off)
+            if tick_age > _TICK_MAX_AGE_SEC:
+                self._market_skip_log(symbol, f"stale_tick_age={tick_age}s")
+                return False
+
+            # 4 = SYMBOL_TRADE_MODE_FULL
+            if int(getattr(info, "trade_mode", 4)) != 4:
+                self._market_skip_log(symbol, f"trade_mode={info.trade_mode}")
+                return False
+
+            point = float(getattr(info, "point", 0.0) or 0.0)
+            if point <= 0:
+                return True  # cannot validate — let broker decide
+            stops_pts = int(getattr(info, "trade_stops_level", 0) or 0)
+            buffer = (stops_pts + _STOPS_BUFFER_POINTS) * point
+            bid = float(tick.bid)
+            ask = float(tick.ask)
+
+            if order_type == "BUY_STOP":
+                # Must be strictly above ask + buffer
+                if stop_price < ask + buffer:
+                    self._market_skip_log(
+                        symbol,
+                        f"buy_stop_inside_spread p={stop_price} ask={ask} "
+                        f"buf={buffer:.{int(info.digits)}f}"
+                    )
+                    return False
+            elif order_type == "SELL_STOP":
+                # Must be strictly below bid - buffer
+                if stop_price > bid - buffer:
+                    self._market_skip_log(
+                        symbol,
+                        f"sell_stop_inside_spread p={stop_price} bid={bid} "
+                        f"buf={buffer:.{int(info.digits)}f}"
+                    )
+                    return False
+
+            return True
+        except Exception as e:
+            print(f"[MATH] _is_market_tradable {symbol}: {e}")
+            return True  # fail-open: let broker reject if we can't tell
+
+    def _market_skip_log(self, symbol: str, reason: str,
+                          throttle_sec: int = 300) -> None:
+        """Print a skip line at most once per (symbol, reason_kind) per
+        throttle_sec to avoid drowning the log."""
+        if not hasattr(self, "_skip_log_seen"):
+            self._skip_log_seen: dict[tuple, float] = {}
+        kind = reason.split(" ", 1)[0]  # collapse 'p=...' detail
+        key = (symbol, kind)
+        now = datetime.now(timezone.utc).timestamp()
+        last = self._skip_log_seen.get(key, 0.0)
+        if now - last >= throttle_sec:
+            print(f"[MATH] {symbol} skip placement: {reason}")
+            self._skip_log_seen[key] = now
 
     # ------- spread gate -------
 
