@@ -50,6 +50,7 @@ _RETCODE_INVALID_PRICE = 10015
 _RETCODE_INVALID_STOPS = 10016
 _RETCODE_MARKET_CLOSED = 10018
 _RETCODE_INVALID_EXPIRATION = 10022
+_RETCODE_CLIENT_DISABLES_AT = 10027  # AutoTrading OFF in client terminal
 _RETCODE_INVALID_FILL = 10030
 _SPREAD_MULT_LIMIT = 2.5      # current spread vs typical
 _STALE_STOP_MIN = 90          # minutes after which an idle STOP is nuked
@@ -542,6 +543,9 @@ class MathOrderManager:
                 return None
             if rc == _RETCODE_MARKET_CLOSED:
                 self._market_skip_log(symbol, "broker_market_closed")
+                return None
+            if rc == _RETCODE_CLIENT_DISABLES_AT:
+                self._market_skip_log(symbol, "broker_autotrading_disabled")
                 return None
             # Other non-done: loud
             print(f"[MATH] order_send retcode={rc} req={req}")

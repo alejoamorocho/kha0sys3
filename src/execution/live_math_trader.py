@@ -404,6 +404,30 @@ class MathTraderEngine:
         except Exception as e:
             print(f"[MATH] detect_and_place {sym}/{s['setup_type']}: {e}")
 
+    def _mt5_trade_allowed(self) -> bool:
+        """Return terminal_info().trade_allowed. Fail-open if MT5 query errors
+        so the broker can surface the real error instead of us silently
+        blocking everything."""
+        if mt5 is None:
+            return True
+        try:
+            info = mt5.terminal_info()
+            if info is None:
+                return True
+            return bool(info.trade_allowed)
+        except Exception:
+            return True
+
+    def _skip_dispatch_log_throttled(self, reason: str,
+                                      throttle_sec: int = 900) -> None:
+        """Print 'dispatch skip: <reason>' at most once per throttle_sec.
+        Used when AutoTrading is OFF so the log doesn't drown."""
+        now = time.time()
+        last = getattr(self, "_last_skip_dispatch_log", 0.0)
+        if now - last >= throttle_sec:
+            print(f"[MATH] dispatch skip: {reason}")
+            self._last_skip_dispatch_log = now
+
     def _heartbeat(self):
         now = time.time()
         if now - self._last_heartbeat < self.HEARTBEAT_INTERVAL:
@@ -614,14 +638,29 @@ class MathTraderEngine:
                     except Exception as e:
                         print(f"[MATH] sweep_stale error: {e}")
 
-                # Health monitor
+                # Health monitor — dedup repeated identical alerts to avoid
+                # Telegram spam when a condition (e.g. AutoTrading OFF)
+                # persists for hours. Re-aviso cada hora si sigue.
                 if (self._health is not None
                         and nowt - self._last_health_check >= self.HEALTH_CHECK_INTERVAL):
                     self._last_health_check = nowt
                     try:
                         alerts = self._health.get_critical_alerts()
                         if alerts:
-                            self._tg("HEALTH ALERT\n" + "\n".join(alerts))
+                            alert_key = "|".join(sorted(alerts))
+                            last_key = getattr(self, "_last_health_alert_key", None)
+                            last_sent = getattr(self, "_last_health_alert_sent", 0.0)
+                            state_changed = (alert_key != last_key)
+                            stale = (nowt - last_sent) >= 3600
+                            if state_changed or stale:
+                                self._tg("HEALTH ALERT\n" + "\n".join(alerts))
+                                self._last_health_alert_key = alert_key
+                                self._last_health_alert_sent = nowt
+                        else:
+                            if getattr(self, "_last_health_alert_key", None) is not None:
+                                self._tg("HEALTH OK\nTodas las alertas resueltas")
+                                self._last_health_alert_key = None
+                                self._last_health_alert_sent = 0.0
                     except Exception as e:
                         print(f"[MATH] health check err: {e}")
 
@@ -636,6 +675,11 @@ class MathTraderEngine:
                     self._last_tf_processed = {}
                 if self.is_paused():
                     pass
+                elif not self._mt5_trade_allowed():
+                    # AutoTrading OFF in terminal: skip dispatch to avoid
+                    # 34x retcode-10027 spam per bar close. Health alert
+                    # already surfaces the operator action needed.
+                    self._skip_dispatch_log_throttled("trade_allowed_false")
                 else:
                     for tf in ("M1", "M15", "H1", "H4"):
                         if not self._is_tf_close(now, tf):

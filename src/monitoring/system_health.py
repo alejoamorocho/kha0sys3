@@ -107,6 +107,9 @@ class SystemHealthMonitor:
         if not health.mt5_connected:
             alerts.append("MT5 NO conectado al broker")
         if not health.mt5_trade_allowed:
-            alerts.append("MT5 trading NO permitido")
+            alerts.append(
+                "MT5 trade_allowed=False (habilitar 'Algo Trading' "
+                "en terminal MT5 de la VPS)"
+            )
 
         return alerts
