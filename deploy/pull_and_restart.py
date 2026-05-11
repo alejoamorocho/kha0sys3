@@ -1,6 +1,12 @@
 """
 Pull & Restart — Kha0sys3
 Hace git pull en el VPS y reinicia los servicios. Ejecutar desde local.
+
+Cubre los 3 servicios NSSM activos:
+  - Kha0sysBot3      (FADE bot, magic 1337)
+  - Kha0sysWatchdog3 (monitoreo)
+  - Kha0sysMathBot   (MATH bot, magic 1338) — preserva sus AppParameters
+    actuales (--live / --dry-run) porque NSSM start no los toca.
 """
 
 import sys
@@ -11,7 +17,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from deploy.vps_connection import VPSConnection
 
 BOT_PATH = r"C:\Proyectos\kha0sys3"
-SERVICES = ["Kha0sysBot3", "Kha0sysWatchdog3"]
+SERVICES = ["Kha0sysBot3", "Kha0sysWatchdog3", "Kha0sysMathBot"]
 
 
 def main():

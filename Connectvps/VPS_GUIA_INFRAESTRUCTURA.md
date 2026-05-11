@@ -158,6 +158,28 @@ Ver `requirements.txt` en la raiz del proyecto.
 | Stdout Log        | `C:\Proyectos\kha0sys3\logs\watchdog_stdout.log`           |
 | Stderr Log        | `C:\Proyectos\kha0sys3\logs\watchdog_stderr.log`           |
 
+### Kha0sysMathBot (MATH parallel runner, magic 1338)
+
+| Campo             | Valor                                                      |
+|-------------------|------------------------------------------------------------|
+| Service Name      | `Kha0sysMathBot`                                           |
+| Executable        | `C:\Python312\python.exe`                                  |
+| Arguments         | `-u C:\Proyectos\kha0sys3\scripts\run_math_bot_supervisor.py --live` (o `--dry-run`) |
+| Working Dir       | `C:\Proyectos\kha0sys3`                                    |
+| Magic Number      | 1338 (aislado del FADE bot magic 1337)                     |
+| Startup           | AUTO_START                                                 |
+| Restart Delay     | 10,000 ms (10s)                                            |
+| Stdout Log        | `C:\ProgramData\Kha0sysMath\logs\math_bot.log`             |
+| Stderr Log        | `C:\ProgramData\Kha0sysMath\logs\math_bot_err.log`         |
+| Log Rotation      | Habilitado (10MB max)                                      |
+| Config            | `src/execution/bot_config_math.json`                       |
+| Mode flip         | `nssm stop` → `nssm set Kha0sysMathBot AppParameters "..."` → `nssm start` (ver footer de `deploy/deploy_math_bot.py`) |
+
+**Importante:** `deploy/pull_and_restart.py` cubre los 3 servicios y NO toca
+`AppParameters`, por lo que preserva el modo `--live`/`--dry-run` actual.
+`deploy/deploy_math_bot.py` SI reinstala el servicio y resetea a `--dry-run`
+— úsalo solo para instalación inicial o si necesitas resetear configuración.
+
 ### Tarea Programada
 
 | Campo        | Valor                                |
@@ -172,13 +194,17 @@ Ver `requirements.txt` en la raiz del proyecto.
 # Ver estado de servicios
 nssm status Kha0sysBot3
 nssm status Kha0sysWatchdog3
+nssm status Kha0sysMathBot
 
 # Parar / Iniciar (NO usar restart, es poco confiable)
 nssm stop Kha0sysBot3
 nssm start Kha0sysBot3
+nssm stop Kha0sysMathBot
+nssm start Kha0sysMathBot
 
 # Ver logs en tiempo real
 Get-Content C:\Proyectos\kha0sys3\logs\bot_stdout.log -Tail 50
+Get-Content C:\ProgramData\Kha0sysMath\logs\math_bot.log -Tail 50
 ```
 
 ---
@@ -225,10 +251,11 @@ C:\Proyectos\kha0sys3\
 
 | Script                        | Proposito                                             |
 |-------------------------------|-------------------------------------------------------|
-| `deploy/deploy_new_bot.py`   | Deploy completo: elimina bot viejo, clona repo, configura servicios |
+| `deploy/deploy_new_bot.py`   | Deploy inicial FADE bot: elimina viejo, clona, configura NSSM |
+| `deploy/deploy_math_bot.py`  | Deploy/reinstall MATH bot (RESETEA a --dry-run, usar solo para setup inicial) |
 | `deploy/check_bot.py`        | Verifica estado del bot remoto                         |
 | `deploy/restart_bot.py`      | Reinicia los servicios del bot                         |
-| `deploy/pull_and_restart.py` | Git pull + reinicio de servicios                       |
+| `deploy/pull_and_restart.py` | Git pull + reinicio de los 3 servicios (FADE + Watchdog + MATH). Preserva AppParameters (modo --live/--dry-run del MATH). |
 | `deploy/vps_diagnose.py`     | Diagnostico completo del VPS                           |
 | `deploy/vps_connection.py`   | Modulo de conexion WinRM (usado por los demas scripts) |
 
@@ -342,7 +369,8 @@ Monitorea posiciones abiertas cada 10s. Si detecta que el precio cruzo el SL sin
 
 ---
 
-*Documento actualizado: 2026-04-07*
-*Portfolio: 5 activos (USDJPY+, XAUUSD+, EURUSD+, USOUSD, SP500), TREND_UP, 3% riesgo*
-*TP Multiplier: 1.5R | Waterfall: 15m → 30m | SL Guardian activo*
-*Para Kha0sys3 ORB Bot corriendo en VPS (`$VPS_IP`)*
+*Documento actualizado: 2026-05-10 (agregada seccion Kha0sysMathBot / magic 1338)*
+*FADE: portfolio K3-97, R:R individual por estrategia (ver `project_rr_optimization`), SL Guardian activo*
+*MATH: portfolio multi-TF (M1/M15/H1/H4), Optuna 3-regime, inverted momentum, magic 1338*
+*Cuenta activa post-migracion 2026-05-08: DEMO 25246666 @ VantageInternational-Demo*
+*Para Kha0sys3 corriendo en VPS (`$VPS_IP`)*
