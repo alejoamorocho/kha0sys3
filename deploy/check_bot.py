@@ -1,11 +1,10 @@
 """
-Check Bot — Kha0sys3
+Check Bot — Kha0sys3 (post K3M1-75 cleanup)
 Verifica el estado del bot en el VPS. Ejecutar desde local.
 
-Cubre los 3 servicios NSSM activos:
-  - Kha0sysBot3      (FADE bot)
+Cubre los servicios NSSM activos (FADE bot retirado):
   - Kha0sysWatchdog3 (monitoreo)
-  - Kha0sysMathBot   (MATH bot, magic 1338, logs en C:\\ProgramData\\Kha0sysMath\\logs)
+  - Kha0sysMathBot   (MATH K3M1-75, magic 1338, logs en C:\\ProgramData\\Kha0sysMath\\logs)
 """
 
 import sys
@@ -17,14 +16,12 @@ from deploy.vps_connection import VPSConnection
 BOT_PATH = r"C:\Proyectos\kha0sys3"
 MATH_LOG_DIR = r"C:\ProgramData\Kha0sysMath\logs"
 
-SERVICES = ["Kha0sysBot3", "Kha0sysWatchdog3", "Kha0sysMathBot"]
+SERVICES = ["Kha0sysWatchdog3", "Kha0sysMathBot"]
 LOGS = {
-    "Kha0sysBot3": rf"{BOT_PATH}\logs\bot_stdout.log",
     "Kha0sysWatchdog3": rf"{BOT_PATH}\logs\watchdog_stdout.log",
     "Kha0sysMathBot": rf"{MATH_LOG_DIR}\math_bot.log",
 }
 ERR_LOGS = {
-    "Kha0sysBot3": rf"{BOT_PATH}\logs\bot_stderr.log",
     "Kha0sysWatchdog3": rf"{BOT_PATH}\logs\watchdog_stderr.log",
     "Kha0sysMathBot": rf"{MATH_LOG_DIR}\math_bot_err.log",
 }

@@ -1,0 +1,21 @@
+[
+  {
+    "symbol": "GBPAUD",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "GARCH_Z_FADE",
+    "tp_atr_mult": 0.5,
+    "sl_atr_mult": 1.5,
+    "metrics": {
+      "n_trades": 634,
+      "wr": 0.8470031545741324,
+      "pf": 1.3979209625373477,
+      "expectancy_r": 0.05658093049119325,
+      "max_dd_r": 6.902892005301824,
+      "trades_per_year": 77.21336107338726,
+      "wf_ratio": 1.0019167141524603,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.3665134813984514
+    }
+  }
+]
