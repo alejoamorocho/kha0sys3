@@ -107,7 +107,7 @@ class MathTraderEngine:
                 stop_callback=self._on_stop_command,
                 resume_callback=self._on_resume_command,
                 magic_filter=MAGIC_NUMBER_MATH,
-                bot_label="MATH K3-97",
+                bot_label="MATH K3M1-75",
             )
         except Exception as e:
             print(f"[MATH] TelegramCommandBot init skipped: {e}")
@@ -552,25 +552,32 @@ class MathTraderEngine:
             setup_counter = Counter(s["setup_type"] for s in self.setups)
             dir_counter = Counter(s.get("direction_mode", "INVERT") for s in self.setups)
             tf_counter = Counter(s.get("tf", "M15") for s in self.setups)
+            rob_counter = Counter(s.get("robustness_label", "?") for s in self.setups)
             syms_line = ", ".join(f"{k}({v})" for k, v in sym_counter.most_common())
             setups_line = ", ".join(f"{k}({v})" for k, v in setup_counter.most_common())
             dirs_line = ", ".join(f"{k}({v})" for k, v in dir_counter.most_common())
             tfs_line = ", ".join(f"{k}({v})" for k, v in tf_counter.most_common())
+            rob_line = " · ".join(f"{k}:{v}" for k, v in rob_counter.most_common())
             avg_wr = (sum(s.get("expected_wr", 0) for s in self.setups) / max(n, 1))
+            avg_pf = (sum(s.get("expected_pf", 0) for s in self.setups) / max(n, 1))
+            avg_pf_oos = (sum(s.get("expected_pf_oos", 0) for s in self.setups) / max(n, 1))
 
             mode = "LIVE" if not self.dry_run else "DRY_RUN"
             off_h = self._server_offset_sec / 3600
             self._tg(
-                f"ENGINE STARTED ({mode}) - ELITE WR>=65%\n"
+                f"ENGINE STARTED ({mode}) - K3M1-75 (M1 mgmt)\n"
                 f"Magic:      {MAGIC_NUMBER_MATH}\n"
                 f"Setups:     {n}\n"
+                f"Robustness: {rob_line}\n"
                 f"Timeframes: {tfs_line}\n"
                 f"Avg WR:     {avg_wr:.1%}\n"
+                f"Avg PF IS:  {avg_pf:.2f}\n"
+                f"Avg PF OOS: {avg_pf_oos:.2f}\n"
                 f"Symbols:    {len(sym_counter)} -> {syms_line}\n"
                 f"Setup mix:  {setups_line}\n"
                 f"Direction:  {dirs_line}\n"
                 f"MT5 offset: {off_h:+.0f}h (server -> real UTC)\n"
-                f"Risk:       balance-tiered 1-15% / 1-8% / 0.5-5% / 0.3-3%\n"
+                f"Risk:       0.5% fijo por trade\n"
                 f"Balance:    ${bal:.2f}\n"
                 f"Equity:     ${eq:.2f}\n"
                 f"Free:       ${mg:.2f}"

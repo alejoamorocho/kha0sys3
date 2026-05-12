@@ -324,8 +324,12 @@ class MathOrderManager:
                 pass
         tf = setup_cfg.get("tf", "M15")
         rr = setup_cfg.get("rr", 0)
+        rob = setup_cfg.get("robustness_label", "?")
+        pf_oos = setup_cfg.get("expected_pf_oos", 0)
+        strat_id = setup_cfg.get("id", f"{symbol}_{tf}_{setup_type}_{setup_cfg.get('session','-')}")
         tg_msg = (
-            f"ORDER PLACED\n"
+            f"ORDER PLACED [{rob}]\n"
+            f"ID:        {strat_id}\n"
             f"Symbol:    {symbol}\n"
             f"TF:        {tf}\n"
             f"Type:      {order_type}\n"
@@ -337,7 +341,8 @@ class MathOrderManager:
             f"SL:        {sl_price:{_fmt}}\n"
             f"R:R:       {rr:.2f}\n"
             f"ATR:       {atr:.5f}\n"
-            f"Risk:      {risk_pct*100:.1f}% (WR={expected_wr:.2f})\n"
+            f"Risk:      {risk_pct*100:.2f}% (WR={expected_wr:.2f})\n"
+            f"PF OOS:    {pf_oos:.2f}\n"
             f"Ticket:    {ticket if ticket != -1 else 'DRY'}"
         )
         # Console log stays compact (one line for grep)
