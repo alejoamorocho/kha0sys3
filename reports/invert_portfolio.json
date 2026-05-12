@@ -1,0 +1,359 @@
+[
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "XAGUSD",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8501613646841862,
+      "pf": 2.153736842641985,
+      "expectancy_r": 0.1816985621833761,
+      "max_dd_r": 6.6919049249325155,
+      "trades_per_year": 263.84946244019886,
+      "wf_ratio": 0.999476228140106,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7013916373865517
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8189081225033289,
+      "pf": 2.0277613633098412,
+      "expectancy_r": 0.1805092092931774,
+      "max_dd_r": 4.69999999999979,
+      "trades_per_year": 91.45997311743929,
+      "wf_ratio": 1.003628832360553,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7569280145080809
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KALMAN_INNOV_EXPAND",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8006430868167203,
+      "pf": 1.9816343180555067,
+      "expectancy_r": 0.17403448335600272,
+      "max_dd_r": 7.58868133436745,
+      "trades_per_year": 90.30228552500827,
+      "wf_ratio": 0.9999000508595673,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8522090048700924
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "EURJPY",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8235800344234079,
+      "pf": 1.9016608348435182,
+      "expectancy_r": 0.15904224950242687,
+      "max_dd_r": 5.842949220434335,
+      "trades_per_year": 141.6097009971396,
+      "wf_ratio": 0.9994849450989011,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7988347313051846
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "EURUSD",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8175853018372703,
+      "pf": 1.8342753017551015,
+      "expectancy_r": 0.15282003283644163,
+      "max_dd_r": 6.687525311687587,
+      "trades_per_year": 92.77446640069168,
+      "wf_ratio": 1.0057347833415051,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0222737694212964
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "EURUSD",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8199300699300699,
+      "pf": 1.8186524990703168,
+      "expectancy_r": 0.14644451539391254,
+      "max_dd_r": 8.436529123768587,
+      "trades_per_year": 208.85120739745713,
+      "wf_ratio": 1.0026545014284713,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.302040678506707
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "EURJPY",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8211436170212766,
+      "pf": 1.8236805663024642,
+      "expectancy_r": 0.14556338762457452,
+      "max_dd_r": 6.656912139582374,
+      "trades_per_year": 183.04081745987673,
+      "wf_ratio": 1.0074767193192298,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.663347265950472
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "XAUUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8064263322884012,
+      "pf": 1.757472870219139,
+      "expectancy_r": 0.1414747049098484,
+      "max_dd_r": 8.023622380208337,
+      "trades_per_year": 155.5068870236171,
+      "wf_ratio": 1.0016366751613643,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9880573725815662
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "AUDUSD",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8231818181818182,
+      "pf": 1.7413259865322765,
+      "expectancy_r": 0.1409542983248702,
+      "max_dd_r": 7.399999999999977,
+      "trades_per_year": 267.6650508849788,
+      "wf_ratio": 0.9996295267607794,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8042493394521363
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "GBPAUD",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.802610114192496,
+      "pf": 1.747079152692097,
+      "expectancy_r": 0.1377463707244459,
+      "max_dd_r": 7.873998734279581,
+      "trades_per_year": 149.16812636195814,
+      "wf_ratio": 0.9956008758713274,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0649358704550853
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "GBPAUD",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "OLS_SLOPE_STRONG",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8037447988904299,
+      "pf": 1.6583922266932296,
+      "expectancy_r": 0.12642282450355774,
+      "max_dd_r": 8.294902669388875,
+      "trades_per_year": 175.7380176147146,
+      "wf_ratio": 1.006493971665456,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8695159703665171
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "USDJPY",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "HURST_TREND_MOM",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8050348152115694,
+      "pf": 1.5369270049525836,
+      "expectancy_r": 0.11277828698441725,
+      "max_dd_r": 7.099858709625082,
+      "trades_per_year": 227.2070579987297,
+      "wf_ratio": 1.003499523024743,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7804196310721303
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "KALMAN_INNOV_EXPAND",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8020304568527918,
+      "pf": 1.4412016863248112,
+      "expectancy_r": 0.06906066087336905,
+      "max_dd_r": 5.965153894293703,
+      "trades_per_year": 56.93709198813056,
+      "wf_ratio": 1.0107999440133641,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.1300893549124194
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "XAUUSD",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "HURST_TREND_MOM",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.5,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8465804066543438,
+      "pf": 1.36992828067226,
+      "expectancy_r": 0.05630453133400688,
+      "max_dd_r": 8.049571980233125,
+      "trades_per_year": 131.63340376588636,
+      "wf_ratio": 1.0027185166038521,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7313233140018289
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "WTI",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "HURST_TREND_MOM",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8,
+      "pf": 1.274094238213305,
+      "expectancy_r": 0.05281506412222913,
+      "max_dd_r": 8.830631137310462,
+      "trades_per_year": 84.73157909376651,
+      "wf_ratio": 1.0056103207172946,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.408036532197567
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "NASDAQ100",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "HURST_TREND_MOM",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8068283917340521,
+      "pf": 1.214652481811963,
+      "expectancy_r": 0.04263692069222358,
+      "max_dd_r": 7.3335220698114885,
+      "trades_per_year": 135.46306600253388,
+      "wf_ratio": 1.005827216024138,
+      "mc_ruin": 0.0,
+      "decay_ratio": 2.6926530507405784
+    }
+  },
+  {
+    "archetype": "MATH_INV_MOMENTUM",
+    "symbol": "SP500",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "HURST_TREND_MOM",
+    "direction_mode": "INVERTED",
+    "tp_atr_mult": 0.75,
+    "sl_atr_mult": 1.5,
+    "atr_period": 14,
+    "metrics": {
+      "wr": 0.8017241379310345,
+      "pf": 1.096879366953094,
+      "expectancy_r": 0.021067802072316275,
+      "max_dd_r": 20.17670031964176,
+      "trades_per_year": 225.81980575247496,
+      "wf_ratio": 1.000390689346939,
+      "mc_ruin": 0.001,
+      "decay_ratio": 0.6897294013574856
+    }
+  }
+]

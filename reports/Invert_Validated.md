@@ -1,0 +1,39 @@
+# Inverted Strategies - Validated on Full History
+
+- Total validated: **414**
+- Gates: WR>=0.80, trades/yr>=30, PF>=1.0, WF>=0.80, MC<=0.02, decay>=0.60
+
+## Top 30 by expectancy
+
+| Family | Symbol | Session | Setup | TP | SL | Trades | WR | PF | Exp(R) | WF | MC | Decay | Trades/yr |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| MOM_INV | XAGUSD | ALL_DAY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 2169 | 0.850 | 2.15 | 0.182 | 1.00 | 0.000 | 0.70 | 264 |
+| MOM_INV | GBPUSD | ASIA | OLS_SLOPE_STRONG | 0.75 | 1.5 | 751 | 0.819 | 2.03 | 0.181 | 1.00 | 0.000 | 0.76 | 91 |
+| MOM_INV | VIX | LONDON | KALMAN_INNOV_EXPAND | 1.0 | 1.5 | 311 | 0.801 | 1.98 | 0.174 | 1.00 | 0.000 | 0.85 | 90 |
+| MOM_INV | XAGUSD | LONDON | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1278 | 0.827 | 2.01 | 0.167 | 1.00 | 0.000 | 1.12 | 156 |
+| MOM_INV | XAGUSD | LONDON_NY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1856 | 0.834 | 1.94 | 0.161 | 1.00 | 0.000 | 0.98 | 226 |
+| MOM_INV | EURJPY | ASIA | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1162 | 0.824 | 1.90 | 0.159 | 1.00 | 0.000 | 0.80 | 142 |
+| MOM_INV | XAGUSD | ALL_DAY | OLS_SLOPE_STRONG | 1.0 | 2.0 | 2169 | 0.827 | 1.88 | 0.153 | 1.00 | 0.000 | 0.80 | 264 |
+| MOM_INV | EURUSD | ASIA | OLS_SLOPE_STRONG | 0.75 | 1.5 | 762 | 0.818 | 1.83 | 0.153 | 1.01 | 0.000 | 1.02 | 93 |
+| MOM_INV | EURUSD | NY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1716 | 0.820 | 1.82 | 0.146 | 1.00 | 0.000 | 1.30 | 209 |
+| MOM_INV | XAGUSD | LONDON | HURST_TREND_MOM | 0.75 | 1.5 | 1038 | 0.819 | 1.80 | 0.146 | 1.01 | 0.000 | 1.91 | 126 |
+| MOM_INV | EURJPY | NY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1504 | 0.821 | 1.82 | 0.146 | 1.01 | 0.000 | 1.66 | 183 |
+| MOM_INV | EURUSD | ALL_DAY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 2181 | 0.829 | 1.78 | 0.145 | 1.00 | 0.000 | 1.03 | 265 |
+| MOM_INV | EURUSD | ASIA | HURST_TREND_MOM | 0.75 | 1.5 | 1033 | 0.810 | 1.78 | 0.142 | 1.00 | 0.000 | 1.11 | 126 |
+| MOM_INV | GBPUSD | ALL_DAY | SPECTRAL_TREND_MOM | 0.75 | 1.5 | 514 | 0.825 | 1.75 | 0.142 | 1.01 | 0.000 | 1.08 | 63 |
+| MOM_INV | XAUUSD | LONDON | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1276 | 0.806 | 1.76 | 0.141 | 1.00 | 0.000 | 0.99 | 156 |
+| MOM_INV | AUDUSD | ALL_DAY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 2200 | 0.823 | 1.74 | 0.141 | 1.00 | 0.000 | 0.80 | 268 |
+| MOM_INV | AUDUSD | LONDON | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1353 | 0.810 | 1.78 | 0.140 | 1.01 | 0.000 | 1.63 | 165 |
+| MOM_INV | XAUUSD | LONDON | HURST_TREND_MOM | 0.75 | 1.5 | 1140 | 0.813 | 1.75 | 0.139 | 1.00 | 0.000 | 1.67 | 139 |
+| MOM_INV | AUDUSD | ASIA | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1252 | 0.807 | 1.75 | 0.138 | 1.00 | 0.000 | 1.13 | 152 |
+| MOM_INV | GBPAUD | ASIA | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1226 | 0.803 | 1.75 | 0.138 | 1.00 | 0.000 | 1.06 | 149 |
+| MOM_INV | EURJPY | ALL_DAY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 2224 | 0.821 | 1.68 | 0.133 | 1.00 | 0.000 | 0.96 | 271 |
+| MOM_INV | AUDUSD | LONDON_NY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1819 | 0.816 | 1.70 | 0.133 | 1.00 | 0.000 | 1.29 | 221 |
+| MOM_INV | GBPUSD | ASIA | HURST_TREND_MOM | 0.75 | 1.5 | 1022 | 0.803 | 1.68 | 0.132 | 1.00 | 0.000 | 0.62 | 124 |
+| MOM_INV | XAGUSD | LONDON_NY | HURST_TREND_MOM | 0.75 | 1.5 | 1432 | 0.814 | 1.67 | 0.129 | 1.00 | 0.000 | 1.61 | 174 |
+| MOM_INV | EURUSD | LONDON_NY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 2010 | 0.814 | 1.65 | 0.128 | 1.00 | 0.000 | 1.68 | 245 |
+| MOM_INV | GBPAUD | NY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 1442 | 0.804 | 1.66 | 0.126 | 1.01 | 0.000 | 0.87 | 176 |
+| MOM_INV | AUDUSD | ALL_DAY | OLS_SLOPE_STRONG | 1.0 | 2.0 | 2200 | 0.812 | 1.63 | 0.126 | 1.00 | 0.000 | 0.79 | 268 |
+| MOM_INV | EURUSD | ALL_DAY | OLS_SLOPE_STRONG | 1.0 | 2.0 | 2181 | 0.812 | 1.63 | 0.126 | 1.00 | 0.000 | 0.66 | 265 |
+| MOM_INV | XAGUSD | LONDON_NY | OLS_SLOPE_STRONG | 1.0 | 2.0 | 1856 | 0.807 | 1.65 | 0.125 | 1.00 | 0.000 | 0.66 | 226 |
+| MOM_INV | GBPAUD | ALL_DAY | OLS_SLOPE_STRONG | 0.75 | 1.5 | 2194 | 0.815 | 1.62 | 0.125 | 1.00 | 0.000 | 1.27 | 267 |

@@ -1,0 +1,2548 @@
+[
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.375,
+      "pf": 2.359454743350054,
+      "expectancy_r": 0.9934731919743525,
+      "max_dd_r": 7.3216397216161475,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 0.8958095238095238,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0171651575028706
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.37333333333333335,
+      "pf": 2.343774216582929,
+      "expectancy_r": 0.9857342642953768,
+      "max_dd_r": 7.321639721616194,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 0.8743809523809525,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9130249729559069
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.3645833333333333,
+      "pf": 2.3093756469433395,
+      "expectancy_r": 0.9602925716597338,
+      "max_dd_r": 16.068672981690668,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.044003376439832,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7307247377261283
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5428571428571428,
+      "pf": 3.053470593340272,
+      "expectancy_r": 0.9495787283107112,
+      "max_dd_r": 10.38322660278468,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.054853281638996,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.498417010447498
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.39166666666666666,
+      "pf": 2.267748257042592,
+      "expectancy_r": 0.8885613377079733,
+      "max_dd_r": 11.834609877749415,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0241679025393655,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.6599214385672649
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.32532347504621073,
+      "pf": 2.088396008054257,
+      "expectancy_r": 0.8678088942601523,
+      "max_dd_r": 19.93629032493135,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.078200021161336,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.2805668078205161
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.3284518828451883,
+      "pf": 2.0785848849424684,
+      "expectancy_r": 0.8502167461206322,
+      "max_dd_r": 19.90954484800462,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0295041109893042,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.2541362683818613
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5428571428571428,
+      "pf": 2.8194482784402304,
+      "expectancy_r": 0.8413606642683955,
+      "max_dd_r": 5.049778675951913,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.054853281638996,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.5002576564169603
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.36414048059149723,
+      "pf": 2.118119084028229,
+      "expectancy_r": 0.8395709738011506,
+      "max_dd_r": 17.019999999999982,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.0411094272743688,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.027720545748561
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 93,
+      "wr": 0.3548387096774194,
+      "pf": 2.0686771464692137,
+      "expectancy_r": 0.8310780020601763,
+      "max_dd_r": 9.923296560569682,
+      "trades_per_year": 26.957814243789528,
+      "wf_ratio": 1.3293650793650793,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7625269366823226
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.42916666666666664,
+      "pf": 2.211635861904054,
+      "expectancy_r": 0.7966260434557572,
+      "max_dd_r": 14.620000000000118,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0267423881233222,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8575871656783907
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.3577405857740586,
+      "pf": 2.0500612014526793,
+      "expectancy_r": 0.7908264485372208,
+      "max_dd_r": 12.000000000000142,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.018198440559933,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9894405789903485
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 93,
+      "wr": 0.3010752688172043,
+      "pf": 1.9182580324486793,
+      "expectancy_r": 0.7733440451032603,
+      "max_dd_r": 13.200000000000088,
+      "trades_per_year": 26.957814243789528,
+      "wf_ratio": 1.2444444444444447,
+      "mc_ruin": 0.001,
+      "decay_ratio": 0.8691874021307038
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.55,
+      "pf": 2.6499844142017275,
+      "expectancy_r": 0.7604032905229805,
+      "max_dd_r": 7.278178106748854,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0633043893548095,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.3312117280298985
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.4029574861367837,
+      "pf": 2.024100577515849,
+      "expectancy_r": 0.7212715283298015,
+      "max_dd_r": 9.60000000000008,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.03523565765823,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9559659281891892
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.4533333333333333,
+      "pf": 2.117724478034728,
+      "expectancy_r": 0.6921416440451217,
+      "max_dd_r": 6.866666666666681,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 1.1476666666666666,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.5057698556552848
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.3912133891213389,
+      "pf": 1.950630226108273,
+      "expectancy_r": 0.6792688830094377,
+      "max_dd_r": 21.400000000000105,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0191379553361661,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9752872723057743
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.48125,
+      "pf": 2.117282080169682,
+      "expectancy_r": 0.6687614272103569,
+      "max_dd_r": 10.800000000000068,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0085699496038407,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.6910522456921957
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5714285714285714,
+      "pf": 2.4715628213720073,
+      "expectancy_r": 0.6609385299426753,
+      "max_dd_r": 6.920245059611453,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0590269879230918,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.1532960235240433
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.4647887323943662,
+      "pf": 2.126057676503132,
+      "expectancy_r": 0.654047004336107,
+      "max_dd_r": 11.799999999998875,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.097530864197531,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.4,
+      "pf": 1.9543823721471312,
+      "expectancy_r": 0.6520738669581047,
+      "max_dd_r": 7.200000000000003,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 1.0825396825396827,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.4956667367356877
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.4444444444444444,
+      "pf": 2.035382754812331,
+      "expectancy_r": 0.6506105088432982,
+      "max_dd_r": 5.645579038908464,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 1.1705238095238095,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.4327261528633788
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.28776978417266186,
+      "pf": 1.7619465768824056,
+      "expectancy_r": 0.6465183077326628,
+      "max_dd_r": 19.539291223175056,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.2176064984398316,
+      "mc_ruin": 0.001,
+      "decay_ratio": 0.8507106348292678
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.5915492957746479,
+      "pf": 2.4479721584834264,
+      "expectancy_r": 0.6391239421019748,
+      "max_dd_r": 4.934704000101661,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.0934038800705468,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.4658040665434381,
+      "pf": 2.0006756275184068,
+      "expectancy_r": 0.6293065438803012,
+      "max_dd_r": 12.500358962293234,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.0156789766056848,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8011318516374585
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.6214285714285714,
+      "pf": 2.527387049869978,
+      "expectancy_r": 0.6100995478193956,
+      "max_dd_r": 6.676565372101614,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0143636254918722,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8396298279643409
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.4568345323741007,
+      "pf": 1.9255604935339243,
+      "expectancy_r": 0.5975705590961398,
+      "max_dd_r": 9.448300541842997,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.1621606821309205,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7809398564958332
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.3741496598639456,
+      "pf": 1.8290684250765779,
+      "expectancy_r": 0.5918460504737716,
+      "max_dd_r": 18.08045025956413,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 1.1079012345679013,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.2939988567627885
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.3888888888888889,
+      "pf": 1.8493781258652018,
+      "expectancy_r": 0.5903547225258033,
+      "max_dd_r": 9.400000000000006,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 1.0971428571428572,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.4002022187325045
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.3732394366197183,
+      "pf": 1.8572288880668888,
+      "expectancy_r": 0.5842300071270519,
+      "max_dd_r": 14.772789031048053,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.173862433862434,
+      "mc_ruin": 0.001,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.45188284518828453,
+      "pf": 1.8961008362135687,
+      "expectancy_r": 0.5782885401751108,
+      "max_dd_r": 11.939208248846668,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0123579590857874,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8150011503626102
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 93,
+      "wr": 0.41935483870967744,
+      "pf": 1.8079941006019866,
+      "expectancy_r": 0.5590699225204042,
+      "max_dd_r": 9.73333333333331,
+      "trades_per_year": 26.957814243789528,
+      "wf_ratio": 1.2144781144781143,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.1409381278803132
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.46938775510204084,
+      "pf": 1.9052796341290492,
+      "expectancy_r": 0.5509936839378595,
+      "max_dd_r": 11.039857512650485,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 0.8246657046657048,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8397814874271196
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KALMAN_INNOV_EXPAND",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 501,
+      "wr": 0.32335329341317365,
+      "pf": 1.6732106666512598,
+      "expectancy_r": 0.5454061181266227,
+      "max_dd_r": 18.00000000000003,
+      "trades_per_year": 144.66347151539108,
+      "wf_ratio": 1.074852473725763,
+      "mc_ruin": 0.001,
+      "decay_ratio": 0.8508938591056205
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.3958333333333333,
+      "pf": 1.7755296284561235,
+      "expectancy_r": 0.5282050835981226,
+      "max_dd_r": 15.445781987793708,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0303366328007721,
+      "mc_ruin": 0.001,
+      "decay_ratio": 0.7903635262739399
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.5791666666666667,
+      "pf": 2.056294667879434,
+      "expectancy_r": 0.5218093527024552,
+      "max_dd_r": 11.620000000000118,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0226635410728397,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8629535517561941
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.5693160813308688,
+      "pf": 2.0155374392762013,
+      "expectancy_r": 0.5138791639492839,
+      "max_dd_r": 7.351811981747915,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.0155638775754947,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9291889681031229
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KALMAN_INNOV_EXPAND",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 501,
+      "wr": 0.3652694610778443,
+      "pf": 1.6758625486560894,
+      "expectancy_r": 0.5135590765561172,
+      "max_dd_r": 17.240399349396256,
+      "trades_per_year": 144.66347151539108,
+      "wf_ratio": 1.0575977968454016,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7126607766519685
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.48,
+      "pf": 1.8558628883672716,
+      "expectancy_r": 0.512123512498772,
+      "max_dd_r": 8.399999999999961,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 0.8650000000000002,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.3841830589943795
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KALMAN_INNOV_EXPAND",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 501,
+      "wr": 0.2834331337325349,
+      "pf": 1.5895984731489512,
+      "expectancy_r": 0.505911379329067,
+      "max_dd_r": 20.399999999999977,
+      "trades_per_year": 144.66347151539108,
+      "wf_ratio": 1.1258238729625338,
+      "mc_ruin": 0.01,
+      "decay_ratio": 1.098032984141652
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.30985915492957744,
+      "pf": 1.6609989432460475,
+      "expectancy_r": 0.49657650032508144,
+      "max_dd_r": 29.366305995471805,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 0.9768783068783069,
+      "mc_ruin": 0.004,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.40816326530612246,
+      "pf": 1.7294494870777266,
+      "expectancy_r": 0.4949991219103646,
+      "max_dd_r": 16.760468161704267,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 1.0091710758377426,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.6147680625770368
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5357142857142857,
+      "pf": 2.181257144825593,
+      "expectancy_r": 0.49018144289241466,
+      "max_dd_r": 6.86132540305897,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0470791113648255,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.6202453928179146
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 93,
+      "wr": 0.3548387096774194,
+      "pf": 1.6357281658957852,
+      "expectancy_r": 0.4890927776368486,
+      "max_dd_r": 13.199999999999985,
+      "trades_per_year": 26.957814243789528,
+      "wf_ratio": 1.161904761904762,
+      "mc_ruin": 0.002,
+      "decay_ratio": 1.0944755528325978
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.5648535564853556,
+      "pf": 1.9424376865682231,
+      "expectancy_r": 0.4882538221319226,
+      "max_dd_r": 6.0000000000000995,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.016297065370655,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9960102787538081
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.4722222222222222,
+      "pf": 1.7939024318835832,
+      "expectancy_r": 0.48161014033436916,
+      "max_dd_r": 4.48921286439662,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 0.8878571428571428,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.279784551951935
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.425,
+      "pf": 1.7304645347352228,
+      "expectancy_r": 0.4737267179867211,
+      "max_dd_r": 15.034152114950523,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0106147448597003,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.6755202547731765
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.3741496598639456,
+      "pf": 1.6562958425853838,
+      "expectancy_r": 0.46850910085091996,
+      "max_dd_r": 9.991542173805055,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 1.1079012345679013,
+      "mc_ruin": 0.002,
+      "decay_ratio": 1.1420885548467996
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.35611510791366907,
+      "pf": 1.5804178876608934,
+      "expectancy_r": 0.4412296960865364,
+      "max_dd_r": 16.04859631336663,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.2198218585867397,
+      "mc_ruin": 0.003,
+      "decay_ratio": 1.370027075090291
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5357142857142857,
+      "pf": 2.007398582582637,
+      "expectancy_r": 0.4180360668642043,
+      "max_dd_r": 7.838684666898608,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0470791113648255,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.6437404609374298
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.5306122448979592,
+      "pf": 1.7778293419943458,
+      "expectancy_r": 0.4174057551636702,
+      "max_dd_r": 11.921752389294312,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 0.9935714285714285,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7399709701966795
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.43661971830985913,
+      "pf": 1.693488196320112,
+      "expectancy_r": 0.4116590743988656,
+      "max_dd_r": 9.533333333333296,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.1734126984126982,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.32044198895027626,
+      "pf": 1.550502752432154,
+      "expectancy_r": 0.40448511134908544,
+      "max_dd_r": 16.00705546426054,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 0.9474206349206349,
+      "mc_ruin": 0.001,
+      "decay_ratio": 3.715250455914268
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.34750462107208874,
+      "pf": 1.5241805758252198,
+      "expectancy_r": 0.3993117271787401,
+      "max_dd_r": 17.60000000000001,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.0675611593478718,
+      "mc_ruin": 0.003,
+      "decay_ratio": 1.5227051767320956
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.4666666666666667,
+      "pf": 1.664310832106386,
+      "expectancy_r": 0.3957728997005083,
+      "max_dd_r": 8.499999999999986,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 0.9876666666666669,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.5644186806465443
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.4583333333333333,
+      "pf": 1.6463609552996943,
+      "expectancy_r": 0.3944595004994049,
+      "max_dd_r": 10.445578783299926,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0238032153872119,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9644264182416006
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.3812154696132597,
+      "pf": 1.577859231938643,
+      "expectancy_r": 0.3859550758378151,
+      "max_dd_r": 13.032972081019572,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 0.9442261904761904,
+      "mc_ruin": 0.0,
+      "decay_ratio": 3.7451367683579053
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.5323741007194245,
+      "pf": 1.6943275281289267,
+      "expectancy_r": 0.38534034326880245,
+      "max_dd_r": 11.912255054572626,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.166413852791829,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.4273096747005916
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.38632162661737524,
+      "pf": 1.5377555178073063,
+      "expectancy_r": 0.3849819906291675,
+      "max_dd_r": 19.224193549954194,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.035271263700019,
+      "mc_ruin": 0.001,
+      "decay_ratio": 1.1029805269909538
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.3472803347280335,
+      "pf": 1.5004523346991052,
+      "expectancy_r": 0.3783670694440089,
+      "max_dd_r": 23.30330964887081,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0257907722504127,
+      "mc_ruin": 0.003,
+      "decay_ratio": 1.405746538788926
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KALMAN_INNOV_EXPAND",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 501,
+      "wr": 0.530938123752495,
+      "pf": 1.6720225540680125,
+      "expectancy_r": 0.37806372931035326,
+      "max_dd_r": 10.199999999999932,
+      "trades_per_year": 144.66347151539108,
+      "wf_ratio": 1.0308727375403668,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8341750083254681
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.3732394366197183,
+      "pf": 1.5643542648365723,
+      "expectancy_r": 0.3743501637609306,
+      "max_dd_r": 11.540096516418771,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 0.9902116402116401,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 93,
+      "wr": 0.44086021505376344,
+      "pf": 1.5594964461652274,
+      "expectancy_r": 0.37268999420499116,
+      "max_dd_r": 10.682197707046512,
+      "trades_per_year": 26.957814243789528,
+      "wf_ratio": 1.0371538514395657,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9547154853522277
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.4583333333333333,
+      "pf": 1.6044514374674936,
+      "expectancy_r": 0.36504121496580744,
+      "max_dd_r": 6.0000000000000036,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 1.0105238095238096,
+      "mc_ruin": 0.001,
+      "decay_ratio": 1.4537782149579679
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5428571428571428,
+      "pf": 1.8805694589380195,
+      "expectancy_r": 0.36406448436726097,
+      "max_dd_r": 7.4253184170399535,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.054853281638996,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.429626214360761
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.42857142857142855,
+      "pf": 1.5846563550764976,
+      "expectancy_r": 0.34994829392338644,
+      "max_dd_r": 11.080124969655813,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 1.1206349206349209,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.5179832303556913
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5357142857142857,
+      "pf": 2.002778637000814,
+      "expectancy_r": 0.3469073525499274,
+      "max_dd_r": 5.30202189926602,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0334010506088427,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.3627384897636365
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KALMAN_INNOV_EXPAND",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 501,
+      "wr": 0.35728542914171657,
+      "pf": 1.4594891981833849,
+      "expectancy_r": 0.34631960238781434,
+      "max_dd_r": 14.560951560561069,
+      "trades_per_year": 144.66347151539108,
+      "wf_ratio": 1.1128701454834764,
+      "mc_ruin": 0.002,
+      "decay_ratio": 0.6887120154426217
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.4143646408839779,
+      "pf": 1.5488278358725864,
+      "expectancy_r": 0.34585413332030807,
+      "max_dd_r": 12.099999999999772,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 1.0173076923076922,
+      "mc_ruin": 0.0,
+      "decay_ratio": 3.3260472182540917
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.41333333333333333,
+      "pf": 1.5171378498749248,
+      "expectancy_r": 0.34118926421011736,
+      "max_dd_r": 7.999999999999995,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 0.9625396825396827,
+      "mc_ruin": 0.002,
+      "decay_ratio": 1.6309537048774023
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.3786610878661088,
+      "pf": 1.4699692084009075,
+      "expectancy_r": 0.33877353772173435,
+      "max_dd_r": 16.903136524870867,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0154935751842982,
+      "mc_ruin": 0.004,
+      "decay_ratio": 0.9825925606526732
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.49295774647887325,
+      "pf": 1.6194638554647192,
+      "expectancy_r": 0.3346228855198361,
+      "max_dd_r": 5.499999999999613,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.2165784832451498,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.43125,
+      "pf": 1.526837897261575,
+      "expectancy_r": 0.3304156433850742,
+      "max_dd_r": 12.405053460926695,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0355184197949363,
+      "mc_ruin": 0.001,
+      "decay_ratio": 0.9033116382865205
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.6197183098591549,
+      "pf": 1.8008441278467766,
+      "expectancy_r": 0.3270215952041259,
+      "max_dd_r": 11.833333333333579,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.2063668430335097,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 93,
+      "wr": 0.44086021505376344,
+      "pf": 1.4983780325964422,
+      "expectancy_r": 0.3215488545718557,
+      "max_dd_r": 10.999999999999982,
+      "trades_per_year": 26.957814243789528,
+      "wf_ratio": 1.1978114478114477,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.004215580406915
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.33098591549295775,
+      "pf": 1.4524639383555582,
+      "expectancy_r": 0.3211605525524539,
+      "max_dd_r": 11.500000000000624,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 0.8451190476190475,
+      "mc_ruin": 0.005,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.37050359712230213,
+      "pf": 1.4289823723979853,
+      "expectancy_r": 0.3187025664646901,
+      "max_dd_r": 15.300771945859609,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.217900737379904,
+      "mc_ruin": 0.004,
+      "decay_ratio": 2.3325369704660712
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.4269870609981516,
+      "pf": 1.475626542560634,
+      "expectancy_r": 0.31729366002494414,
+      "max_dd_r": 15.762900715060017,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.028384756051877,
+      "mc_ruin": 0.002,
+      "decay_ratio": 0.9460737237489746
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.5107913669064749,
+      "pf": 1.5453650293958217,
+      "expectancy_r": 0.31335672668406894,
+      "max_dd_r": 8.900771945859852,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.1996267270431846,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.397225353796808
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.5,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.4696132596685083,
+      "pf": 1.5455670957092202,
+      "expectancy_r": 0.3130465039625926,
+      "max_dd_r": 9.691498521322636,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 1.3663553113553115,
+      "mc_ruin": 0.0,
+      "decay_ratio": 2.5845709785904862
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.48066298342541436,
+      "pf": 1.5588274832762452,
+      "expectancy_r": 0.31140132879897786,
+      "max_dd_r": 9.899999999999704,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 1.0225885225885225,
+      "mc_ruin": 0.0,
+      "decay_ratio": 3.4740320023379114
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.4028776978417266,
+      "pf": 1.440096743705434,
+      "expectancy_r": 0.3040836290221226,
+      "max_dd_r": 14.000000000000014,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.2485768227583705,
+      "mc_ruin": 0.005,
+      "decay_ratio": 3.0393145753512423
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.4859154929577465,
+      "pf": 1.5706760912876034,
+      "expectancy_r": 0.30181926800218745,
+      "max_dd_r": 8.23614661066267,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 0.9023368606701941,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5642857142857143,
+      "pf": 1.746934742100223,
+      "expectancy_r": 0.3001355963613432,
+      "max_dd_r": 9.419604745127913,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0520930177538275,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.1788320618809165
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.4027777777777778,
+      "pf": 1.438860078134598,
+      "expectancy_r": 0.2942943724410945,
+      "max_dd_r": 5.499999999999986,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 0.9771428571428572,
+      "mc_ruin": 0.001,
+      "decay_ratio": 1.4896073045338483
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.34806629834254144,
+      "pf": 1.417077043726854,
+      "expectancy_r": 0.29122217639592923,
+      "max_dd_r": 13.403684193470962,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 1.3234126984126984,
+      "mc_ruin": 0.005,
+      "decay_ratio": 2.4932330456252414
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.5041666666666667,
+      "pf": 1.5197535786799135,
+      "expectancy_r": 0.29057020522505916,
+      "max_dd_r": 9.568697722192951,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0061521053231013,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.6180185070164744
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.46938775510204084,
+      "pf": 1.516646823599144,
+      "expectancy_r": 0.2905099378269764,
+      "max_dd_r": 11.220839911768469,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 1.0615343915343916,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7694171691575798
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.5170068027210885,
+      "pf": 1.5642247818885227,
+      "expectancy_r": 0.28968964568286,
+      "max_dd_r": 13.607963914614853,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 0.9106301106301107,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.8519362762076319
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5357142857142857,
+      "pf": 1.8360461269244004,
+      "expectancy_r": 0.28922689195734114,
+      "max_dd_r": 4.1878549801377165,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0334010506088427,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.3568601059340466
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.46041666666666664,
+      "pf": 1.4789576516885314,
+      "expectancy_r": 0.2863509255778742,
+      "max_dd_r": 15.215716357443682,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0221762597981503,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.9201845232341642
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.4172661870503597,
+      "pf": 1.4130013083087842,
+      "expectancy_r": 0.28365419024406835,
+      "max_dd_r": 22.668516502361364,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.211015728099061,
+      "mc_ruin": 0.003,
+      "decay_ratio": 1.6414625875362505
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 144,
+      "wr": 0.3888888888888889,
+      "pf": 1.396472397967907,
+      "expectancy_r": 0.2812027087535347,
+      "max_dd_r": 11.266666666666701,
+      "trades_per_year": 17.908514071893453,
+      "wf_ratio": 1.1619618055555554,
+      "mc_ruin": 0.007,
+      "decay_ratio": 0.9757202425503452
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.41422594142259417,
+      "pf": 1.4043719580944662,
+      "expectancy_r": 0.2749409412474188,
+      "max_dd_r": 16.591834247063776,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0175645397235347,
+      "mc_ruin": 0.001,
+      "decay_ratio": 0.9197637187025623
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.6142857142857143,
+      "pf": 1.7347205690014624,
+      "expectancy_r": 0.2675063504905508,
+      "max_dd_r": 4.133962169038149,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0074296553226079,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.6995826338053567
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.5563380281690141,
+      "pf": 1.5704162249284088,
+      "expectancy_r": 0.26606739959356446,
+      "max_dd_r": 11.121706601559865,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 0.8939874939874939,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.49333333333333335,
+      "pf": 1.4530564299220043,
+      "expectancy_r": 0.26384691562838786,
+      "max_dd_r": 6.599999999999966,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 0.8650000000000002,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.4233228987565227
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 147,
+      "wr": 0.42857142857142855,
+      "pf": 1.432016577589506,
+      "expectancy_r": 0.25858517223213423,
+      "max_dd_r": 10.228523709620923,
+      "trades_per_year": 18.846029813419328,
+      "wf_ratio": 1.1206349206349209,
+      "mc_ruin": 0.004,
+      "decay_ratio": 1.459362439708503
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.49333333333333335,
+      "pf": 1.4390155331870298,
+      "expectancy_r": 0.25409263437407936,
+      "max_dd_r": 6.416909648297487,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 0.8170000000000002,
+      "mc_ruin": 0.001,
+      "decay_ratio": 1.4528343904752763
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5428571428571428,
+      "pf": 1.713375677185932,
+      "expectancy_r": 0.24571946551353016,
+      "max_dd_r": 7.508896599576797,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.041001897965329,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0883974157329672
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.3844731977818854,
+      "pf": 1.340264224786388,
+      "expectancy_r": 0.24203223099917376,
+      "max_dd_r": 21.77176611753605,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.0558423037272935,
+      "mc_ruin": 0.004,
+      "decay_ratio": 1.7752157669846365
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.4861111111111111,
+      "pf": 1.4093552196973305,
+      "expectancy_r": 0.2415072037795708,
+      "max_dd_r": 10.94775981441082,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 0.8878571428571428,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.2445498075223307
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.3912133891213389,
+      "pf": 1.3443465779890662,
+      "expectancy_r": 0.23924882214319812,
+      "max_dd_r": 15.063024897844347,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0286643660067545,
+      "mc_ruin": 0.008,
+      "decay_ratio": 2.073050842145935
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.4861111111111111,
+      "pf": 1.394636148870023,
+      "expectancy_r": 0.23134649413966615,
+      "max_dd_r": 7.199999999999985,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 0.839857142857143,
+      "mc_ruin": 0.001,
+      "decay_ratio": 1.270159125206022
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 144,
+      "wr": 0.4166666666666667,
+      "pf": 1.3585031878766427,
+      "expectancy_r": 0.23107184259673005,
+      "max_dd_r": 20.21008207050122,
+      "trades_per_year": 17.908514071893453,
+      "wf_ratio": 1.7836011904761904,
+      "mc_ruin": 0.005,
+      "decay_ratio": 0.674168603333355
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.46408839779005523,
+      "pf": 1.3996343289996684,
+      "expectancy_r": 0.22972439204247122,
+      "max_dd_r": 9.900000000000102,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 1.0984859584859583,
+      "mc_ruin": 0.0,
+      "decay_ratio": 3.2510099863126443
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.49375,
+      "pf": 1.4025275052954822,
+      "expectancy_r": 0.22529287810250773,
+      "max_dd_r": 13.448803593935693,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0365952478573888,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.4965951302927918
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 93,
+      "wr": 0.3655913978494624,
+      "pf": 1.3000338882559208,
+      "expectancy_r": 0.22067889913499467,
+      "max_dd_r": 8.000000000000018,
+      "trades_per_year": 26.957814243789528,
+      "wf_ratio": 1.2404761904761903,
+      "mc_ruin": 0.015,
+      "decay_ratio": 1.027513388720049
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.4214417744916821,
+      "pf": 1.328164277521051,
+      "expectancy_r": 0.21919197967268453,
+      "max_dd_r": 19.66301234149035,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.0312478249769652,
+      "mc_ruin": 0.006,
+      "decay_ratio": 1.2413986889278192
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.600739371534196,
+      "pf": 1.4699205458280726,
+      "expectancy_r": 0.2171346157722456,
+      "max_dd_r": 12.370748633698469,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.0063465844228041,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.6496368417872098
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.60625,
+      "pf": 1.4763561227503943,
+      "expectancy_r": 0.21541943779832284,
+      "max_dd_r": 13.570207015816756,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0057557696072594,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7103280864542325
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.5303867403314917,
+      "pf": 1.4023387141980495,
+      "expectancy_r": 0.2019371424369928,
+      "max_dd_r": 11.000000000000163,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 1.1251297313797315,
+      "mc_ruin": 0.0,
+      "decay_ratio": 3.5564622214356723
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.6549295774647887,
+      "pf": 1.5466186749603619,
+      "expectancy_r": 0.20064931571598565,
+      "max_dd_r": 7.268106088700005,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.0740917107583776,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 1.5,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.6338028169014085,
+      "pf": 1.5666485880548637,
+      "expectancy_r": 0.1974463419755095,
+      "max_dd_r": 7.3427341112830256,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.0827545294211962,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.5524861878453039,
+      "pf": 1.4057161082741907,
+      "expectancy_r": 0.19562216286272682,
+      "max_dd_r": 9.766666666666485,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 1.153968253968254,
+      "mc_ruin": 0.0,
+      "decay_ratio": 4.135987953771159
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.36619718309859156,
+      "pf": 1.2928566661013967,
+      "expectancy_r": 0.19345241887090509,
+      "max_dd_r": 17.45253895050868,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 0.9506878306878307,
+      "mc_ruin": 0.011,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.5,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.4748201438848921,
+      "pf": 1.3332716301119345,
+      "expectancy_r": 0.19264984077690026,
+      "max_dd_r": 11.71698398219393,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.254108073491086,
+      "mc_ruin": 0.002,
+      "decay_ratio": 2.131232741557349
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5642857142857143,
+      "pf": 1.578042358504284,
+      "expectancy_r": 0.19241565665194907,
+      "max_dd_r": 5.636867773204699,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0482311587222302,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7402746415686093
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.4205020920502092,
+      "pf": 1.2878213810502934,
+      "expectancy_r": 0.19150578484071434,
+      "max_dd_r": 15.330640885578731,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0293572871347538,
+      "mc_ruin": 0.01,
+      "decay_ratio": 1.8872640041473911
+    }
+  },
+  {
+    "symbol": "GBPJPY",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "SPECTRAL_TREND_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 181,
+      "wr": 0.39779005524861877,
+      "pf": 1.3003302500711542,
+      "expectancy_r": 0.19147695020622746,
+      "max_dd_r": 9.900000000000077,
+      "trades_per_year": 22.244519995794047,
+      "wf_ratio": 1.4263553113553111,
+      "mc_ruin": 0.008,
+      "decay_ratio": 2.001284899203587
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.5,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.5422535211267606,
+      "pf": 1.443955252486541,
+      "expectancy_r": 0.18733732023694052,
+      "max_dd_r": 5.235338597213417,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.1352292768959436,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 93,
+      "wr": 0.46236559139784944,
+      "pf": 1.2847789147119613,
+      "expectancy_r": 0.17638756424927424,
+      "max_dd_r": 12.44283810951569,
+      "trades_per_year": 26.957814243789528,
+      "wf_ratio": 1.077630041915756,
+      "mc_ruin": 0.003,
+      "decay_ratio": 0.6313705195634242
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.4136690647482014,
+      "pf": 1.253052572339012,
+      "expectancy_r": 0.17261993648199644,
+      "max_dd_r": 16.007216664559756,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.2179708216166552,
+      "mc_ruin": 0.015,
+      "decay_ratio": 3.9057238668545025
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.5,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.4788732394366197,
+      "pf": 1.345453381451266,
+      "expectancy_r": 0.16985657383816022,
+      "max_dd_r": 14.46319102317336,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.0854497354497352,
+      "mc_ruin": 0.002,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 478,
+      "wr": 0.5836820083682008,
+      "pf": 1.3286329557631689,
+      "expectancy_r": 0.16154898492573588,
+      "max_dd_r": 12.333333333333332,
+      "trades_per_year": 138.04838111867952,
+      "wf_ratio": 1.0078410810896505,
+      "mc_ruin": 0.0,
+      "decay_ratio": 0.7917757642843194
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ALL_DAY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 541,
+      "wr": 0.46210720887245843,
+      "pf": 1.2600918543139106,
+      "expectancy_r": 0.16103201637755737,
+      "max_dd_r": 16.11900075938484,
+      "trades_per_year": 156.24304222846362,
+      "wf_ratio": 1.0286005031673744,
+      "mc_ruin": 0.004,
+      "decay_ratio": 1.0273607276618106
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.5467625899280576,
+      "pf": 1.3064367356186506,
+      "expectancy_r": 0.16009427521167136,
+      "max_dd_r": 8.901758922110163,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.2279339545668908,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0881451293765232
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 75,
+      "wr": 0.5733333333333334,
+      "pf": 1.301528981205918,
+      "expectancy_r": 0.14799507392079608,
+      "max_dd_r": 13.30363934547406,
+      "trades_per_year": 21.74017277724962,
+      "wf_ratio": 0.8446515151515153,
+      "mc_ruin": 0.001,
+      "decay_ratio": 1.8618143799004605
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 1.5,
+    "sl_atr_mult": 1.0,
+    "metrics": {
+      "n_trades": 480,
+      "wr": 0.5395833333333333,
+      "pf": 1.2849290015838915,
+      "expectancy_r": 0.14573732480102516,
+      "max_dd_r": 11.226523291644732,
+      "trades_per_year": 138.71281987884782,
+      "wf_ratio": 1.0202282724334042,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.2587630221820247
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 72,
+      "wr": 0.5694444444444444,
+      "pf": 1.2817365353355437,
+      "expectancy_r": 0.13934672051934777,
+      "max_dd_r": 9.796730110466324,
+      "trades_per_year": 20.870565866159634,
+      "wf_ratio": 0.8690670995670995,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.653374435537194
+    }
+  },
+  {
+    "symbol": "NATGAS",
+    "tf": "M15",
+    "session": "LONDON_NY",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 0.75,
+    "metrics": {
+      "n_trades": 278,
+      "wr": 0.5719424460431655,
+      "pf": 1.2630841167980298,
+      "expectancy_r": 0.13251955856424144,
+      "max_dd_r": 11.353920183133317,
+      "trades_per_year": 34.26806863603286,
+      "wf_ratio": 1.1848614984933667,
+      "mc_ruin": 0.002,
+      "decay_ratio": 1.215753454483581
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 3.0,
+    "sl_atr_mult": 1.5,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5142857142857142,
+      "pf": 1.3992240657879953,
+      "expectancy_r": 0.12183178745023247,
+      "max_dd_r": 5.727307597623879,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0546265937731614,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.4348031599419526
+    }
+  },
+  {
+    "symbol": "GBPUSD",
+    "tf": "M15",
+    "session": "LONDON",
+    "setup_type": "KAMA_CROSS_MOM",
+    "tp_atr_mult": 1.0,
+    "sl_atr_mult": 1.5,
+    "metrics": {
+      "n_trades": 142,
+      "wr": 0.7112676056338029,
+      "pf": 1.4046994381418132,
+      "expectancy_r": 0.1131112750760013,
+      "max_dd_r": 5.2546355582050275,
+      "trades_per_year": 17.64095151038456,
+      "wf_ratio": 1.0835978835978837,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.0
+    }
+  },
+  {
+    "symbol": "VIX",
+    "tf": "M15",
+    "session": "ASIA",
+    "setup_type": "VELOCITY_ACCEL_GO",
+    "tp_atr_mult": 2.5,
+    "sl_atr_mult": 1.5,
+    "metrics": {
+      "n_trades": 140,
+      "wr": 0.5142857142857142,
+      "pf": 1.2732173890072296,
+      "expectancy_r": 0.08337814705517499,
+      "max_dd_r": 6.485799535961977,
+      "trades_per_year": 42.85916341444249,
+      "wf_ratio": 1.0546265937731614,
+      "mc_ruin": 0.0,
+      "decay_ratio": 1.454444890781793
+    }
+  }
+]

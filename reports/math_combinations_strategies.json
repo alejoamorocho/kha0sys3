@@ -1,0 +1,1388 @@
+[
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "ZSCORE_NEUTRAL"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440395,
+      "max_dd_r": 8.104266579158583,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "ZSCORE_NEUTRAL"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440395,
+      "max_dd_r": 10.475318116306422,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "TIME_STOP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843357,
+      "expectancy_r": 0.07840398846440395,
+      "max_dd_r": 12.62292153211892,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440395,
+      "max_dd_r": 9.241561004263389,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440395,
+      "max_dd_r": 15.963826517337338,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440395,
+      "max_dd_r": 13.830014431792543,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KAMA_CROSS_EXIT",
+      "ZSCORE_NEUTRAL"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440395,
+      "max_dd_r": 12.829176561588978,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "ZSCORE_NEUTRAL"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440395,
+      "max_dd_r": 16.87267750488729,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "VELOCITY_FLIP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843363,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 7.645639364677912,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 7.767173815626094,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "VELOCITY_FLIP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 14.53824777708714,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.0
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 11.580237047197805,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.0
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 10.108540949913174,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 8.009699105596997,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "ZSCORE_NEUTRAL"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 13.889883759119417,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 12.999179407522337,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "ZSCORE_NEUTRAL"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 13.93527591739337,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "ZSCORE_NEUTRAL",
+      "VELOCITY_FLIP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 12.19070443933628,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "ZSCORE_NEUTRAL",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 9.742155131450367,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "VELOCITY_FLIP",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 9.16853632535905,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 8.116431789888475,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.0
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "KAMA_CROSS_EXIT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 8.936266351297558,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.0
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "KAMA_CROSS_EXIT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 9.104039783012738,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 11.769320375945988,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.0
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KAMA_CROSS_EXIT",
+      "ZSCORE_NEUTRAL"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 14.832332128473656,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.0
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "VELOCITY_FLIP",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 5.870430347280001,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "VELOCITY_FLIP",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440394,
+      "max_dd_r": 9.60483179435916,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "KAMA_CROSS_EXIT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 5.5000000000000355,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "VELOCITY_FLIP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 13.421615541797731,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 10.447963562592845,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.004
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KAMA_CROSS_EXIT",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843363,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 8.130524696213874,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 10.336105480587744,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 5.948768491305508,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 10.306261429219202,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "VELOCITY_FLIP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 9.749383499697856,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 11.317528278903582,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KAMA_CROSS_EXIT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 11.250205958250362,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "VELOCITY_FLIP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 13.069279726832082,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KAMA_CROSS_EXIT",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 9.598302234217067,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.005
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "VELOCITY_FLIP",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 12.095397772881322,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.0
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KALMAN_REVERT",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 11.28018489146167,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 7.90047061435459,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KAMA_CROSS_EXIT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 11.338445687203091,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "TIME_STOP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 12.904701304883318,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "ZSCORE_NEUTRAL"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 16.0782631654405,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 10.579412325476655,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "SL_ATR_2",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.204845999384336,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 10.247443251380492,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "VELOCITY_FLIP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 15.520378760632942,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KAMA_CROSS_EXIT",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 8.769115193996209,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.001
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "ZSCORE_NEUTRAL",
+      "VELOCITY_FLIP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 12.066534758411926,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.0
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "ZSCORE_NEUTRAL",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 9.717122978814123,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KALMAN_REVERT",
+      "SPECTRAL_DROP"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 8.451343645850521,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.002
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "KAMA_CROSS_EXIT",
+      "KALMAN_REVERT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440393,
+      "max_dd_r": 16.705194057029022,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.004
+    }
+  },
+  {
+    "symbol": "USDJPY",
+    "session": "LONDON_NY",
+    "entry": [
+      "ACCEL_SHOCK",
+      "BB_BREAKOUT",
+      "MACD_CROSS"
+    ],
+    "exit": [
+      "TP_ATR_2",
+      "TIME_STOP",
+      "KAMA_CROSS_EXIT"
+    ],
+    "tp_atr_mult": 2.0,
+    "sl_atr_mult": 2.0,
+    "metrics": {
+      "n_trades": 307,
+      "wr": 0.5635179153094463,
+      "pf": 1.2048459993843361,
+      "expectancy_r": 0.07840398846440391,
+      "max_dd_r": 12.027472735018105,
+      "trades_per_year": 37.450069579738376,
+      "wf_ratio": 1.0986688441766566,
+      "mc_ruin": 0.003
+    }
+  }
+]
