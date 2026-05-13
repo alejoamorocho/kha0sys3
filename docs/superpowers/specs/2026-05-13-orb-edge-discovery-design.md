@@ -2,7 +2,8 @@
 
 **Date:** 2026-05-13
 **Status:** Approved for implementation planning
-**Target magic:** 1339 (parallel portfolio to K3M1-75 magic 1338, no live conflict)
+**Scope:** Backtest research only. No live deploy in V1. Decision on deploying
+to live (and on magic number) is deferred until pipeline results are reviewed.
 
 ## Motivation
 
@@ -23,11 +24,12 @@ robustness gates that survived K3M1-75 (MC 10k bootstrap + walk-forward 50/50
 
 ## Scope
 
-- **In scope:** Pipeline that produces a `bot_config_orb.json` ready to load
-  in the live bot under a new magic (1339). Phases A–D end-to-end.
-- **Out of scope (V1):** Live integration (wiring magic 1339 into the
-  supervisor, Telegram routing, risk-tier merging with K3M1). That's a
-  follow-up project after the pipeline produces validated strategies.
+- **In scope (V1):** Backtest pipeline Phases A–D end-to-end. Output is
+  parquets + human-readable reports for review. No live integration, no
+  bot config generation, no magic assignment.
+- **Deferred to post-V1 review:** Decision whether to deploy any subset of
+  surviving strategies to live, what magic to assign, and how to merge with
+  K3M1-75 (separate portfolio vs. unified).
 - **Out of scope (V1):** Friction calibration for NATGAS, SP500, NASDAQ100,
   EURAUD. If snapshots are unavailable, V1 ships on the K3M1-11 universe and
   V2 extends.
@@ -40,7 +42,7 @@ Four sequential phases, each writing a parquet that's the input to the next:
 Phase A: PATTERN + EDGE     → orb_phase_a.parquet
 Phase B: MANAGEMENT GRID    → orb_phase_b.parquet
 Phase C: ROBUSTEZ           → orb_robustness.parquet
-Phase D: OPTUNA REFINE      → orb_optuna_results.parquet → bot_config_orb.json
+Phase D: OPTUNA REFINE      → orb_optuna_results.parquet (+ final report)
 ```
 
 Each phase is idempotent: re-running with the same inputs produces the same
@@ -258,9 +260,9 @@ maximize PF_OOS
 
 ### Phase D output
 
-`reports/orb/orb_optuna_results.parquet` with refined parameters per strategy.
-`scripts/build_bot_config_orb.py` consumes this and produces
-`config/bot_config_orb.json` (magic = 1339).
+`reports/orb/orb_optuna_results.parquet` with refined parameters per strategy
++ `reports/orb/ORB_Pipeline_Report.md` consolidating Phase A→D results for
+human review. No bot config produced in V1; that's a post-review decision.
 
 ## Module layout
 
@@ -277,7 +279,6 @@ src/application/
   orb_management_walker.py      # M1 exit walker (TP/SL/MAX_HOLD) — numpy hotpath, mirrors K3M1
 
 scripts/
-  build_bot_config_orb.py
   run_orb_pipeline.py           # End-to-end orchestrator with --skip-phase A|B|C|D
 
 tests/
@@ -286,8 +287,6 @@ tests/
   test_orb_management_walker.py # SL-first tie, MAX_HOLD timeout, friction application
 
 reports/orb/                    # All parquet outputs + ORB_Pipeline_Report.md
-config/
-  bot_config_orb.json           # Generated, magic 1339
 ```
 
 ## Reused components
@@ -311,12 +310,17 @@ config/
 ## Success criteria
 
 V1 ships when:
-1. End-to-end pipeline runs on 11 K3M1 symbols without errors
-2. ≥ 20 strategies classified FUERTE or ACEPTABLE post-Optuna
-3. Aggregate portfolio (equal-weight survivors) PF_OOS ≥ 2.0 and MC_ruin ≤ 0.10
-4. `bot_config_orb.json` validates against the same schema as `bot_config_math.json`
-5. Unit tests for pattern detection, edge metrics, and management walker pass
-6. `reports/orb/ORB_Pipeline_Report.md` is generated with per-strategy summary
+1. End-to-end pipeline runs on the 11 K3M1 symbols without errors
+2. All four phase parquets exist in `reports/orb/` and are reproducible
+3. `reports/orb/ORB_Pipeline_Report.md` is generated with per-strategy summary
+   (count, WR, PF_IS, PF_OOS, MC_ruin, decay slope, classification) for
+   every (sym, magic_time, duration, pattern, direction) that reached Phase C
+4. Unit tests for pattern detection, edge metrics, and management walker pass
+   (including explicit no-look-ahead tests)
+
+Note: V1 does NOT have a quality threshold gate (e.g. "≥20 strategies must
+survive"). The point of V1 is to produce evidence; the deploy/no-deploy
+decision happens after we see the report.
 
 ## Open questions deferred to implementation
 
