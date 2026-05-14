@@ -40,62 +40,79 @@ def _load_triggers() -> pl.DataFrame:
 
 
 def _add_hit_columns(triggers: pl.DataFrame) -> pl.DataFrame:
-    """Add hit_long_<T> and hit_short_<T> bool columns per threshold."""
+    """Add hit columns: R-based thresholds + OR-range-based thresholds."""
     exprs = []
     for t in THRESHOLDS_R:
         tag = str(t).replace(".", "")
-        # For LONG rows, the favorable excursion is mfe_long_r.
-        # For SHORT rows, it's mfe_short_r.
+        # R-based hit (price moved >= t R favorably)
         exprs.append(
             pl.when(pl.col("direction") == "LONG")
               .then(pl.col("mfe_long_r") >= t)
               .otherwise(pl.col("mfe_short_r") >= t)
               .alias(f"hit_{tag}r")
         )
-        # Adverse hit (price moved against by threshold) — useful for SL feasibility
         exprs.append(
             pl.when(pl.col("direction") == "LONG")
               .then(pl.col("mae_long_r") >= t)
               .otherwise(pl.col("mae_short_r") >= t)
               .alias(f"adverse_{tag}r")
         )
+    # OR-range-based hits — present only if or_width column exists (new triggers)
+    if "or_width" in triggers.columns:
+        for frac in [0.5, 1.0, 1.5]:
+            tag = str(frac).replace(".", "")
+            thr = pl.col("or_width") * frac
+            exprs.append(
+                pl.when(pl.col("direction") == "LONG")
+                  .then(pl.col("mfe_long") >= thr)
+                  .otherwise(pl.col("mfe_short") >= thr)
+                  .alias(f"hit_{tag}or")
+            )
+            exprs.append(
+                pl.when(pl.col("direction") == "LONG")
+                  .then(pl.col("mae_long") >= thr)
+                  .otherwise(pl.col("mae_short") >= thr)
+                  .alias(f"adverse_{tag}or")
+            )
     return triggers.with_columns(exprs)
 
 
-def hit_rates_by_pattern(triggers: pl.DataFrame, min_count: int) -> pl.DataFrame:
-    """Per (symbol, magic_time, or_duration_min, pattern_id, direction): count + hit rate per threshold."""
-    base = ["symbol", "magic_time", "or_duration_min", "pattern_id",
-            "event_type", "or_position", "or_atr_bucket", "pd_or_bucket", "direction"]
+def _build_aggs(triggers: pl.DataFrame) -> list:
     aggs = [pl.len().alias("count")]
     for t in THRESHOLDS_R:
         tag = str(t).replace(".", "")
         aggs.append(pl.col(f"hit_{tag}r").mean().alias(f"hit_rate_{tag}r"))
         aggs.append(pl.col(f"adverse_{tag}r").mean().alias(f"adverse_rate_{tag}r"))
+    if "hit_05or" in triggers.columns:
+        for frac in [0.5, 1.0, 1.5]:
+            tag = str(frac).replace(".", "")
+            aggs.append(pl.col(f"hit_{tag}or").mean().alias(f"hit_rate_{tag}or"))
+            aggs.append(pl.col(f"adverse_{tag}or").mean().alias(f"adverse_rate_{tag}or"))
+    return aggs
+
+
+def hit_rates_by_pattern(triggers: pl.DataFrame, min_count: int) -> pl.DataFrame:
+    """Per (symbol, magic_time, or_duration_min, pattern_id, direction): hit rates."""
+    base = ["symbol", "magic_time", "or_duration_min", "pattern_id",
+            "event_type", "or_position", "or_atr_bucket", "pd_or_bucket", "direction"]
+    sort_col = "hit_rate_05or" if "hit_05or" in triggers.columns else "hit_rate_05r"
     return (
         triggers.group_by(base)
-        .agg(aggs)
+        .agg(_build_aggs(triggers))
         .filter(pl.col("count") >= min_count)
-        .sort("hit_rate_05r", descending=True)
+        .sort(sort_col, descending=True)
     )
 
 
 def hit_rates_by_context_combo(triggers: pl.DataFrame, min_count: int) -> pl.DataFrame:
-    """Hit rates aggregated across all symbols, by context combo only.
-
-    This answers: 'across the whole universe, which event × state combos
-    have the best favorable hit-rate at 0.5R?'
-    """
+    """Hit rates aggregated across all symbols, by context combo only."""
     base = ["event_type", "or_position", "or_atr_bucket", "pd_or_bucket", "direction"]
-    aggs = [pl.len().alias("count")]
-    for t in THRESHOLDS_R:
-        tag = str(t).replace(".", "")
-        aggs.append(pl.col(f"hit_{tag}r").mean().alias(f"hit_rate_{tag}r"))
-        aggs.append(pl.col(f"adverse_{tag}r").mean().alias(f"adverse_rate_{tag}r"))
+    sort_col = "hit_rate_05or" if "hit_05or" in triggers.columns else "hit_rate_05r"
     return (
         triggers.group_by(base)
-        .agg(aggs)
+        .agg(_build_aggs(triggers))
         .filter(pl.col("count") >= min_count)
-        .sort("hit_rate_05r", descending=True)
+        .sort(sort_col, descending=True)
     )
 
 
@@ -159,12 +176,19 @@ def write_report(
             f"{fmt_r(row['edge_p50'])} |\n"
         )
 
-    lines.append("\n## 2. Top 30 context combos by P(hit 0.5R) — aggregated across all symbols\n\n")
+    has_or_cols = "hit_rate_05or" in by_combo.columns
+    sort_label = "P(MFE ≥ 0.5 × OR range)" if has_or_cols else "P(hit 0.5R)"
+    lines.append(f"\n## 2. Top 30 context combos by {sort_label} — aggregated across all symbols\n\n")
     lines.append("Each row = `(event × or_position × or_atr_bucket × pd_or_bucket × direction)`. "
                  "Useful to see which contextual conditions matter most.\n\n")
-    cols = ["event_type", "or_position", "or_atr_bucket", "pd_or_bucket", "direction",
-            "count", "hit_rate_03r", "hit_rate_05r", "hit_rate_075r", "hit_rate_10r",
-            "adverse_rate_05r"]
+    if has_or_cols:
+        cols = ["event_type", "or_position", "or_atr_bucket", "pd_or_bucket", "direction",
+                "count", "hit_rate_05or", "hit_rate_10or", "hit_rate_15or",
+                "adverse_rate_05or", "adverse_rate_10or"]
+    else:
+        cols = ["event_type", "or_position", "or_atr_bucket", "pd_or_bucket", "direction",
+                "count", "hit_rate_03r", "hit_rate_05r", "hit_rate_075r", "hit_rate_10r",
+                "adverse_rate_05r"]
     lines.append("| " + " | ".join(cols) + " |\n")
     lines.append("| " + " | ".join("---" for _ in cols) + " |\n")
     for row in by_combo.head(30).iter_rows(named=True):
@@ -182,10 +206,15 @@ def write_report(
                 cells.append(str(v))
         lines.append("| " + " | ".join(cells) + " |\n")
 
-    lines.append("\n## 3. Top 50 individual patterns (symbol-specific) by P(hit 0.5R)\n\n")
-    cols2 = ["symbol", "magic_time", "or_duration_min", "event_type",
-             "or_atr_bucket", "pd_or_bucket", "direction",
-             "count", "hit_rate_05r", "hit_rate_10r", "adverse_rate_05r"]
+    lines.append(f"\n## 3. Top 50 individual patterns (symbol-specific) by {sort_label}\n\n")
+    if has_or_cols:
+        cols2 = ["symbol", "magic_time", "or_duration_min", "event_type",
+                 "or_atr_bucket", "pd_or_bucket", "direction",
+                 "count", "hit_rate_05or", "hit_rate_10or", "adverse_rate_05or"]
+    else:
+        cols2 = ["symbol", "magic_time", "or_duration_min", "event_type",
+                 "or_atr_bucket", "pd_or_bucket", "direction",
+                 "count", "hit_rate_05r", "hit_rate_10r", "adverse_rate_05r"]
     lines.append("| " + " | ".join(cols2) + " |\n")
     lines.append("| " + " | ".join("---" for _ in cols2) + " |\n")
     for row in by_pattern.head(50).iter_rows(named=True):
@@ -204,12 +233,18 @@ def write_report(
         lines.append("| " + " | ".join(cells) + " |\n")
 
     lines.append("\n## 4. Interpretación\n\n")
-    lines.append("- **hit_rate_05r** = probabilidad de que el precio se mueva ≥0.5R a favor dentro de 4h\n")
-    lines.append("- **adverse_rate_05r** = probabilidad de que se mueva ≥0.5R en contra dentro de 4h\n")
+    lines.append("**Columnas en R** (1R = 0.5 × ATR del setup):\n")
+    lines.append("- `hit_rate_05r` = P(MFE favorable ≥ 0.5R en 4h)\n")
+    lines.append("- `adverse_rate_05r` = P(MAE adverso ≥ 0.5R en 4h)\n\n")
+    lines.append("**Columnas en OR** (fracción del rango del Opening Range):\n")
+    lines.append("- `hit_rate_05or` = P(MFE favorable ≥ 0.5 × OR_width en 4h) ← tu framing\n")
+    lines.append("- `hit_rate_10or` = P(MFE favorable ≥ 1.0 × OR_width)\n")
+    lines.append("- `adverse_rate_05or` = P(MAE adverso ≥ 0.5 × OR_width)\n\n")
+    lines.append("**Cómo leer edge:**\n")
     lines.append("- **Hay edge si**: hit_rate >> adverse_rate (ej. hit 70% vs adverse 50%)\n")
-    lines.append("- **Random walk si**: hit ≈ adverse (ambos ~60-70% por la volatilidad natural)\n")
-    lines.append("- **1:1 RR factible si**: hit_rate_05r > 50% Y hit_rate_10r > 33% para el lado del TP\n")
-    lines.append("- **Buen pattern para deploy**: hit_rate_05r > 65%, count ≥ 100, adverse_rate_10r < 50%\n\n")
+    lines.append("- **Random walk si**: hit ≈ adverse (ambos ~60-70% por volatilidad natural)\n")
+    lines.append("- **1:1 RR factible si**: hit_rate_05or > 50% Y hit_rate_10or > 33%\n")
+    lines.append("- **Buen pattern para deploy**: hit_rate_05or > 65%, count ≥ 100, adverse_rate_10or < 50%\n\n")
 
     out_path.write_text("".join(lines), encoding="utf-8")
     print(f"[Analysis] wrote {out_path}")
