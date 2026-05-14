@@ -30,11 +30,14 @@ from src.application.orb_utils import (
 
 @dataclass(frozen=True)
 class PhaseAConfig:
-    min_count_per_year: float = 50.0
-    min_edge_score_r: float = 0.3
-    min_p50_mfe_r: float = 1.0
-    max_p50_mae_r: float = 1.5
-    horizon_min: int = 480
+    # V1 exploratory gates: loosened from initial conservative values to
+    # surface whatever edge exists in the 14-symbol universe. Tightened
+    # in V2 once we see the distribution of edge scores.
+    min_count_per_year: float = 30.0
+    min_edge_score_r: float = 0.15
+    min_p50_mfe_r: float = 0.5
+    max_p50_mae_r: float = 2.0
+    horizon_min: int = 240  # 4h forward window for MFE/MAE
     risk_atr_mult: float = 0.5
 
 
