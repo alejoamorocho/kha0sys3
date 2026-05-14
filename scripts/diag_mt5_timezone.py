@@ -24,20 +24,15 @@ def main():
     print(f"Real UTC now:   {now_utc.isoformat()}")
     print(f"Real UTC epoch: {int(now_utc.timestamp())}")
     print()
-    # Probe symbols: which gold variant the broker uses
-    for cand in ("XAUUSD", "XAUUSD+", "XAUUSD.", "XAUUSDc", "GOLD"):
-        si = mt5.symbol_info(cand)
-        print(f"  symbol_info({cand}): {'OK' if si else 'None'}"
-              + (f" select={si.select}" if si else ""))
-    rates = mt5.copy_rates_from_pos("XAUUSD", mt5.TIMEFRAME_M1, 0, 3)
-    print(f"\ncopy_rates_from_pos(XAUUSD M1) -> {len(rates) if rates is not None else 'None'} bars")
+    sym = "XAUUSD+"  # Vantage real name
+    si = mt5.symbol_info(sym)
+    print(f"  symbol_info({sym}): {'OK' if si else 'None'}")
+    if si and not si.select:
+        mt5.symbol_select(sym, True)
+    rates = mt5.copy_rates_from_pos(sym, mt5.TIMEFRAME_M1, 0, 3)
+    print(f"\ncopy_rates_from_pos({sym} M1) -> {len(rates) if rates is not None else 'None'} bars")
     if rates is None:
         print(f"  last_error: {mt5.last_error()}")
-        # try selecting in Market Watch then retry
-        if mt5.symbol_select("XAUUSD", True):
-            print("  retrying after symbol_select...")
-            rates = mt5.copy_rates_from_pos("XAUUSD", mt5.TIMEFRAME_M1, 0, 3)
-            print(f"  -> {len(rates) if rates is not None else 'None'} bars")
     if rates is not None and len(rates) > 0:
         print("MT5 M1 bars (last 3):")
         for r in rates:
@@ -47,7 +42,7 @@ def main():
             offset_h = (epoch - int(now_utc.timestamp())) / 3600
             print(f"  epoch={epoch}  decoded_as_UTC={t_as_utc.isoformat()}  "
                   f"decoded_as_LOCAL={t_naive.isoformat()}  delta_h_vs_now_utc={offset_h:+.2f}")
-    tick = mt5.symbol_info_tick("XAUUSD")
+    tick = mt5.symbol_info_tick(sym)
     if tick:
         t_tick = datetime.fromtimestamp(int(tick.time), tz=timezone.utc)
         offset = (int(tick.time) - int(now_utc.timestamp())) / 3600
