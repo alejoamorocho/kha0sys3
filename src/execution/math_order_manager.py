@@ -129,12 +129,24 @@ class MathOrderManager:
     """Manages STOP orders for the MATH parallel runner (magic 1338)."""
 
     def __init__(self, client, magic: int = MAGIC_NUMBER_MATH,
-                 dry_run: bool = True, telegram=None, risk_allocator=None):
+                 dry_run: bool = True, telegram=None, risk_allocator=None,
+                 math_notifier=None):
         self.client = client
         self.magic = magic
         self.dry_run = dry_run
         self.telegram = telegram
         self.risk = risk_allocator  # DynamicRiskAllocator instance or None
+        # MathNotifier: formato HTML uniforme (mismo estilo que TradersBot).
+        # Si no se pasa, se intenta construir reusando el telegram base.
+        if math_notifier is not None:
+            self.math_notifier = math_notifier
+        else:
+            try:
+                from src.monitoring.math_notifier import MathNotifier
+                self.math_notifier = MathNotifier(base=telegram)
+            except Exception as e:
+                print(f"[MATH] MathNotifier init FAIL: {e}")
+                self.math_notifier = None
 
         # In-memory pending registry (source of truth in DRY, shadow in LIVE)
         self._pending: dict[str, PendingMathOrder] = {}
@@ -327,29 +339,40 @@ class MathOrderManager:
         rob = setup_cfg.get("robustness_label", "?")
         pf_oos = setup_cfg.get("expected_pf_oos", 0)
         strat_id = setup_cfg.get("id", f"{symbol}_{tf}_{setup_type}_{setup_cfg.get('session','-')}")
-        tg_msg = (
-            f"ORDER PLACED [{rob}]\n"
-            f"ID:        {strat_id}\n"
-            f"Symbol:    {symbol}\n"
-            f"TF:        {tf}\n"
-            f"Type:      {order_type}\n"
-            f"Direction: {flipped} ({dir_mode})\n"
-            f"Setup:     {setup_type}\n"
-            f"Session:   {setup_cfg.get('session', '-')}\n"
-            f"Entry:     {stop_price:{_fmt}}\n"
-            f"TP:        {tp_price:{_fmt}}\n"
-            f"SL:        {sl_price:{_fmt}}\n"
-            f"R:R:       {rr:.2f}\n"
-            f"ATR:       {atr:.5f}\n"
-            f"Risk:      {risk_pct*100:.2f}% (WR={expected_wr:.2f})\n"
-            f"PF OOS:    {pf_oos:.2f}\n"
-            f"Ticket:    {ticket if ticket != -1 else 'DRY'}"
-        )
         # Console log stays compact (one line for grep)
         print(f"[MATH]{'[DRY]' if self.dry_run else ''} {order_type} {symbol} "
               f"@ {stop_price:{_fmt}} TP={tp_price:{_fmt}} SL={sl_price:{_fmt}} "
               f"setup={setup_type}/{dir_mode} risk={risk_pct*100:.1f}%")
-        self._tg(tg_msg)
+        # New HTML-formatted notification (same style as TradersBot)
+        if self.math_notifier is not None:
+            self.math_notifier.order_placed(
+                strategy_id=strat_id, setup_type=setup_type, tf=tf,
+                session=setup_cfg.get("session", "-"),
+                dir_mode=dir_mode,
+                broker_sym=symbol, internal_sym=internal,
+                robustness=rob,
+                order_type=order_type, entry=stop_price, sl=sl_price,
+                tp=tp_price, atr=atr, rr=float(rr),
+                risk_pct=risk_pct, expected_wr=expected_wr,
+                pf_oos=float(pf_oos), ticket=int(ticket),
+                lots=float(volume) if volume else 0.0,
+            )
+        else:
+            # Fallback to legacy plain format
+            self._tg(
+                f"ORDER PLACED [{rob}]\n"
+                f"ID:        {strat_id}\n"
+                f"Symbol:    {symbol}\n"
+                f"TF:        {tf}\n"
+                f"Type:      {order_type}\n"
+                f"Direction: {flipped} ({dir_mode})\n"
+                f"Setup:     {setup_type}\n"
+                f"Entry:     {stop_price:{_fmt}}\n"
+                f"TP:        {tp_price:{_fmt}}\n"
+                f"SL:        {sl_price:{_fmt}}\n"
+                f"R:R:       {rr:.2f}\n"
+                f"Ticket:    {ticket if ticket != -1 else 'DRY'}"
+            )
         return pending
 
     def _compute_volume(self, sym_info, entry: float, sl: float,
@@ -1212,17 +1235,41 @@ class MathOrderManager:
             tp = float(getattr(p, "tp", 0.0))
             vol = float(getattr(p, "volume", 0.0))
             ptype = "BUY" if getattr(p, "type", 0) == 0 else "SELL"
-            self._tg(
-                f"LIVE FILL\n"
-                f"Symbol:    {p.symbol}\n"
-                f"Comment:   {p.comment}\n"
-                f"Direction: {ptype}\n"
-                f"Volume:    {vol}\n"
-                f"Entry:     {entry:.5f}\n"
-                f"SL:        {sl:.5f}\n"
-                f"TP:        {tp:.5f}\n"
-                f"Ticket:    {tkt}"
-            )
+            # Parse comment "M|<TF>|<SETUP_TAG>|<SESSION_TAG>"
+            parts = (p.comment or "").split("|")
+            tf_p = parts[1] if len(parts) > 1 else "?"
+            setup_tag_p = parts[2] if len(parts) > 2 else "?"
+            session_p = parts[3] if len(parts) > 3 else "?"
+            # Inverse map setup_tag -> setup_type
+            setup_inv = {v: k for k, v in SETUP_TAG.items()}
+            setup_type_p = setup_inv.get(setup_tag_p, setup_tag_p)
+            sess_inv = {v: k for k, v in SESSION_TAG.items()}
+            session_full = sess_inv.get(session_p, session_p)
+            # Reconstruct strategy_id approx
+            from src.infrastructure.symbol_mapper import SymbolMapper
+            mapper = SymbolMapper()
+            internal_sym = mapper.to_internal(p.symbol)
+            strat_id_guess = f"{internal_sym}_{tf_p}_{setup_tag_p}_{session_full}_INV"
+            if self.math_notifier is not None:
+                self.math_notifier.fill(
+                    strategy_id=strat_id_guess, setup_type=setup_type_p,
+                    tf=tf_p, session=session_full,
+                    dir_mode=ptype, broker_sym=p.symbol,
+                    internal_sym=internal_sym, entry=entry,
+                    lots=vol, ticket=int(tkt),
+                )
+            else:
+                self._tg(
+                    f"LIVE FILL\n"
+                    f"Symbol:    {p.symbol}\n"
+                    f"Comment:   {p.comment}\n"
+                    f"Direction: {ptype}\n"
+                    f"Volume:    {vol}\n"
+                    f"Entry:     {entry:.5f}\n"
+                    f"SL:        {sl:.5f}\n"
+                    f"TP:        {tp:.5f}\n"
+                    f"Ticket:    {tkt}"
+                )
 
         # CLOSES: tickets that were open last tick but no longer open now
         for tkt, prev_p in prev_open.items():
@@ -1264,16 +1311,49 @@ class MathOrderManager:
 
             r_line = f"R-mult:    {r_mult:+.3f}\n" if r_mult is not None else ""
             cp_line = f"Close:     {close_price:.5f}\n" if close_price is not None else ""
-            self._tg(
-                f"LIVE CLOSE\n"
-                f"Symbol:    {prev_p.symbol}\n"
-                f"Comment:   {prev_p.comment}\n"
-                f"Reason:    {close_reason}\n"
-                f"Entry:     {float(prev_p.price_open):.5f}\n"
-                f"{cp_line}"
-                f"{r_line}"
-                f"Ticket:    {tkt}"
-            )
+            # Parse comment for strategy_id reconstruction
+            parts = (prev_p.comment or "").split("|")
+            tf_c = parts[1] if len(parts) > 1 else "?"
+            setup_tag_c = parts[2] if len(parts) > 2 else "?"
+            session_c = parts[3] if len(parts) > 3 else "?"
+            setup_inv = {v: k for k, v in SETUP_TAG.items()}
+            setup_type_c = setup_inv.get(setup_tag_c, setup_tag_c)
+            sess_inv = {v: k for k, v in SESSION_TAG.items()}
+            session_full_c = sess_inv.get(session_c, session_c)
+            from src.infrastructure.symbol_mapper import SymbolMapper
+            mapper = SymbolMapper()
+            internal_sym_c = mapper.to_internal(prev_p.symbol)
+            strat_id_c = f"{internal_sym_c}_{tf_c}_{setup_tag_c}_{session_full_c}_INV"
+            entry_c = float(prev_p.price_open)
+            ptype = getattr(prev_p, "type", 0)
+            dir_mode_c = "BUY" if ptype == 0 else "SELL"
+            # Compute hold minutes from prev_p.time (open epoch broker time)
+            hold_min = None
+            try:
+                open_epoch = int(getattr(prev_p, "time", 0))
+                if open_epoch > 0:
+                    hold_min = int((datetime.now(timezone.utc).timestamp() - open_epoch) / 60)
+            except Exception:
+                pass
+            if self.math_notifier is not None:
+                self.math_notifier.position_closed(
+                    strategy_id=strat_id_c, setup_type=setup_type_c,
+                    tf=tf_c, session=session_full_c, dir_mode=dir_mode_c,
+                    broker_sym=prev_p.symbol, internal_sym=internal_sym_c,
+                    exit_price=close_price if close_price else entry_c,
+                    reason=close_reason, r_multiple=r_mult,
+                    hold_minutes=hold_min,
+                )
+            else:
+                self._tg(
+                    f"LIVE CLOSE\n"
+                    f"Symbol:    {prev_p.symbol}\n"
+                    f"Comment:   {prev_p.comment}\n"
+                    f"Reason:    {close_reason}\n"
+                    f"Entry:     {entry_c:.5f}\n"
+                    f"{cp_line}{r_line}"
+                    f"Ticket:    {tkt}"
+                )
 
         self._prev_open_tickets = cur_open
         self._prev_pending_tickets = cur_pending

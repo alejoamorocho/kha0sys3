@@ -158,12 +158,16 @@ class MathTraderEngine:
     def pause(self):
         with self._pause_lock:
             self._paused = True
-        self._tg("engine PAUSED (no new placements)")
+        mn = getattr(self.om, "math_notifier", None)
+        if mn is not None: mn.engine_paused()
+        else: self._tg("engine PAUSED (no new placements)")
 
     def resume(self):
         with self._pause_lock:
             self._paused = False
-        self._tg("engine RESUMED")
+        mn = getattr(self.om, "math_notifier", None)
+        if mn is not None: mn.engine_resumed()
+        else: self._tg("engine RESUMED")
 
     def _on_stop_command(self):
         """Telegram /stop callback: pause and cancel all magic=1338 pendings."""
@@ -457,30 +461,30 @@ class MathTraderEngine:
 
         from collections import Counter as _Cnt
         tf_dist = _Cnt(s.get("tf", "M15") for s in self.setups)
-        tf_line = " ".join(f"{k}:{v}" for k, v in tf_dist.most_common())
-        acct_line = (
-            f"Account:  {acct_login} ({acct_server})\n" if acct_login is not None else ""
-        )
-        msg = (
-            f"HEARTBEAT\n"
-            f"{acct_line}"
-            f"Uptime:   {uptime_h:.1f}h\n"
-            f"Setups:   {len(self.setups)} ({tf_line})\n"
-            f"Pending:  {len(self.om._pending)}\n"
-            f"Open pos: {n_pos} (floating P&L ${pnl_d:+.2f})\n"
-            f"Balance:  ${bal:.2f}\n"
-            f"Equity:   ${eq:.2f}\n"
-            f"Free:     ${free:.2f}"
-        )
-        if self.dry_run:
-            trades = self.om.read_dry_trades()
-            today = self.om._today_utc()
-            todays = [t for t in trades if (t.get("exit_time") or "").startswith(today)]
-            msg += (
-                f"\nDRY today: n={len(todays)} "
-                f"netR={sum(t.get('r_multiple', 0.0) for t in todays):+.2f}"
+        margin_used = float(getattr(mt5.account_info() if mt5 else None, "margin", 0.0)) if mt5 else 0.0
+        mn = getattr(self.om, "math_notifier", None)
+        if mn is not None:
+            mn.heartbeat(
+                balance=bal, equity=eq, margin=margin_used, free_margin=free,
+                n_open=n_pos, n_pending=len(self.om._pending),
+                by_tf=dict(tf_dist), uptime_hours=uptime_h,
             )
-        self._tg(msg)
+        else:
+            tf_line = " ".join(f"{k}:{v}" for k, v in tf_dist.most_common())
+            acct_line = (
+                f"Account:  {acct_login} ({acct_server})\n" if acct_login is not None else ""
+            )
+            self._tg(
+                f"HEARTBEAT\n"
+                f"{acct_line}"
+                f"Uptime:   {uptime_h:.1f}h\n"
+                f"Setups:   {len(self.setups)} ({tf_line})\n"
+                f"Pending:  {len(self.om._pending)}\n"
+                f"Open pos: {n_pos} (floating P&L ${pnl_d:+.2f})\n"
+                f"Balance:  ${bal:.2f}\n"
+                f"Equity:   ${eq:.2f}\n"
+                f"Free:     ${free:.2f}"
+            )
 
     def _maybe_emit_daily_report(self):
         """Fire the DRY daily report at 23:55 UTC (once per day)."""
@@ -502,7 +506,9 @@ class MathTraderEngine:
         """Main loop. Polls every POLL_INTERVAL; acts on M15 boundaries."""
         if not self.client.connect():
             print("[MATH] MT5 connect failed.")
-            self._tg("ENGINE FATAL\nMT5 connect failed\nEngine exiting")
+            mn = getattr(self.om, "math_notifier", None)
+            if mn is not None: mn.fatal("MT5 connect failed - engine exiting")
+            else: self._tg("ENGINE FATAL\nMT5 connect failed\nEngine exiting")
             return
 
         # Startup guard: refuse to operate on the wrong MT5 account.
@@ -563,25 +569,29 @@ class MathTraderEngine:
             avg_pf_oos = (sum(s.get("expected_pf_oos", 0) for s in self.setups) / max(n, 1))
 
             mode = "LIVE" if not self.dry_run else "DRY_RUN"
-            off_h = self._server_offset_sec / 3600
-            self._tg(
-                f"ENGINE STARTED ({mode}) - K3M1-75 (M1 mgmt)\n"
-                f"Magic:      {MAGIC_NUMBER_MATH}\n"
-                f"Setups:     {n}\n"
-                f"Robustness: {rob_line}\n"
-                f"Timeframes: {tfs_line}\n"
-                f"Avg WR:     {avg_wr:.1%}\n"
-                f"Avg PF IS:  {avg_pf:.2f}\n"
-                f"Avg PF OOS: {avg_pf_oos:.2f}\n"
-                f"Symbols:    {len(sym_counter)} -> {syms_line}\n"
-                f"Setup mix:  {setups_line}\n"
-                f"Direction:  {dirs_line}\n"
-                f"MT5 offset: {off_h:+.0f}h (server -> real UTC)\n"
-                f"Risk:       0.5% fijo por trade\n"
-                f"Balance:    ${bal:.2f}\n"
-                f"Equity:     ${eq:.2f}\n"
-                f"Free:       ${mg:.2f}"
-            )
+            # Prefer HTML notifier via order manager's math_notifier
+            mn = getattr(self.om, "math_notifier", None)
+            risk_pct_disp = 0.001  # unified 0.1% (constants.py UNIFIED_RISK_PCT)
+            if mn is not None:
+                mn.engine_started(
+                    mode=mode, n_setups=n, by_tf=dict(tf_counter),
+                    by_setup=dict(setup_counter), avg_wr=avg_wr,
+                    avg_pf_oos=avg_pf_oos, risk_pct=risk_pct_disp,
+                )
+            else:
+                self._tg(
+                    f"ENGINE STARTED ({mode}) - K3M1-75 (M1 mgmt)\n"
+                    f"Magic:      {MAGIC_NUMBER_MATH}\n"
+                    f"Setups:     {n}\n"
+                    f"Robustness: {rob_line}\n"
+                    f"Timeframes: {tfs_line}\n"
+                    f"Avg WR:     {avg_wr:.1%}\n"
+                    f"Avg PF OOS: {avg_pf_oos:.2f}\n"
+                    f"Symbols:    {len(sym_counter)} -> {syms_line}\n"
+                    f"Balance:    ${bal:.2f}\n"
+                    f"Equity:     ${eq:.2f}\n"
+                    f"Free:       ${mg:.2f}"
+                )
         except Exception as e:
             print(f"[MATH] startup TG error: {e}")
             self._tg(
@@ -716,7 +726,9 @@ class MathTraderEngine:
                 time.sleep(self.POLL_INTERVAL)
 
         except KeyboardInterrupt:
-            self._tg("ENGINE STOPPED\nReason: KeyboardInterrupt")
+            mn = getattr(self.om, "math_notifier", None)
+            if mn is not None: mn.engine_stopped(reason="KeyboardInterrupt")
+            else: self._tg("ENGINE STOPPED\nReason: KeyboardInterrupt")
             print("[MATH] Stopped.")
         finally:
             if self.command_bot is not None:
