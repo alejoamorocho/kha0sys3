@@ -1,5 +1,5 @@
 {
-  "_doc": "K3+M1mgmt 75 portfolio \u2014 discovery on 4 signal TFs (M1/M15/H1/H4) with M1 management (TP/SL walked minute-by-minute). Realistic Vantage friction (per-symbol). All FUERTE + ACEPTABLE after MC 10k bootstrap + walk-forward 50/50 + decay analysis. DEDUPED: best session per (symbol, tf, setup, direction). | LOSER-PURGE 2026-05-13: removed 6 confirmed losers (n>=2 0% WR) + all 10 OLS_SLOPE_STRONG (consistent 0/6 live failures). 75 -> 63 strategies.",
+  "_doc": "K3+M1mgmt 75 portfolio — discovery on 4 signal TFs (M1/M15/H1/H4) with M1 management (TP/SL walked minute-by-minute). Realistic Vantage friction (per-symbol). All FUERTE + ACEPTABLE after MC 10k bootstrap + walk-forward 50/50 + decay analysis. DEDUPED: best session per (symbol, tf, setup, direction). | LOSER-PURGE 2026-05-13: removed 6 confirmed losers (n>=2 0% WR) + all 10 OLS_SLOPE_STRONG (consistent 0/6 live failures). 75 -> 63 strategies. | 2026-05-14: UNIFIED RISK 0.1% per trade (was 0.5%) for portfolio survival test alongside Traders Swing (1339) + ORB (1340).",
   "_metrics_aggregate": {
     "n_strategies": 63,
     "by_robustness": {
@@ -50,8 +50,8 @@
     "tiers": [
       {
         "max_balance": null,
-        "min_risk": 0.005,
-        "max_risk": 0.005
+        "min_risk": 0.001,
+        "max_risk": 0.001
       }
     ]
   },

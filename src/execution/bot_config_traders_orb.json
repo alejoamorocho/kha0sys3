@@ -1,0 +1,507 @@
+{
+  "_doc": "Traders ORB portfolio (magic 1340) — 12 estrategias intraday opening range breakout. Grid uniform winners. SL tight 0.5xATR_M1, partial 50% en R, max_hold 4-8h. Risk unificado 0.1% per trade. Built 2026-05-14T08:10:27.146215+00:00.",
+  "_metrics_aggregate": {
+    "n_strategies": 12,
+    "avg_pf": 2.47,
+    "avg_pf_oos": 2.373,
+    "avg_wr": 0.5362,
+    "sum_trades_per_year": 2251.9,
+    "sum_expected_net_r": 18039.3
+  },
+  "magic_number": 1340,
+  "risk_per_trade": 0.001,
+  "portfolio": [
+    {
+      "id": "TO_WTI_13h_15m",
+      "sym": "WTI",
+      "internal_sym": "WTI",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 13,
+        "open_minute_utc": 0,
+        "range_minutes": 15,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 3.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 4,
+        "max_hold_days": 0.16666666666666666,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5095,
+      "expected_pf": 2.793,
+      "expected_pf_oos": 2.237,
+      "expected_n_trades": 1639,
+      "expected_trades_per_year": 196.6,
+      "expected_net_r": 1868.55,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_GBPJPY_07h_30m",
+      "sym": "GBPJPY",
+      "internal_sym": "GBPJPY",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 7,
+        "open_minute_utc": 0,
+        "range_minutes": 30,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 2.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 8,
+        "max_hold_days": 0.3333333333333333,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5578,
+      "expected_pf": 2.754,
+      "expected_pf_oos": 2.643,
+      "expected_n_trades": 1454,
+      "expected_trades_per_year": 174.3,
+      "expected_net_r": 1557.87,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_BRENT_13h_30m",
+      "sym": "BRENT",
+      "internal_sym": "BRENT",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 13,
+        "open_minute_utc": 0,
+        "range_minutes": 30,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 3.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 4,
+        "max_hold_days": 0.16666666666666666,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5217,
+      "expected_pf": 2.715,
+      "expected_pf_oos": 2.34,
+      "expected_n_trades": 1543,
+      "expected_trades_per_year": 185.2,
+      "expected_net_r": 1634.57,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_XAUUSD_07h_30m",
+      "sym": "XAUUSD",
+      "internal_sym": "XAUUSD",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 7,
+        "open_minute_utc": 0,
+        "range_minutes": 30,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 3.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 4,
+        "max_hold_days": 0.16666666666666666,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5125,
+      "expected_pf": 2.695,
+      "expected_pf_oos": 2.957,
+      "expected_n_trades": 1442,
+      "expected_trades_per_year": 172.9,
+      "expected_net_r": 1509.99,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_GBPUSD_07h_15m",
+      "sym": "GBPUSD",
+      "internal_sym": "GBPUSD",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 7,
+        "open_minute_utc": 0,
+        "range_minutes": 15,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 2.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 8,
+        "max_hold_days": 0.3333333333333333,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5964,
+      "expected_pf": 2.67,
+      "expected_pf_oos": 2.426,
+      "expected_n_trades": 1603,
+      "expected_trades_per_year": 192.2,
+      "expected_net_r": 1476.89,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_EURUSD_13h_15m",
+      "sym": "EURUSD",
+      "internal_sym": "EURUSD",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 13,
+        "open_minute_utc": 0,
+        "range_minutes": 15,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 3.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 8,
+        "max_hold_days": 0.3333333333333333,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5056,
+      "expected_pf": 2.406,
+      "expected_pf_oos": 2.638,
+      "expected_n_trades": 1691,
+      "expected_trades_per_year": 202.8,
+      "expected_net_r": 1680.28,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_NASDAQ100_13h_30m",
+      "sym": "NASDAQ100",
+      "internal_sym": "NASDAQ100",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 13,
+        "open_minute_utc": 0,
+        "range_minutes": 30,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 3.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 8,
+        "max_hold_days": 0.3333333333333333,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5364,
+      "expected_pf": 2.33,
+      "expected_pf_oos": 2.053,
+      "expected_n_trades": 1758,
+      "expected_trades_per_year": 210.8,
+      "expected_net_r": 2102.83,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_GBPAUD_07h_30m",
+      "sym": "GBPAUD",
+      "internal_sym": "GBPAUD",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 7,
+        "open_minute_utc": 0,
+        "range_minutes": 30,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 2.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 8,
+        "max_hold_days": 0.3333333333333333,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5716,
+      "expected_pf": 2.382,
+      "expected_pf_oos": 2.668,
+      "expected_n_trades": 1452,
+      "expected_trades_per_year": 174.1,
+      "expected_net_r": 1159.34,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_XAGUSD_13h_30m",
+      "sym": "XAGUSD",
+      "internal_sym": "XAGUSD",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 13,
+        "open_minute_utc": 0,
+        "range_minutes": 30,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 2.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 4,
+        "max_hold_days": 0.16666666666666666,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.549,
+      "expected_pf": 2.282,
+      "expected_pf_oos": 2.223,
+      "expected_n_trades": 1419,
+      "expected_trades_per_year": 170.2,
+      "expected_net_r": 1018.79,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_USDJPY_07h_15m",
+      "sym": "USDJPY",
+      "internal_sym": "USDJPY",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 7,
+        "open_minute_utc": 0,
+        "range_minutes": 15,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 3.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 8,
+        "max_hold_days": 0.3333333333333333,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5143,
+      "expected_pf": 2.277,
+      "expected_pf_oos": 1.617,
+      "expected_n_trades": 1569,
+      "expected_trades_per_year": 188.3,
+      "expected_net_r": 1469.1,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_AUDUSD_13h_30m",
+      "sym": "AUDUSD",
+      "internal_sym": "AUDUSD",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 13,
+        "open_minute_utc": 0,
+        "range_minutes": 30,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 3.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 8,
+        "max_hold_days": 0.3333333333333333,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5032,
+      "expected_pf": 2.263,
+      "expected_pf_oos": 2.581,
+      "expected_n_trades": 1574,
+      "expected_trades_per_year": 188.7,
+      "expected_net_r": 1435.66,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    },
+    {
+      "id": "TO_EURJPY_07h_15m",
+      "sym": "EURJPY",
+      "internal_sym": "EURJPY",
+      "trader": "Qulla",
+      "setup_type": "ORB",
+      "variant": "GRID",
+      "signal_tf": "M1",
+      "entry_tf": "M1",
+      "direction_mode": "LONG",
+      "orb_params": {
+        "open_hour_utc": 7,
+        "open_minute_utc": 0,
+        "range_minutes": 15,
+        "breakout_window_minutes": 180
+      },
+      "exit_rules": {
+        "initial_sl_type": "atr",
+        "initial_sl_atr_mult": 0.5,
+        "initial_sl_pct": null,
+        "partials": [
+          {
+            "trigger": "r_multiple",
+            "value": 2.0,
+            "sell_frac": 0.5
+          }
+        ],
+        "trail_sma": null,
+        "time_stop_days": null,
+        "max_hold_hours": 8,
+        "max_hold_days": 0.3333333333333333,
+        "wait_bars": 2
+      },
+      "expected_wr": 0.5566,
+      "expected_pf": 2.075,
+      "expected_pf_oos": 2.09,
+      "expected_n_trades": 1633,
+      "expected_trades_per_year": 195.8,
+      "expected_net_r": 1125.41,
+      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
+    }
+  ]
+}

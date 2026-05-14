@@ -1,9 +1,16 @@
-# KHA0SYS3 — MATH Bot (K3M1-75)
+# KHA0SYS3 — MATH Bot (K3M1-75) + Traders Replication (2026-05-14)
 
-Sole live trading system. **Magic 1338**. FADE bot (magic 1337) was retired
-during the K3M1-75 cleanup; all legacy discovery / FADE engines, indicator
-scanners, agent worktrees, and old portfolio backups were removed from the
-repo to leave only what the live bot + its discovery pipeline need.
+Tres sistemas live en paralelo, aislados por magic number y manejo de
+ordenes pero compartiendo cuenta MT5:
+
+| Sistema | Magic | n strats | Filosofia | Risk/trade |
+|---|---|---|---|---|
+| **K3M1-75** | **1338** | 63 | Fade math momentum (INVERT) | 0.1% |
+| **Traders Swing** | **1339** | 5 | LONG VCP/HTF (PDFs Minervini/Qulla) | 0.1% |
+| **Traders ORB** | **1340** | 12 | LONG opening range breakout (PDF Qulla) | 0.1% |
+
+Total: **80 estrategias activas, 0.1% per trade uniformes**. FADE (magic 1337)
+permanece retirado.
 
 ## Architecture (post-cleanup)
 
@@ -16,9 +23,12 @@ engine/              k3_universe_m1_mgmt (discovery)
                      run_indicator_discovery (helpers)
                      indicator_validation (compute_metrics)
                      friction_real (per-symbol Vantage friction)
-execution/           live_math_trader (engine)
+execution/           live_math_trader (K3M1 engine, magic 1338)
                      math_order_manager (orders + telegram events)
                      mt5_client, risk_manager
+                     bot_config_math.json (63 K3M1 strategies)
+                     bot_config_traders_swing.json (5 swing, magic 1339)
+                     bot_config_traders_orb.json (12 ORB, magic 1340)
 monitoring/          telegram_notifier, telegram_bot (interactive cmds)
                      mt5_reporter, system_health
 infrastructure/      polars_loader, symbol_mapper
@@ -35,7 +45,7 @@ infrastructure/      polars_loader, symbol_mapper
 | Symbols (11) | XAUUSD · XAGUSD · BRENT · GBPUSD · WTI · GBPJPY · EURUSD · GBPAUD · USDJPY · AUDUSD · EURJPY |
 | Sessions | NY: 29 · ALL_DAY/LONDON_NY: 15 c/u · ASIA: 10 · LONDON: 6 |
 | Direction | 100% INVERT (fade-of-momentum) |
-| Risk | 0.5% fijo por trade |
+| Risk | **0.1% per trade** (unificado con Traders Swing+ORB, 2026-05-14) |
 | Friction model | Realistic Vantage `friction_r(sym, sl, median_atr) + 0.2R` (0.24-0.51R per trade) |
 | Avg WR | 74.8% |
 | Avg PF IS | 2.86 |
@@ -163,3 +173,76 @@ Resulting effective friction per trade (SL=0.5×ATR):
 - `reports/k3m1_phase_b.parquet` — Phase B filtered (845 unique)
 - `reports/k3m1_realistic_survivors.parquet` — 175 realistic
 - `reports/k3m1_dedup_best_session.parquet` — 75 dedup pre-robustness
+
+## Traders Replication (Tier 1 Swing + Tier 2 ORB, 2026-05-14)
+
+Replica geometrica de los PDFs Minervini/Zanger/Qullamaggie/Ryan adaptada a
+FX/commodities/indices. Backtest 2018-2026, friction Vantage real + 0.2R
+slippage. **Risk unificado 0.1% per trade** alineado con K3M1-75.
+
+### Tier 1: Traders Swing (magic 1339, 5 estrategias)
+
+D1 setup detection + M1 intraday breakout entry + walker M1 con exit per trader.
+Nomenclatura `TS_<SYM>_<SETUP>_<VARIANTE>`.
+
+| ID | Variant | Setup exit (SL / Partials / Trail / Max) | PF IS | PF OOS |
+|---|---|---|---|---|
+| TS_XAGUSD_QULLAHTF_PDF | PDF-strict | 1×ATR / 30%d3 + 20%d5 / SMA50 / 40d | 2.30 | 2.08 |
+| TS_XAUUSD_MINERVINI_VCP_PDF | PDF-strict | 7.5% / 25%@2R + 25%@4R / SMA10 / 60d | 2.24 | 6.83 |
+| TS_XAUUSD_QULLAHTF_GRID | Grid | 1×ATR / 30%@1.5R + 30%@3R / – / 15d | 1.72 | 2.64 |
+| TS_XAGUSD_MINERVINI_VCP_GRID | Grid | 1.5×ATR / 30%@1.5R + 30%@3R / SMA50 / 30d | 1.47 | 1.80 |
+| TS_BRENT_MINERVINI_VCP_GRID | Grid | 1×ATR / 30%@1R + 30%@2R / SMA50 / 30d | 1.57 | 1.96 |
+
+### Tier 2: Traders ORB (magic 1340, 12 estrategias)
+
+Opening range breakout intradia: rango = primeros 15-30 min desde open_hour,
+entrada en primer M1.close > range_high con bar_range >= 0.5×ATR_M1.
+Nomenclatura `TO_<SYM>_<OH>h_<RM>m`.
+
+| ID | open_hour UTC | range_min | sl_atr | partial_R | max_h | PF IS | PF OOS |
+|---|---|---|---|---|---|---|---|
+| TO_WTI_13h_15m | 13 | 15 | 0.5 | 3.0 | 4 | 2.79 | 2.24 |
+| TO_GBPJPY_07h_30m | 7 | 30 | 0.5 | 2.0 | 8 | 2.75 | 2.64 |
+| TO_BRENT_13h_30m | 13 | 30 | 0.5 | 3.0 | 4 | 2.72 | 2.34 |
+| TO_XAUUSD_07h_30m | 7 | 30 | 0.5 | 3.0 | 4 | 2.70 | 2.96 |
+| TO_GBPUSD_07h_15m | 7 | 15 | 0.5 | 2.0 | 8 | 2.67 | 2.43 |
+| TO_EURUSD_13h_15m | 13 | 15 | 0.5 | 3.0 | 8 | 2.41 | 2.64 |
+| TO_NASDAQ100_13h_30m | 13 | 30 | 0.5 | 3.0 | 8 | 2.33 | 2.05 |
+| TO_GBPAUD_07h_30m | 7 | 30 | 0.5 | 2.0 | 8 | 2.38 | 2.67 |
+| TO_XAGUSD_13h_30m | 13 | 30 | 0.5 | 2.0 | 4 | 2.28 | 2.22 |
+| TO_USDJPY_07h_15m | 7 | 15 | 0.5 | 3.0 | 8 | 2.28 | 1.62 |
+| TO_AUDUSD_13h_30m | 13 | 30 | 0.5 | 3.0 | 8 | 2.26 | 2.58 |
+| TO_EURJPY_07h_15m | 7 | 15 | 0.5 | 2.0 | 8 | 2.08 | 2.09 |
+
+**Convenciones FX vs commodities/indices**:
+- FX major (EURUSD/GBPUSD/USDJPY/AUDUSD/GBPJPY/EURJPY/GBPAUD) → `open_hour=7` (London)
+- Metales/commodities/indices (XAUUSD/XAGUSD/WTI/BRENT/NASDAQ100) → `open_hour=13` (NY)
+
+### Source code
+
+| Modulo | Proposito |
+|---|---|
+| `src/engine/traders_setups.py` | Detectores ORB M1 + setups D1 genericos |
+| `src/engine/traders_swing.py` | Setups D1 FX-calibrated + scanner intraday M1 breakout |
+| `src/engine/traders_backtest.py` | Walker M1 vectorizado + ExitRules por trader |
+| `scripts/run_qulla_orb_grid.py` | Grid + robustez ORB |
+| `scripts/run_traders_swing_grid.py` | Grid + robustez swing |
+| `scripts/run_traders_pdf_strict.py` | Variante PDF-strict (reglas literales del PDF) |
+| `scripts/build_bot_config_traders.py` | Genera bot_config_traders_swing.json + bot_config_traders_orb.json |
+
+### Setups que NO se desplegaron (fallo en FX)
+
+- **Zanger Flag/Pennant + Cup&Handle**: PF 0.07 PDF-strict, requiere acumulacion Stage 2 stock-style.
+- **Qulla Episodic Pivot (gap up)**: FX 24/7 no genera gaps >=1%.
+- **Ryan Ants**: solo dispara en bull markets paraboliccos. 16 trades 8 anos XAUUSD.
+
+### Reports asociados
+
+- `reports/Traders_Final_vs_K3M1.md` — primer comparativo
+- `reports/Traders_Comparison_Final.md` — comparativo grid vs PDF-strict
+- `reports/Qulla_ORB_Robustness.md` — detalle 12 ORB
+- `reports/Traders_Swing_Robustness.md` — detalle 7 swing grid
+- `reports/Traders_PDF_Strict.md` — detalle PDF-strict
+- `reports/qulla_orb_robustness.parquet` — fuente verdad ORB
+- `reports/traders_swing_robustness.parquet` — fuente verdad swing grid
+- `reports/traders_pdf_strict.parquet` — fuente verdad PDF-strict
