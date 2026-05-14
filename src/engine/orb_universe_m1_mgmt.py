@@ -14,6 +14,7 @@ Output: reports/orb/orb_phase_a.parquet
 from __future__ import annotations
 
 import bisect
+import time
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -234,13 +235,28 @@ def run_phase_a(out_path=None, cfg=None) -> pl.DataFrame:
 
     all_rows: list[pl.DataFrame] = []
     all_triggers: list[pl.DataFrame] = []
-    for symbol in SYMBOLS_V1:
-        m15, m1 = _load_enriched(symbol)
+    total_symbols = len(SYMBOLS_V1)
+    t0 = time.time()
+    for sym_idx, symbol in enumerate(SYMBOLS_V1, start=1):
+        sym_t0 = time.time()
+        pct = 100.0 * (sym_idx - 1) / total_symbols
+        elapsed_min = (time.time() - t0) / 60
+        eta_min = (elapsed_min / max(sym_idx - 1, 1)) * (total_symbols - sym_idx + 1) if sym_idx > 1 else 0
+        print(f"[Phase A] [{pct:5.1f}%] symbol {sym_idx}/{total_symbols}: {symbol} "
+              f"(elapsed {elapsed_min:.1f}m, eta {eta_min:.1f}m)", flush=True)
+        try:
+            m15, m1 = _load_enriched(symbol)
+        except FileNotFoundError as e:
+            print(f"[Phase A]   skip {symbol}: missing data ({e})", flush=True)
+            continue
+        sym_survivors = 0
+        sym_triggers = 0
         for magic_time in MAGIC_TIMES:
             for duration in OR_DURATIONS:
                 trig_df, span_days = _scan_combo(symbol, magic_time, duration, m15, m1, cfg)
                 if trig_df.is_empty():
                     continue
+                sym_triggers += len(trig_df)
                 agg = aggregate_edge_per_pattern(trig_df, span_days, cfg)
                 if agg.is_empty():
                     continue
@@ -250,8 +266,15 @@ def run_phase_a(out_path=None, cfg=None) -> pl.DataFrame:
                     pl.lit(duration).alias("or_duration_min"),
                     pl.lit(span_days).alias("span_days"),
                 ])
+                sym_survivors += len(agg)
                 all_rows.append(agg)
                 all_triggers.append(trig_df)
+        sym_secs = time.time() - sym_t0
+        print(f"[Phase A]   {symbol}: {sym_triggers} triggers, "
+              f"{sym_survivors} pattern survivors ({sym_secs:.0f}s)", flush=True)
+
+    elapsed_total = (time.time() - t0) / 60
+    print(f"[Phase A] [100.0%] done in {elapsed_total:.1f}m", flush=True)
 
     if not all_rows:
         out_df = pl.DataFrame()
@@ -262,6 +285,8 @@ def run_phase_a(out_path=None, cfg=None) -> pl.DataFrame:
     trig_path = out_path.parent / "orb_phase_a_triggers.parquet"
     if all_triggers:
         pl.concat(all_triggers, how="diagonal_relaxed").write_parquet(trig_path)
+    print(f"[Phase A] wrote {len(out_df)} rows to {out_path.name}, "
+          f"{sum(len(t) for t in all_triggers)} triggers to {trig_path.name}", flush=True)
     return out_df
 
 

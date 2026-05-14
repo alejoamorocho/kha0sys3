@@ -5,6 +5,7 @@ and simulate every historical trigger via orb_management_walker.simulate_trade.
 """
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -186,7 +187,17 @@ def run_phase_b(
 
     survivors: list[dict] = []
     trade_rows: list[dict] = []
-    for slot in phase_a.iter_rows(named=True):
+    total_slots = len(phase_a)
+    t0 = time.time()
+    m1_cache: dict[str, dict] = {}
+    for slot_idx, slot in enumerate(phase_a.iter_rows(named=True), start=1):
+        pct = 100.0 * (slot_idx - 1) / max(total_slots, 1)
+        elapsed_min = (time.time() - t0) / 60
+        if slot_idx == 1 or slot_idx % 10 == 0 or slot_idx == total_slots:
+            eta_min = (elapsed_min / max(slot_idx - 1, 1)) * (total_slots - slot_idx + 1) if slot_idx > 1 else 0
+            print(f"[Phase B] [{pct:5.1f}%] slot {slot_idx}/{total_slots} "
+                  f"survivors_so_far={len(survivors)} "
+                  f"(elapsed {elapsed_min:.1f}m, eta {eta_min:.1f}m)", flush=True)
         symbol = slot["symbol"]
         magic_time = slot["magic_time"]
         duration = slot["or_duration_min"]
@@ -203,13 +214,17 @@ def run_phase_b(
         if trig_slot.is_empty():
             continue
 
-        m1_df = pl.read_parquet(Path(DATA_DIR) / f"{symbol}_M1.parquet").sort("time")
-        m1 = {
-            "times": np.array(m1_df["time"].to_list(), dtype="object"),
-            "highs": np.asarray(m1_df["high"].to_list(), dtype=float),
-            "lows": np.asarray(m1_df["low"].to_list(), dtype=float),
-            "closes": np.asarray(m1_df["close"].to_list(), dtype=float),
-        }
+        if symbol in m1_cache:
+            m1 = m1_cache[symbol]
+        else:
+            m1_df = pl.read_parquet(Path(DATA_DIR) / f"{symbol}_M1.parquet").sort("time")
+            m1 = {
+                "times": np.array(m1_df["time"].to_list(), dtype="object"),
+                "highs": np.asarray(m1_df["high"].to_list(), dtype=float),
+                "lows": np.asarray(m1_df["low"].to_list(), dtype=float),
+                "closes": np.asarray(m1_df["close"].to_list(), dtype=float),
+            }
+            m1_cache[symbol] = m1
         span_days = (
             trig_slot["trigger_ts"].max() - trig_slot["trigger_ts"].min()
         ).days
@@ -241,6 +256,9 @@ def run_phase_b(
                     for t in trades.iter_rows(named=True):
                         trade_rows.append({"combo_id": combo_id, **t})
 
+    elapsed_min = (time.time() - t0) / 60
+    print(f"[Phase B] [100.0%] done in {elapsed_min:.1f}m: "
+          f"{len(survivors)} survivors, {len(trade_rows)} trades", flush=True)
     out_df = pl.DataFrame(survivors) if survivors else pl.DataFrame()
     out_df.write_parquet(out_path)
     trades_path = out_path.parent / (out_path.stem + "_trades.parquet")
