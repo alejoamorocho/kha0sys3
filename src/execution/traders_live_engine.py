@@ -47,6 +47,7 @@ from src.execution.traders_order_manager import (
 )
 from src.engine.traders_setups import add_indicators, resample_to_daily
 from src.engine.traders_swing import SWING_DETECTORS
+from src.infrastructure.symbol_mapper import SymbolMapper
 
 SWING_CONFIG = Path("src/execution/bot_config_traders_swing.json")
 ORB_CONFIG = Path("src/execution/bot_config_traders_orb.json")
@@ -56,6 +57,11 @@ HEARTBEAT_FILE.parent.mkdir(parents=True, exist_ok=True)
 POLL_SECONDS = 60
 M1_BARS_LOOKBACK = 600     # 10 horas M1 (suficiente para ORB intradia)
 D1_BARS_LOOKBACK = 300     # 300 dias (suficiente para SMA200 + detectores)
+# Vantage broker es EEST (UTC+3) en verano / EET (UTC+2) en invierno. MT5
+# retorna bar.time como epoch BROKER (sumado el offset). Mi backtest cache
+# esta en UTC real, asi que en live convertimos restando el offset detectado
+# del tick fresco vs UTC now.
+BROKER_OFFSET_FALLBACK_H = 3
 
 
 _stop = False
@@ -80,15 +86,39 @@ def _load_config(p: Path) -> dict:
         return json.load(f)
 
 
-def _fetch_m1_bars(client: MT5Client, symbol: str, n: int = M1_BARS_LOOKBACK) -> pl.DataFrame | None:
+def detect_broker_offset_hours(client: MT5Client, probe_symbol: str) -> int:
+    """Detecta offset broker vs UTC via tick reciente.
+
+    Returns: horas enteras (positivo = broker adelantado vs UTC).
+    Si no hay tick fresco, retorna BROKER_OFFSET_FALLBACK_H.
+    """
+    if mt5 is None:
+        return BROKER_OFFSET_FALLBACK_H
+    tick = mt5.symbol_info_tick(probe_symbol)
+    if tick is None or tick.time == 0:
+        return BROKER_OFFSET_FALLBACK_H
+    now_utc_epoch = int(datetime.now(timezone.utc).timestamp())
+    delta_h = (int(tick.time) - now_utc_epoch) / 3600.0
+    # Tick puede tener algunos segundos de delay; round a hora entera.
+    return int(round(delta_h))
+
+
+def _fetch_m1_bars(client: MT5Client, broker_symbol: str,
+                    broker_offset_h: int, n: int = M1_BARS_LOOKBACK) -> pl.DataFrame | None:
+    """Fetch M1 desde MT5 y convierte timestamps a UTC real (resta offset broker)."""
     if mt5 is None or not client.ensure_connected():
         return None
     try:
-        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_M1, 0, n)
+        # Asegurar simbolo en Market Watch
+        si = mt5.symbol_info(broker_symbol)
+        if si is not None and not si.select:
+            mt5.symbol_select(broker_symbol, True)
+        rates = mt5.copy_rates_from_pos(broker_symbol, mt5.TIMEFRAME_M1, 0, n)
         if rates is None or len(rates) == 0:
             return None
+        offset_sec = broker_offset_h * 3600
         df = pl.DataFrame({
-            "time": [datetime.fromtimestamp(int(r["time"]), tz=timezone.utc).replace(tzinfo=None) for r in rates],
+            "time": [datetime.fromtimestamp(int(r["time"]) - offset_sec, tz=timezone.utc).replace(tzinfo=None) for r in rates],
             "open": [float(r["open"]) for r in rates],
             "high": [float(r["high"]) for r in rates],
             "low": [float(r["low"]) for r in rates],
@@ -97,19 +127,30 @@ def _fetch_m1_bars(client: MT5Client, symbol: str, n: int = M1_BARS_LOOKBACK) ->
         }).sort("time")
         return df
     except Exception as e:
-        print(f"[TradersEngine] fetch M1 {symbol} FAIL: {e}")
+        print(f"[TradersEngine] fetch M1 {broker_symbol} FAIL: {e}")
         return None
 
 
-def _fetch_d1_bars(client: MT5Client, symbol: str, n: int = D1_BARS_LOOKBACK) -> pl.DataFrame | None:
+def _fetch_d1_bars(client: MT5Client, broker_symbol: str,
+                    broker_offset_h: int, n: int = D1_BARS_LOOKBACK) -> pl.DataFrame | None:
+    """Fetch D1 desde MT5 y convierte timestamps a UTC real.
+
+    NOTA: las velas D1 del broker abren a 00:00 broker = 21:00 UTC prev day.
+    Tras la conversion, la "fecha" de cada bar es el dia broker - 1 si offset>0.
+    Esto es OK para detectores tipo VCP/HTF (pattern-based, no session-based).
+    """
     if mt5 is None or not client.ensure_connected():
         return None
     try:
-        rates = mt5.copy_rates_from_pos(symbol, mt5.TIMEFRAME_D1, 0, n)
+        si = mt5.symbol_info(broker_symbol)
+        if si is not None and not si.select:
+            mt5.symbol_select(broker_symbol, True)
+        rates = mt5.copy_rates_from_pos(broker_symbol, mt5.TIMEFRAME_D1, 0, n)
         if rates is None or len(rates) == 0:
             return None
+        offset_sec = broker_offset_h * 3600
         df = pl.DataFrame({
-            "time": [datetime.fromtimestamp(int(r["time"]), tz=timezone.utc).replace(tzinfo=None) for r in rates],
+            "time": [datetime.fromtimestamp(int(r["time"]) - offset_sec, tz=timezone.utc).replace(tzinfo=None) for r in rates],
             "open": [float(r["open"]) for r in rates],
             "high": [float(r["high"]) for r in rates],
             "low": [float(r["low"]) for r in rates],
@@ -118,7 +159,7 @@ def _fetch_d1_bars(client: MT5Client, symbol: str, n: int = D1_BARS_LOOKBACK) ->
         }).sort("time")
         return df
     except Exception as e:
-        print(f"[TradersEngine] fetch D1 {symbol} FAIL: {e}")
+        print(f"[TradersEngine] fetch D1 {broker_symbol} FAIL: {e}")
         return None
 
 
@@ -184,18 +225,21 @@ class TradersEngine:
         self.orb_state = ORBState()
         # daily SMA cache for trail: {sym_internal: {sma10, sma20, sma50}}
         self.daily_sma_cache: dict[str, dict] = {}
+        self.mapper = SymbolMapper()
+        self.broker_offset_h: int = BROKER_OFFSET_FALLBACK_H  # se refresca al arrancar
 
     def connect(self) -> bool:
         return self.client.connect()
 
     # ── Swing logic ──────────────────────────────────────────────────────
 
-    def _refresh_swing_setups(self, sym: str, sym_internal: str, today_str: str):
-        """Para cada swing strategy del symbol, refresca setups del ultimo D1."""
-        strategies_for_sym = [s for s in self.swing_strategies if s["sym"] == sym]
+    def _refresh_swing_setups(self, sym_internal: str, today_str: str):
+        """Para cada swing strategy del symbol (internal name), refresca setups."""
+        strategies_for_sym = [s for s in self.swing_strategies if s["sym"] == sym_internal]
         if not strategies_for_sym:
             return
-        d1 = _fetch_d1_bars(self.client, sym, D1_BARS_LOOKBACK)
+        broker_sym = self.mapper.to_mt5(sym_internal)
+        d1 = _fetch_d1_bars(self.client, broker_sym, self.broker_offset_h, D1_BARS_LOOKBACK)
         if d1 is None or len(d1) < 200:
             return
         d1_enr = add_indicators(d1)
@@ -258,9 +302,10 @@ class TradersEngine:
             rows = self.swing_state.active_setups.get(sid, [])
             if not rows:
                 continue
-            if self.mgr_swing.has_open_or_pending(strat["sym"], sid):
+            broker_sym = self.mapper.to_mt5(strat["sym"])
+            if self.mgr_swing.has_open_or_pending(broker_sym, sid):
                 continue
-            tick = mt5.symbol_info_tick(strat["sym"]) if mt5 else None
+            tick = mt5.symbol_info_tick(broker_sym) if mt5 else None
             if tick is None:
                 continue
             cur_price = tick.ask
@@ -299,7 +344,7 @@ class TradersEngine:
 
             comment = make_swing_comment(strat["setup_type"], strat["variant"], strat["sym"])
             self.mgr_swing.place_stop_long(
-                symbol=strat["sym"], sym_internal=strat["internal_sym"],
+                symbol=broker_sym, sym_internal=strat["internal_sym"],
                 strategy_id=sid, setup_type=strat["setup_type"],
                 variant=strat["variant"], stop_price=pivot, sl_price=sl,
                 tp_price=tp, atr_or_risk=risk, exit_rules=exit_r,
@@ -309,8 +354,9 @@ class TradersEngine:
 
     # ── ORB logic ────────────────────────────────────────────────────────
 
-    def _process_orb(self, sym: str):
-        m1 = _fetch_m1_bars(self.client, sym, M1_BARS_LOOKBACK)
+    def _process_orb(self, sym_internal: str):
+        broker_sym = self.mapper.to_mt5(sym_internal)
+        m1 = _fetch_m1_bars(self.client, broker_sym, self.broker_offset_h, M1_BARS_LOOKBACK)
         if m1 is None or len(m1) < 60:
             return
         today_str = m1.tail(1)["time"][0].strftime("%Y-%m-%d") if len(m1) else None
@@ -324,10 +370,10 @@ class TradersEngine:
         if atr_m1 <= 0:
             return
 
-        strategies_for_sym = [s for s in self.orb_strategies if s["sym"] == sym]
+        strategies_for_sym = [s for s in self.orb_strategies if s["sym"] == sym_internal]
         for strat in strategies_for_sym:
             sid = strat["id"]
-            if self.mgr_orb.has_open_or_pending(sym, sid):
+            if self.mgr_orb.has_open_or_pending(broker_sym, sid):
                 continue
             params = strat["orb_params"]
             oh = int(params["open_hour_utc"])
@@ -367,9 +413,9 @@ class TradersEngine:
             sl = r_high - risk
             partial_r = float(exit_r["partials"][0]["value"])
             tp = r_high + partial_r * risk
-            comment = make_orb_comment(oh, rm, sym)
+            comment = make_orb_comment(oh, rm, sym_internal)
             self.mgr_orb.place_stop_long(
-                symbol=sym, sym_internal=strat["internal_sym"],
+                symbol=broker_sym, sym_internal=strat["internal_sym"],
                 strategy_id=sid, setup_type="ORB", variant="GRID",
                 stop_price=r_high, sl_price=sl, tp_price=tp,
                 atr_or_risk=risk, exit_rules=exit_r,
@@ -383,40 +429,66 @@ class TradersEngine:
         if not self.connect():
             print("[TradersEngine] MT5 connect FAIL")
             sys.exit(1)
+        # Pre-seleccionar todos los broker symbols en Market Watch
+        symbols_swing = sorted(set(s["sym"] for s in self.swing_strategies))
+        symbols_orb = sorted(set(s["sym"] for s in self.orb_strategies))
+        all_internal_symbols = sorted(set(symbols_swing + symbols_orb))
+        for sym_internal in all_internal_symbols:
+            broker_sym = self.mapper.to_mt5(sym_internal)
+            si = mt5.symbol_info(broker_sym) if mt5 else None
+            if si is not None and not si.select:
+                mt5.symbol_select(broker_sym, True)
+
+        # Detect broker offset desde tick fresco (probe = primer broker symbol)
+        if all_internal_symbols:
+            probe = self.mapper.to_mt5(all_internal_symbols[0])
+            self.broker_offset_h = detect_broker_offset_hours(self.client, probe)
+
         print(f"[TradersEngine] started mode={'LIVE' if self.live else 'DRY'}")
         print(f"  Swing strats: {len(self.swing_strategies)} (magic {MAGIC_NUMBER_TRADERS_SWING})")
         print(f"  ORB strats: {len(self.orb_strategies)} (magic {MAGIC_NUMBER_TRADERS_ORB})")
         print(f"  Risk/trade: {self.risk_pct*100:.2f}%")
-        symbols_swing = sorted(set(s["sym"] for s in self.swing_strategies))
-        symbols_orb = sorted(set(s["sym"] for s in self.orb_strategies))
-        all_symbols = sorted(set(symbols_swing + symbols_orb))
-        print(f"  Symbols: {len(all_symbols)} ({', '.join(all_symbols)})")
+        print(f"  Broker offset: {self.broker_offset_h:+d}h vs UTC (bars auto-corrected)")
+        print(f"  Symbols (internal -> broker):")
+        for s in all_internal_symbols:
+            print(f"    {s:10s} -> {self.mapper.to_mt5(s)}")
 
         last_swing_refresh_date: dict[str, str] = {}
+        offset_refresh_counter = 0
         while not _stop:
             try:
                 HEARTBEAT_FILE.write_text(_now_utc().isoformat())
+                # Refresh broker_offset cada 10 loops (~10 min) por si hay DST cambio
+                offset_refresh_counter += 1
+                if offset_refresh_counter >= 10 and all_internal_symbols:
+                    probe = self.mapper.to_mt5(all_internal_symbols[0])
+                    new_off = detect_broker_offset_hours(self.client, probe)
+                    if new_off != self.broker_offset_h:
+                        print(f"[TradersEngine] broker_offset changed: "
+                              f"{self.broker_offset_h:+d}h -> {new_off:+d}h")
+                        self.broker_offset_h = new_off
+                    offset_refresh_counter = 0
+
                 # 1) Reconcile
                 self.mgr_swing.reconcile_with_broker()
                 self.mgr_orb.reconcile_with_broker()
 
                 # 2) Swing: refresh setups si cambio el dia UTC
                 today_str = _now_utc().strftime("%Y-%m-%d")
-                for sym in symbols_swing:
-                    sym_internal = sym  # mapping 1:1 por ahora
-                    if last_swing_refresh_date.get(sym) != today_str:
-                        self._refresh_swing_setups(sym, sym_internal, today_str)
-                        last_swing_refresh_date[sym] = today_str
+                for sym_internal in symbols_swing:
+                    if last_swing_refresh_date.get(sym_internal) != today_str:
+                        self._refresh_swing_setups(sym_internal, today_str)
+                        last_swing_refresh_date[sym_internal] = today_str
 
                 # 3) Swing breakouts (cada tick)
                 self._check_swing_breakouts()
 
                 # 4) ORB (cada tick)
-                for sym in symbols_orb:
+                for sym_internal in symbols_orb:
                     try:
-                        self._process_orb(sym)
+                        self._process_orb(sym_internal)
                     except Exception as e:
-                        print(f"[TradersEngine][orb] {sym} FAIL: {e}")
+                        print(f"[TradersEngine][orb] {sym_internal} FAIL: {e}")
 
                 # 5) Manage open positions (partials, trail, max_hold)
                 self.mgr_swing.manage_open_positions(self.daily_sma_cache)
