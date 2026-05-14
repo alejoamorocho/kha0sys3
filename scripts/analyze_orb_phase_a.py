@@ -59,7 +59,7 @@ def _add_hit_columns(triggers: pl.DataFrame) -> pl.DataFrame:
         )
     # OR-range-based hits — present only if or_width column exists (new triggers)
     if "or_width" in triggers.columns:
-        for frac in [0.5, 1.0, 1.5]:
+        for frac in [0.5, 1.0, 1.5, 2.0]:
             tag = str(frac).replace(".", "")
             thr = pl.col("or_width") * frac
             exprs.append(
@@ -84,9 +84,11 @@ def _build_aggs(triggers: pl.DataFrame) -> list:
         aggs.append(pl.col(f"hit_{tag}r").mean().alias(f"hit_rate_{tag}r"))
         aggs.append(pl.col(f"adverse_{tag}r").mean().alias(f"adverse_rate_{tag}r"))
     if "hit_05or" in triggers.columns:
-        for frac in [0.5, 1.0, 1.5]:
+        for frac in [0.5, 1.0, 1.5, 2.0]:
             tag = str(frac).replace(".", "")
+            aggs.append(pl.col(f"hit_{tag}or").sum().alias(f"hit_count_{tag}or"))
             aggs.append(pl.col(f"hit_{tag}or").mean().alias(f"hit_rate_{tag}or"))
+            aggs.append(pl.col(f"adverse_{tag}or").sum().alias(f"adverse_count_{tag}or"))
             aggs.append(pl.col(f"adverse_{tag}or").mean().alias(f"adverse_rate_{tag}or"))
     return aggs
 
@@ -183,8 +185,12 @@ def write_report(
                  "Useful to see which contextual conditions matter most.\n\n")
     if has_or_cols:
         cols = ["event_type", "or_position", "or_atr_bucket", "pd_or_bucket", "direction",
-                "count", "hit_rate_05or", "hit_rate_10or", "hit_rate_15or",
-                "adverse_rate_05or", "adverse_rate_10or"]
+                "count",
+                "hit_count_05or", "hit_rate_05or",
+                "hit_count_10or", "hit_rate_10or",
+                "hit_count_15or", "hit_rate_15or",
+                "hit_count_20or", "hit_rate_20or",
+                "adverse_rate_10or"]
     else:
         cols = ["event_type", "or_position", "or_atr_bucket", "pd_or_bucket", "direction",
                 "count", "hit_rate_03r", "hit_rate_05r", "hit_rate_075r", "hit_rate_10r",
@@ -200,6 +206,8 @@ def write_report(
                     cells.append(fmt_pct(v))
                 else:
                     cells.append(f"{v:.2f}")
+            elif isinstance(v, int):
+                cells.append(f"{v:,}")
             elif v is None:
                 cells.append("NULL")
             else:
@@ -210,7 +218,12 @@ def write_report(
     if has_or_cols:
         cols2 = ["symbol", "magic_time", "or_duration_min", "event_type",
                  "or_atr_bucket", "pd_or_bucket", "direction",
-                 "count", "hit_rate_05or", "hit_rate_10or", "adverse_rate_05or"]
+                 "count",
+                 "hit_count_05or", "hit_rate_05or",
+                 "hit_count_10or", "hit_rate_10or",
+                 "hit_count_15or", "hit_rate_15or",
+                 "hit_count_20or", "hit_rate_20or",
+                 "adverse_rate_10or"]
     else:
         cols2 = ["symbol", "magic_time", "or_duration_min", "event_type",
                  "or_atr_bucket", "pd_or_bucket", "direction",
@@ -226,6 +239,8 @@ def write_report(
                     cells.append(fmt_pct(v))
                 else:
                     cells.append(f"{v:.2f}")
+            elif isinstance(v, int):
+                cells.append(f"{v:,}")
             elif v is None:
                 cells.append("NULL")
             else:
@@ -237,9 +252,12 @@ def write_report(
     lines.append("- `hit_rate_05r` = P(MFE favorable ≥ 0.5R en 4h)\n")
     lines.append("- `adverse_rate_05r` = P(MAE adverso ≥ 0.5R en 4h)\n\n")
     lines.append("**Columnas en OR** (fracción del rango del Opening Range):\n")
-    lines.append("- `hit_rate_05or` = P(MFE favorable ≥ 0.5 × OR_width en 4h) ← tu framing\n")
-    lines.append("- `hit_rate_10or` = P(MFE favorable ≥ 1.0 × OR_width)\n")
-    lines.append("- `adverse_rate_05or` = P(MAE adverso ≥ 0.5 × OR_width)\n\n")
+    lines.append("- `hit_count_05or` = nº de disparos donde MFE ≥ 0.5 × OR_width en 4h\n")
+    lines.append("- `hit_rate_05or` = % equivalente (count / total)\n")
+    lines.append("- `hit_count_10or` / `hit_rate_10or` = mismo pero ≥ 1.0 × OR_width\n")
+    lines.append("- `hit_count_15or` / `hit_rate_15or` = ≥ 1.5 × OR_width\n")
+    lines.append("- `hit_count_20or` / `hit_rate_20or` = ≥ 2.0 × OR_width\n")
+    lines.append("- `adverse_rate_10or` = P(MAE adverso ≥ 1.0 × OR_width) — referencia para SL\n\n")
     lines.append("**Cómo leer edge:**\n")
     lines.append("- **Hay edge si**: hit_rate >> adverse_rate (ej. hit 70% vs adverse 50%)\n")
     lines.append("- **Random walk si**: hit ≈ adverse (ambos ~60-70% por volatilidad natural)\n")
