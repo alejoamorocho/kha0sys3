@@ -12,13 +12,23 @@ from datetime import datetime, timezone
 
 
 def main():
-    mt5.initialize()
+    ok = mt5.initialize()
+    print(f"mt5.initialize() = {ok}")
+    if not ok:
+        print(f"  last_error: {mt5.last_error()}")
+        return
+    info = mt5.account_info()
+    print(f"  account_info: login={info.login if info else None}")
+    print(f"  terminal: {mt5.terminal_info().path if mt5.terminal_info() else None}")
     now_utc = datetime.now(timezone.utc)
     print(f"Real UTC now:   {now_utc.isoformat()}")
     print(f"Real UTC epoch: {int(now_utc.timestamp())}")
     print()
     rates = mt5.copy_rates_from_pos("XAUUSD", mt5.TIMEFRAME_M1, 0, 3)
-    if rates is not None:
+    print(f"\ncopy_rates_from_pos(XAUUSD M1) -> {len(rates) if rates is not None else 'None'} bars")
+    if rates is None:
+        print(f"  last_error: {mt5.last_error()}")
+    if rates is not None and len(rates) > 0:
         print("MT5 M1 bars (last 3):")
         for r in rates:
             epoch = int(r["time"])
