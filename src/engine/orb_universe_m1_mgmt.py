@@ -247,6 +247,10 @@ def _scan_combo(
                     "trigger_ts": ev["trigger_ts"],
                     "trigger_close": ev["trigger_close"],
                     "atr_at_setup": ev["atr_at_setup"],
+                    "or_high": float(row["or_high"]),
+                    "or_low": float(row["or_low"]),
+                    "or_width": float(row["or_high"] - row["or_low"]),
+                    "or_atr_ratio_at_trigger": float((row["or_high"] - row["or_low"]) / row["atr_at_setup"]),
                     "mfe_long": mfe["mfe_long"],
                     "mae_long": mfe["mae_long"],
                     "mfe_short": mfe["mfe_short"],
@@ -293,6 +297,9 @@ def _process_one_symbol(args):
             if trig_df.is_empty():
                 continue
             n_trig_raw += len(trig_df)
+            # ALWAYS persist raw triggers — needed by analyze_orb_phase_a.py
+            # for hit-rate analysis even when no patterns pass the strict gates.
+            trigs.append(trig_df)
             agg = aggregate_edge_per_pattern(trig_df, span_days, cfg)
             if agg.is_empty():
                 continue
@@ -303,7 +310,6 @@ def _process_one_symbol(args):
                 pl.lit(span_days).alias("span_days"),
             ])
             aggs.append(agg)
-            trigs.append(trig_df)
 
     agg_df = pl.concat(aggs, how="diagonal_relaxed") if aggs else pl.DataFrame()
     trig_df = pl.concat(trigs, how="diagonal_relaxed") if trigs else pl.DataFrame()
