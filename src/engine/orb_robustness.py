@@ -107,6 +107,52 @@ def run_phase_c(
     return out
 
 
+def write_markdown_report(
+    robustness: pl.DataFrame,
+    optuna_results,
+    out_path,
+) -> None:
+    out_path = Path(out_path)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    lines: list[str] = []
+    lines.append("# ORB Edge Discovery Pipeline Report\n")
+    lines.append(f"\n**Total strategies evaluated:** {len(robustness)}\n")
+    if not robustness.is_empty():
+        by_class = robustness.group_by("classification").len().sort("classification")
+    else:
+        by_class = pl.DataFrame()
+    lines.append("\n## Classification breakdown\n")
+    if by_class.is_empty():
+        lines.append("\n_No strategies evaluated._\n")
+    else:
+        for row in by_class.iter_rows(named=True):
+            lines.append(f"- **{row['classification']}**: {row['len']}\n")
+
+    lines.append("\n## Per-strategy detail (top 50 by PF)\n\n")
+    if not robustness.is_empty():
+        top = robustness.sort("pf", descending=True).head(50)
+        cols = ["symbol", "magic_time", "or_duration_min", "pattern_id",
+                "direction", "pf", "win_rate", "trades_per_year",
+                "wf_pf_oos", "mc_ruin", "classification"]
+        avail = [c for c in cols if c in top.columns]
+        lines.append("| " + " | ".join(avail) + " |\n")
+        lines.append("| " + " | ".join("---" for _ in avail) + " |\n")
+        for row in top.iter_rows(named=True):
+            vals = []
+            for c in avail:
+                v = row[c]
+                if isinstance(v, float):
+                    vals.append(f"{v:.3f}")
+                else:
+                    vals.append(str(v))
+            lines.append("| " + " | ".join(vals) + " |\n")
+
+    if optuna_results is not None and not optuna_results.is_empty():
+        lines.append(f"\n## Optuna refinement\n\n{len(optuna_results)} strategies tuned. See `orb_optuna_results.parquet`.\n")
+
+    out_path.write_text("".join(lines), encoding="utf-8")
+
+
 if __name__ == "__main__":
     df = run_phase_c()
     print(f"Phase C: {len(df)} robustness-evaluated strategies")
