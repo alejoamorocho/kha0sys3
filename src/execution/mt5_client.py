@@ -38,13 +38,20 @@ class MT5Client:
     MAX_RECONNECT_ATTEMPTS = 3
     RECONNECT_DELAY_BASE = 2  # segundos, escala exponencial
 
-    def __init__(self):
+    def __init__(self, attach_only: bool = False):
+        """
+        Args:
+            attach_only: si True, no llama mt5.initialize(login=,password=,server=).
+                Solo intenta attach al terminal ya corriendo. Usado por bots
+                paralelos (ej. TradersBot) que comparten terminal con MathBot.
+        """
         self.connected = False
         self._spread_cache: dict[str, tuple[str, float]] = {}  # {symbol: (date, avg_spread)}
         self._broker_cfg: Optional[dict] = _load_broker_config()
         self.expected_login: Optional[int] = (
             self._broker_cfg["login"] if self._broker_cfg else None
         )
+        self.attach_only = attach_only
 
     def _initialize_mt5(self) -> bool:
         """mt5.initialize() forzando login de broker.yaml si esta presente.
@@ -52,7 +59,28 @@ class MT5Client:
         Si broker.yaml falta, cae al comportamiento legacy (initialize sin args)
         y emite warning. Si esta presente, valida que account_info().login
         coincida con el esperado y falla ruidosamente si no.
+
+        Modo attach_only: skip login args, solo attach al terminal corriendo
+        (usado por bots paralelos que comparten terminal). Valida que el
+        account_info() reporte el login esperado de broker.yaml.
         """
+        if self.attach_only:
+            ok = bool(mt5.initialize())
+            if not ok:
+                print(f"MT5Client[attach_only]: initialize() FAIL: {mt5.last_error()}")
+                return False
+            info = mt5.account_info()
+            if info is None:
+                print(f"MT5Client[attach_only]: account_info() None — terminal not logged in: {mt5.last_error()}")
+                return False
+            if self.expected_login and int(info.login) != self.expected_login:
+                print(
+                    f"MT5Client[attach_only]: cuenta equivocada — terminal logueado a "
+                    f"{info.login}, se esperaba {self.expected_login}."
+                )
+                return False
+            return True
+
         if self._broker_cfg is None:
             print("MT5Client: WARNING — config/broker.yaml ausente; usando cuenta activa del terminal.")
             return bool(mt5.initialize())

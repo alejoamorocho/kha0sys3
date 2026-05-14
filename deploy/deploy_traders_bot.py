@@ -74,6 +74,14 @@ def main():
     ]:
         run(vps, cmd)
 
+    # 4b. CRITICAL: run as .\Administrator (mismo account que Kha0sysMathBot).
+    # MT5 Python module no encuentra terminal64.exe corriendo como LocalSystem;
+    # necesita el perfil de usuario donde MT5 esta instalado.
+    # Password viene de VPS_PASS env var (la misma que usa WinRM).
+    vps_pass = vps.VPS_PASS
+    run(vps, f'{NSSM} set {SERVICE_NAME} ObjectName ".\\Administrator" "{vps_pass}"',
+        f"set ObjectName {SERVICE_NAME}")
+
     # 5. Install requirements (por si hay nuevas deps)
     run(vps, f"cd '{REPO_PATH}'; {EXE} -m pip install -r requirements.txt --quiet 2>&1 | Select-Object -Last 3",
         "pip install")

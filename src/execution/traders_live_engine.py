@@ -164,7 +164,9 @@ class TradersEngine:
     def __init__(self, live: bool = False):
         self.live = live
         self.dry_run = not live
-        self.client = MT5Client()
+        # attach_only=True: TradersBot comparte el terminal MT5 con MathBot.
+        # Solo attach a la sesion ya autenticada, NO re-login (eso fallaria).
+        self.client = MT5Client(attach_only=True)
         self.swing_cfg = _load_config(SWING_CONFIG)
         self.orb_cfg = _load_config(ORB_CONFIG)
         self.swing_strategies = self.swing_cfg["portfolio"]
