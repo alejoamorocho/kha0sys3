@@ -48,6 +48,7 @@ from src.execution.traders_order_manager import (
 from src.engine.traders_setups import add_indicators, resample_to_daily
 from src.engine.traders_swing import SWING_DETECTORS
 from src.infrastructure.symbol_mapper import SymbolMapper
+from src.monitoring.traders_notifier import TradersNotifier
 
 SWING_CONFIG = Path("src/execution/bot_config_traders_swing.json")
 ORB_CONFIG = Path("src/execution/bot_config_traders_orb.json")
@@ -213,13 +214,17 @@ class TradersEngine:
         self.swing_strategies = self.swing_cfg["portfolio"]
         self.orb_strategies = self.orb_cfg["portfolio"]
         self.risk_pct = float(self.swing_cfg.get("risk_per_trade", 0.001))
+        # Notifier compartido entre ambos managers (envia a Telegram con prefijo [TRADERS])
+        self.notifier = TradersNotifier(risk_percent=self.risk_pct)
         self.mgr_swing = TradersOrderManager(
             self.client, MAGIC_NUMBER_TRADERS_SWING,
             risk_pct=self.risk_pct, dry_run=self.dry_run,
+            notifier=self.notifier,
         )
         self.mgr_orb = TradersOrderManager(
             self.client, MAGIC_NUMBER_TRADERS_ORB,
             risk_pct=self.risk_pct, dry_run=self.dry_run,
+            notifier=self.notifier,
         )
         self.swing_state = SwingState()
         self.orb_state = ORBState()
@@ -290,10 +295,26 @@ class TradersEngine:
                     "atr_d1": float(r["atr_d1"]) if r["atr_d1"] else 0.0,
                     "valid_until": vu,
                 })
+            previous_rows = self.swing_state.active_setups.get(sid, [])
             self.swing_state.set_active(sid, rows, today_str)
             if rows:
                 print(f"[TradersEngine][swing] {sid}: {len(rows)} active setups, "
                       f"latest pivot={rows[-1]['pivot_high']:.5f}")
+                # Telegram: notify only if there's a NEW setup not seen in previous_rows
+                prev_dates = {r["date_signal"] for r in previous_rows}
+                new_setups = [r for r in rows if r["date_signal"] not in prev_dates]
+                if new_setups:
+                    latest = new_setups[-1]
+                    broker_sym = self.mapper.to_mt5(strat["sym"])
+                    self.notifier.setup_detected(
+                        strategy_id=sid, trader=strat["trader"],
+                        setup_type=strat["setup_type"], variant=strat["variant"],
+                        magic=MAGIC_NUMBER_TRADERS_SWING,
+                        broker_sym=broker_sym, internal_sym=strat["sym"],
+                        pivot=latest["pivot_high"], atr_d1=latest["atr_d1"],
+                        valid_until=str(latest["valid_until"]),
+                        n_active=len(rows),
+                    )
 
     def _check_swing_breakouts(self):
         """En cada tick, para cada swing strategy: si current price > pivot, place STOP."""
@@ -444,7 +465,8 @@ class TradersEngine:
             probe = self.mapper.to_mt5(all_internal_symbols[0])
             self.broker_offset_h = detect_broker_offset_hours(self.client, probe)
 
-        print(f"[TradersEngine] started mode={'LIVE' if self.live else 'DRY'}")
+        mode_str = "LIVE" if self.live else "DRY"
+        print(f"[TradersEngine] started mode={mode_str}")
         print(f"  Swing strats: {len(self.swing_strategies)} (magic {MAGIC_NUMBER_TRADERS_SWING})")
         print(f"  ORB strats: {len(self.orb_strategies)} (magic {MAGIC_NUMBER_TRADERS_ORB})")
         print(f"  Risk/trade: {self.risk_pct*100:.2f}%")
@@ -452,9 +474,19 @@ class TradersEngine:
         print(f"  Symbols (internal -> broker):")
         for s in all_internal_symbols:
             print(f"    {s:10s} -> {self.mapper.to_mt5(s)}")
+        # Telegram start notification
+        self.notifier.engine_started(
+            mode=mode_str,
+            swing_n=len(self.swing_strategies),
+            orb_n=len(self.orb_strategies),
+            risk_pct=self.risk_pct,
+            broker_offset_h=self.broker_offset_h,
+            symbols=all_internal_symbols,
+        )
 
         last_swing_refresh_date: dict[str, str] = {}
         offset_refresh_counter = 0
+        heartbeat_counter = 0  # ticks de 60s; cada 15 (15 min) emite heartbeat tg
         while not _stop:
             try:
                 HEARTBEAT_FILE.write_text(_now_utc().isoformat())
@@ -494,14 +526,37 @@ class TradersEngine:
                 self.mgr_swing.manage_open_positions(self.daily_sma_cache)
                 self.mgr_orb.manage_open_positions(None)  # ORB sin trail SMA
 
+                # 6) Heartbeat Telegram cada 15 min
+                heartbeat_counter += 1
+                if heartbeat_counter >= 15:
+                    heartbeat_counter = 0
+                    bal = self.client.get_account_balance() or 0.0
+                    acc = self.client.get_account_info()
+                    eq = float(acc.equity) if acc else 0.0
+                    self.notifier.heartbeat(
+                        swing_open=len(self.mgr_swing.open_positions),
+                        swing_pending=len(self.mgr_swing.pending_orders),
+                        orb_open=len(self.mgr_orb.open_positions),
+                        orb_pending=len(self.mgr_orb.pending_orders),
+                        balance=bal, equity=eq,
+                    )
+
             except Exception as e:
                 print(f"[TradersEngine] loop error: {e}")
                 import traceback; traceback.print_exc()
+                try:
+                    self.notifier.error(context="main_loop", msg=str(e))
+                except Exception:
+                    pass
             for _ in range(POLL_SECONDS):
                 if _stop:
                     break
                 time.sleep(1)
         print("[TradersEngine] stopped")
+        try:
+            self.notifier.engine_stopped(reason="signal")
+        except Exception:
+            pass
 
 
 def main():

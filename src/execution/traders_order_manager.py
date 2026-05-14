@@ -114,7 +114,8 @@ class TradersOrderManager:
     """
 
     def __init__(self, client, magic: int, risk_pct: float = 0.001,
-                 dry_run: bool = False, state_file: Optional[Path] = None):
+                 dry_run: bool = False, state_file: Optional[Path] = None,
+                 notifier=None, internal_to_broker: Optional[dict] = None):
         self.client = client
         self.magic = magic
         self.risk_pct = risk_pct
@@ -123,6 +124,9 @@ class TradersOrderManager:
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
         self.open_positions: dict[int, TradersOpenPosition] = {}
         self.pending_orders: dict[int, TradersPendingOrder] = {}
+        self.notifier = notifier   # TradersNotifier o None
+        # mapping para enriquecer notifs: strategy_id -> {trader, setup, variant, internal_sym}
+        self.strategy_meta: dict[str, dict] = {}
         self._load_state()
 
     # ── Persistencia ─────────────────────────────────────────────────────
@@ -258,8 +262,49 @@ class TradersOrderManager:
             atr_or_risk=atr_or_risk, placed_us=placed_us,
             expiration_us=exp_us, exit_rules=exit_rules,
         )
+        # Cache meta for notifications later (fill, partial, close)
+        # Extract trader from strategy_id (TS_XAU_QULLAHTF_PDF -> Qulla, TO_WTI -> Qulla)
+        trader_name = self._infer_trader(strategy_id, setup_type)
+        self.strategy_meta[strategy_id] = {
+            "trader": trader_name,
+            "setup_type": setup_type,
+            "variant": variant,
+            "internal_sym": sym_internal,
+            "broker_sym": symbol,
+        }
         self._save_state()
+        # Notify
+        if self.notifier and ticket > 0:
+            self.notifier.order_placed(
+                strategy_id=strategy_id, trader=trader_name,
+                setup_type=setup_type, variant=variant, magic=self.magic,
+                broker_sym=symbol, internal_sym=sym_internal,
+                entry=stop_price, sl=sl_price, tp=tp_price,
+                lots=lots, ticket=ticket, expiration_minutes=expiration_minutes,
+            )
+        elif self.notifier and self.dry_run:
+            self.notifier.order_placed(
+                strategy_id=f"[DRY] {strategy_id}", trader=trader_name,
+                setup_type=setup_type, variant=variant, magic=self.magic,
+                broker_sym=symbol, internal_sym=sym_internal,
+                entry=stop_price, sl=sl_price, tp=tp_price,
+                lots=lots, ticket=ticket, expiration_minutes=expiration_minutes,
+            )
         return ticket
+
+    @staticmethod
+    def _infer_trader(strategy_id: str, setup_type: str) -> str:
+        """De TS_<SYM>_QULLAHTF_PDF / TO_<SYM>_<...> -> trader name."""
+        sid_up = strategy_id.upper()
+        if "MINERVINI" in sid_up:
+            return "Minervini"
+        if "ZANGER" in sid_up or setup_type in ("FLAG", "CUP"):
+            return "Zanger"
+        if "QULLAHTF" in sid_up or "QULLA" in sid_up or setup_type in ("HTF", "EP", "ORB"):
+            return "Qulla"
+        if "RYAN" in sid_up or "ANTS" in sid_up:
+            return "Ryan"
+        return "Unknown"
 
     # ── Reconciliation: pending -> open on fill, cleanup closed ──────────
 
@@ -302,6 +347,17 @@ class TradersOrderManager:
                 self.open_positions[matched_pos.ticket] = op
                 print(f"[Traders mgr {self.magic}] FILLED {pend.strategy_id} "
                       f"@ {matched_pos.price_open}")
+                if self.notifier:
+                    trader = self._infer_trader(pend.strategy_id, pend.setup_type)
+                    self.notifier.fill(
+                        strategy_id=pend.strategy_id, trader=trader,
+                        setup_type=pend.setup_type, variant=pend.variant,
+                        magic=self.magic, broker_sym=pend.symbol,
+                        internal_sym=pend.sym_internal,
+                        entry=float(matched_pos.price_open),
+                        lots=float(matched_pos.volume),
+                        ticket=int(matched_pos.ticket),
+                    )
             else:
                 print(f"[Traders mgr {self.magic}] pending {ticket} ({pend.strategy_id}) "
                       f"expired/cancelled without fill")
@@ -312,6 +368,19 @@ class TradersOrderManager:
             if ticket not in broker_pos:
                 op = self.open_positions[ticket]
                 print(f"[Traders mgr {self.magic}] CLOSED {op.strategy_id} ticket={ticket}")
+                if self.notifier:
+                    trader = self._infer_trader(op.strategy_id, op.setup_type)
+                    # No tenemos exit price exacto del broker en este path; el reason
+                    # ya se notifico desde _close_position(). Solo emite si no hay
+                    # cierre programado (broker auto-cerro TP/SL).
+                    self.notifier.position_closed(
+                        strategy_id=op.strategy_id, trader=trader,
+                        setup_type=op.setup_type, variant=op.variant,
+                        magic=self.magic, broker_sym=op.symbol,
+                        internal_sym=op.sym_internal,
+                        reason="BROKER_CLOSE",
+                        hold_minutes=None, final_r=None,
+                    )
                 del self.open_positions[ticket]
             else:
                 # Actualizar remaining_volume si el broker tiene menos (partial parcial)
@@ -376,7 +445,10 @@ class TradersOrderManager:
                     if days_held >= int(val):
                         triggered = True
                 if triggered:
-                    self._send_partial_close(op, sell_frac)
+                    self._send_partial_close(op, sell_frac,
+                                              partial_idx=idx, trigger=trigger,
+                                              trigger_value=val,
+                                              r_mult_now=r_mult)
                     op.partials_taken.append(idx)
                     op.tp1_hit = True
 
@@ -386,7 +458,7 @@ class TradersOrderManager:
                 sma_key = f"sma{trail_sma}"
                 sma_val = (daily_sma_cache.get(op.sym_internal) or {}).get(sma_key)
                 if sma_val and sma_val > op.current_sl:
-                    self._update_sl(op, float(sma_val))
+                    self._update_sl(op, float(sma_val), sma_period=int(trail_sma))
 
             # Time-stop (Zanger)
             time_stop = rules.get("time_stop_days")
@@ -409,7 +481,9 @@ class TradersOrderManager:
             op.last_state_check_us = now_us
         self._save_state()
 
-    def _send_partial_close(self, op: TradersOpenPosition, sell_frac: float):
+    def _send_partial_close(self, op: TradersOpenPosition, sell_frac: float,
+                             partial_idx: int = 0, trigger: str = "",
+                             trigger_value=None, r_mult_now: float = 0.0):
         if sell_frac <= 0 or op.remaining_volume <= 0:
             return
         close_vol = round(op.initial_volume * sell_frac, 2)
@@ -421,6 +495,18 @@ class TradersOrderManager:
             print(f"[DRY][{self.magic}] partial close {op.strategy_id} {close_vol} lots "
                   f"(frac={sell_frac:.2f})")
             op.remaining_volume -= close_vol
+            if self.notifier:
+                trader = self._infer_trader(op.strategy_id, op.setup_type)
+                tick = mt5.symbol_info_tick(op.symbol) if mt5 else None
+                px = tick.bid if tick else op.entry_price
+                self.notifier.partial_close(
+                    strategy_id=op.strategy_id, trader=trader, magic=self.magic,
+                    broker_sym=op.symbol, internal_sym=op.sym_internal,
+                    partial_idx=partial_idx, trigger=trigger,
+                    trigger_value=trigger_value, fill_price=px,
+                    closed_lots=close_vol, remaining_lots=op.remaining_volume,
+                    r_multiple=r_mult_now,
+                )
             return
         tick = mt5.symbol_info_tick(op.symbol)
         if tick is None:
@@ -442,16 +528,38 @@ class TradersOrderManager:
             op.remaining_volume = max(0.0, op.remaining_volume - close_vol)
             print(f"[Traders mgr {self.magic}] PARTIAL CLOSE {op.strategy_id} "
                   f"{close_vol} lots, remaining={op.remaining_volume}")
+            if self.notifier:
+                trader = self._infer_trader(op.strategy_id, op.setup_type)
+                self.notifier.partial_close(
+                    strategy_id=op.strategy_id, trader=trader, magic=self.magic,
+                    broker_sym=op.symbol, internal_sym=op.sym_internal,
+                    partial_idx=partial_idx, trigger=trigger,
+                    trigger_value=trigger_value, fill_price=float(tick.bid),
+                    closed_lots=close_vol, remaining_lots=op.remaining_volume,
+                    r_multiple=r_mult_now,
+                )
         else:
             print(f"[Traders mgr {self.magic}] partial close FAIL rc={rc}")
+            if self.notifier:
+                self.notifier.order_rejected(
+                    strategy_id=op.strategy_id, magic=self.magic,
+                    broker_sym=op.symbol, reason=f"partial_close rc={rc}",
+                )
 
-    def _update_sl(self, op: TradersOpenPosition, new_sl: float):
+    def _update_sl(self, op: TradersOpenPosition, new_sl: float, sma_period: int = 0):
         if new_sl <= op.current_sl:
             return
+        old_sl = op.current_sl
         if self.dry_run:
             print(f"[DRY][{self.magic}] update SL {op.strategy_id} "
-                  f"{op.current_sl:.5f} -> {new_sl:.5f}")
+                  f"{old_sl:.5f} -> {new_sl:.5f}")
             op.current_sl = new_sl
+            if self.notifier:
+                self.notifier.trail_update(
+                    strategy_id=op.strategy_id, magic=self.magic,
+                    broker_sym=op.symbol, old_sl=old_sl, new_sl=new_sl,
+                    sma_period=sma_period,
+                )
             return
         request = {
             "action": mt5.TRADE_ACTION_SLTP,
@@ -465,12 +573,33 @@ class TradersOrderManager:
         if rc in (10009, 10010, 10008):
             op.current_sl = new_sl
             print(f"[Traders mgr {self.magic}] TRAIL SL {op.strategy_id} -> {new_sl:.5f}")
+            if self.notifier:
+                self.notifier.trail_update(
+                    strategy_id=op.strategy_id, magic=self.magic,
+                    broker_sym=op.symbol, old_sl=old_sl, new_sl=new_sl,
+                    sma_period=sma_period,
+                )
 
     def _close_position(self, op: TradersOpenPosition, reason: str):
+        trader = self._infer_trader(op.strategy_id, op.setup_type)
+        # Compute final R-multiple from current price
+        tick = mt5.symbol_info_tick(op.symbol) if mt5 else None
+        cur_price = tick.bid if tick else op.entry_price
+        risk = op.initial_atr_or_risk if op.initial_atr_or_risk > 0 else 1.0
+        final_r = (cur_price - op.entry_price) / risk
+        hold_min = int((datetime.now(timezone.utc).timestamp() * 1_000_000
+                          - op.entry_time_us) / 60_000_000)
         if self.dry_run:
             print(f"[DRY][{self.magic}] close {op.strategy_id} reason={reason}")
+            if self.notifier:
+                self.notifier.position_closed(
+                    strategy_id=op.strategy_id, trader=trader,
+                    setup_type=op.setup_type, variant=op.variant,
+                    magic=self.magic, broker_sym=op.symbol,
+                    internal_sym=op.sym_internal, reason=reason,
+                    final_r=final_r, hold_minutes=hold_min,
+                )
             return
-        tick = mt5.symbol_info_tick(op.symbol)
         if tick is None:
             return
         request = {
@@ -487,6 +616,14 @@ class TradersOrderManager:
         result = self.client.send_order_raw(request)
         rc = result.get("retcode") if result else None
         print(f"[Traders mgr {self.magic}] CLOSE {op.strategy_id} reason={reason} rc={rc}")
+        if self.notifier:
+            self.notifier.position_closed(
+                strategy_id=op.strategy_id, trader=trader,
+                setup_type=op.setup_type, variant=op.variant,
+                magic=self.magic, broker_sym=op.symbol,
+                internal_sym=op.sym_internal, reason=reason,
+                final_r=final_r, hold_minutes=hold_min,
+            )
 
 
 def strategy_comment(pend: TradersPendingOrder) -> str:
