@@ -57,3 +57,24 @@ def test_phase_b_filter_passes_strong():
         "sharpe_annualized": 1.5, "rr": 2.0,
     }
     assert cfg.passes(metrics)
+
+
+from pathlib import Path
+
+
+def test_phase_b_persists_trade_series(tmp_path):
+    """After run_phase_b, orb_phase_b_trades.parquet must exist (even if empty)."""
+    from src.engine.orb_management_grid import run_phase_b
+    import polars as pl
+    empty_a = tmp_path / "phase_a.parquet"
+    empty_t = tmp_path / "triggers.parquet"
+    pl.DataFrame().write_parquet(empty_a)
+    pl.DataFrame().write_parquet(empty_t)
+    out_b = tmp_path / "phase_b.parquet"
+    out_trades = tmp_path / "phase_b_trades.parquet"
+    run_phase_b(
+        phase_a_path=empty_a, triggers_path=empty_t,
+        out_path=out_b,
+    )
+    assert out_b.exists()
+    assert out_trades.exists()

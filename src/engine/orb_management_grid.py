@@ -172,15 +172,20 @@ def run_phase_b(
 
     if not phase_a_path.exists() or not triggers_path.exists():
         pl.DataFrame().write_parquet(out_path)
+        trades_path = out_path.parent / (out_path.stem + "_trades.parquet")
+        pl.DataFrame().write_parquet(trades_path)
         return pl.DataFrame()
 
     phase_a = pl.read_parquet(phase_a_path)
     triggers = pl.read_parquet(triggers_path)
     if phase_a.is_empty() or triggers.is_empty():
         pl.DataFrame().write_parquet(out_path)
+        trades_path = out_path.parent / (out_path.stem + "_trades.parquet")
+        pl.DataFrame().write_parquet(trades_path)
         return pl.DataFrame()
 
     survivors: list[dict] = []
+    trade_rows: list[dict] = []
     for slot in phase_a.iter_rows(named=True):
         symbol = slot["symbol"]
         magic_time = slot["magic_time"]
@@ -223,14 +228,23 @@ def run_phase_b(
                     metrics["rr"] = rr
                     if not cfg.passes(metrics):
                         continue
+                    combo_id = (
+                        f"{symbol}|{magic_time}|{duration}|{pattern_id}|{direction}|"
+                        f"{entry_mode}|{offset_mult}|{sl_mult}|{tp_mult}"
+                    )
                     survivors.append({
                         **slot, "entry_mode": entry_mode, "entry_offset_atr": offset_mult,
                         "sl_atr_mult": sl_mult, "tp_atr_mult": tp_mult,
+                        "combo_id": combo_id,
                         **metrics,
                     })
+                    for t in trades.iter_rows(named=True):
+                        trade_rows.append({"combo_id": combo_id, **t})
 
     out_df = pl.DataFrame(survivors) if survivors else pl.DataFrame()
     out_df.write_parquet(out_path)
+    trades_path = out_path.parent / (out_path.stem + "_trades.parquet")
+    (pl.DataFrame(trade_rows) if trade_rows else pl.DataFrame()).write_parquet(trades_path)
     return out_df
 
 
