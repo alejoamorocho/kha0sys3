@@ -45,13 +45,22 @@ MATH_WAIT_BARS = 5             # STOP expiration window (5 * 15min = 75 min)
 MATH_STOP_ATR_OFFSET = 0.5     # STOP placement distance in ATR units
 MATH_GUARD_WEAKEN_THRESHOLD = 0.5  # guard triggers if |guard| < 0.5 * |g0|
 
-# Math-bot risk scaling — steeper than FADE because the 17 strategies have
-# expected WR 0.80-0.89 with PF 1.5-2.2 (more aggressive edge, warrants higher
-# risk). Scale: 1% at WR=0.57 → 15% at WR=1.00, linear interpolation.
-MATH_RISK_MIN_PCT = 0.01
-MATH_RISK_MAX_PCT = 0.15
+# Unified portfolio risk (2026-05-14): SAME 0.1% por trade en TODOS los
+# sistemas (K3M1-75 + Traders Swing + Traders ORB) para que la prueba de
+# supervivencia sea homogenea. Sustituye el risk scaling antiguo del math-bot.
+UNIFIED_RISK_PCT = 0.001       # 0.1% por trade, todos los magics
+
+# Math-bot risk scaling (LEGACY — sustituido por UNIFIED_RISK_PCT, mantenido
+# por compatibilidad con codigo antiguo que importa estas constantes).
+MATH_RISK_MIN_PCT = 0.001
+MATH_RISK_MAX_PCT = 0.001
 MATH_WR_MIN = 0.57
 MATH_WR_MAX = 1.00
+
+# ── Traders (replica PDFs: Minervini/Zanger/Qulla/Ryan) ──────────
+# Sistemas paralelos aislados de K3M1-75. Magic distinto por filosofia.
+MAGIC_NUMBER_TRADERS_SWING = 1339   # Swing trend-following stocks-style (5 strats)
+MAGIC_NUMBER_TRADERS_ORB   = 1340   # Qulla ORB intradia (12 strats)
 
 # ── Symbol classification ──────────────────────────────────────
 INDEX_SYMBOLS = frozenset({"SP500", "NASDAQ100", "VIX", "WTI", "BRENT", "NATGAS"})
