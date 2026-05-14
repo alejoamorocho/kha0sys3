@@ -16,7 +16,8 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from deploy.vps_connection import VPSConnection
 
 BOT_PATH = r"C:\Proyectos\kha0sys3"
-SERVICES = ["Kha0sysWatchdog3", "Kha0sysMathBot"]
+# Kha0sysTradersBot (Tier 1 Swing 1339 + Tier 2 ORB 1340) agregado 2026-05-14.
+SERVICES = ["Kha0sysWatchdog3", "Kha0sysMathBot", "Kha0sysTradersBot"]
 
 
 def main():
