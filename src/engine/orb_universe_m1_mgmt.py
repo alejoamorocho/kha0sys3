@@ -121,11 +121,32 @@ def _load_enriched(symbol: str) -> tuple[pl.DataFrame, pl.DataFrame]:
     return m15, m1
 
 
+def _m1_to_arrays(m1: pl.DataFrame) -> dict:
+    """Convert sorted M1 Polars DataFrame to numpy arrays once per symbol.
+
+    Hoisted out of _scan_combo because converting millions of rows 16x
+    (per magic_time × duration combo) was making Phase A effectively
+    single-threaded. Now we do this exactly once per symbol.
+    """
+    m1_sorted = m1.sort("time")
+    m1_times = m1_sorted["time"].to_list()
+    return {
+        "times_list": m1_times,
+        "times": np.array(m1_times, dtype="object"),
+        "highs": np.asarray(m1_sorted["high"].to_list(), dtype=float),
+        "lows": np.asarray(m1_sorted["low"].to_list(), dtype=float),
+        "closes": np.asarray(m1_sorted["close"].to_list(), dtype=float),
+    }
+
+
 def _scan_combo(
     symbol: str, magic_time: str, duration: int,
-    m15: pl.DataFrame, m1: pl.DataFrame, cfg: PhaseAConfig,
+    m15: pl.DataFrame, m1_arr: dict, cfg: PhaseAConfig,
 ) -> tuple[pl.DataFrame, int]:
-    """Return trigger DataFrame and span_days for this combo."""
+    """Return trigger DataFrame and span_days for this combo.
+
+    `m1_arr` is the dict returned by `_m1_to_arrays(m1)` for this symbol.
+    """
     pd_start, pd_end = "00:00", "23:59"
     enriched = DataEnricher.enrich_with_daily_context(m15, pd_start, pd_end)
     enriched_or = DataEnricher.enrich_with_opening_range(enriched, magic_time, duration)
@@ -156,12 +177,11 @@ def _scan_combo(
     if per_day.is_empty():
         return pl.DataFrame(), 0
 
-    m1_sorted = m1.sort("time")
-    m1_times = m1_sorted["time"].to_list()
-    m1_highs = np.asarray(m1_sorted["high"].to_list(), dtype=float)
-    m1_lows = np.asarray(m1_sorted["low"].to_list(), dtype=float)
-    m1_closes = np.asarray(m1_sorted["close"].to_list(), dtype=float)
-    m1_times_arr = np.array(m1_times, dtype="object")
+    m1_times = m1_arr["times_list"]
+    m1_highs = m1_arr["highs"]
+    m1_lows = m1_arr["lows"]
+    m1_closes = m1_arr["closes"]
+    m1_times_arr = m1_arr["times"]
 
     triggers: list[dict] = []
     for row in per_day.iter_rows(named=True):
@@ -249,11 +269,17 @@ def run_phase_a(out_path=None, cfg=None) -> pl.DataFrame:
         except FileNotFoundError as e:
             print(f"[Phase A]   skip {symbol}: missing data ({e})", flush=True)
             continue
+        # Convert M1 to numpy arrays ONCE per symbol (was 16x before, killed perf).
+        conv_t0 = time.time()
+        m1_arr = _m1_to_arrays(m1)
+        conv_secs = time.time() - conv_t0
+        print(f"[Phase A]   {symbol}: M1 arrays built in {conv_secs:.1f}s "
+              f"({len(m1_arr['times']):,} bars)", flush=True)
         sym_survivors = 0
         sym_triggers = 0
         for magic_time in MAGIC_TIMES:
             for duration in OR_DURATIONS:
-                trig_df, span_days = _scan_combo(symbol, magic_time, duration, m15, m1, cfg)
+                trig_df, span_days = _scan_combo(symbol, magic_time, duration, m15, m1_arr, cfg)
                 if trig_df.is_empty():
                     continue
                 sym_triggers += len(trig_df)
