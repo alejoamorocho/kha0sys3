@@ -5,7 +5,13 @@ Hace git pull en el VPS y reinicia los servicios. Ejecutar desde local.
 Cubre los servicios NSSM activos (FADE bot retirado):
   - Kha0sysWatchdog3 (monitoreo)
   - Kha0sysMathBot   (MATH K3M1-75, magic 1338) — preserva sus AppParameters
-    actuales (--live / --dry-run) porque NSSM start no los toca.
+  - Kha0sysAmo8      (AMO8 ORB,      magic 8338) — preserva sus AppParameters
+NSSM start no toca AppParameters (--live / --dry-run), así se mantiene cada
+servicio en el modo que tenga.
+
+Si Kha0sysAmo8 todavía no existe en el VPS (primer deploy), `nssm stop` /
+`nssm start` simplemente reportan error y seguimos — créalo manualmente
+siguiendo docs/AMO8_DEPLOY.md.
 """
 
 import sys
@@ -17,7 +23,9 @@ from deploy.vps_connection import VPSConnection
 
 BOT_PATH = r"C:\Proyectos\kha0sys3"
 # Kha0sysTradersBot (Tier 1 Swing 1339 + Tier 2 ORB 1340) agregado 2026-05-14.
-SERVICES = ["Kha0sysWatchdog3", "Kha0sysMathBot", "Kha0sysTradersBot"]
+# Kha0sysAmo8 (AMO8 ORB false-break, magic 8338) agregado 2026-05-16.
+# Si un servicio no existe en VPS, nssm stop/start reporta error y continuamos.
+SERVICES = ["Kha0sysWatchdog3", "Kha0sysMathBot", "Kha0sysTradersBot", "Kha0sysAmo8"]
 
 
 def main():
