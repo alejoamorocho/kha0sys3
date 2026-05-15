@@ -336,9 +336,15 @@ class TradersEngine:
             atr = r["atr_d1"]
             if atr <= 0 or pivot <= 0:
                 continue
-            # If current price is below pivot, place STOP at pivot
+            # If current price is at/above pivot, breakout already happened. Skip.
             if cur_price >= pivot:
-                # Already above pivot — would not be a clean entry. Skip.
+                continue
+            # NEW GUARD: si el precio esta DEMASIADO lejos del pivot
+            # (mas del 2*ATR_D1 abajo), el setup ya quedo invalido — el
+            # mercado se alejo del area de breakout. Evita spammear STOPs
+            # que nunca se llenan.
+            gap = pivot - cur_price
+            if gap > 2.0 * atr:
                 continue
             # Compute SL/TP per exit_rules
             exit_r = strat["exit_rules"]

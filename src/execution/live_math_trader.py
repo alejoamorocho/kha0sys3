@@ -643,7 +643,9 @@ class MathTraderEngine:
                 # LIVE event detection (fills + closes) — every poll in LIVE
                 if not self.dry_run:
                     try:
-                        self.om.detect_live_events()
+                        nf, nc = self.om.detect_live_events()
+                        if nf or nc:
+                            print(f"[MATH] detect_live_events: fills={nf} closes={nc}")
                     except Exception as e:
                         print(f"[MATH] detect_live_events err: {e}")
 
