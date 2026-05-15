@@ -30,6 +30,7 @@ import polars as pl
 from src.application.orb_management_modes import (
     _trade_atr_or_fixed,
     simulate_doc_partial,
+    simulate_swing_traders,
 )
 from src.application.orb_utils import DATA_DIR, REPORTS_DIR
 from src.engine.friction_real import friction_r as real_friction_r, load_median_atr
@@ -144,6 +145,33 @@ def _simulate_mode_or(triggers: pl.DataFrame, symbol: str, or_duration: int,
     return out
 
 
+def _simulate_mode_swing(triggers: pl.DataFrame, symbol: str, or_duration: int,
+                          m1: dict) -> list[float]:
+    """Traders Swing-style: SL=1.0xATR, partial 25% @2R + 25% @4R + trail SMA(20) on 50%."""
+    median_atr = load_median_atr(symbol)
+    equiv_sl_atr = 1.0  # SL = 1.0 × ATR
+    friction_eff = real_friction_r(symbol, equiv_sl_atr, median_atr) + SLIPPAGE_R_FLOOR
+    max_hold_min = 10 * or_duration
+
+    out = []
+    for row in triggers.iter_rows(named=True):
+        atr = row["atr_at_setup"]
+        risk_per_r = 0.5 * atr
+        sl_dist = 1.0 * atr  # 1.0 × ATR
+        result = simulate_swing_traders(
+            fill_ts=row["trigger_ts"], entry=row["trigger_close"],
+            direction=row["direction"],
+            sl_distance=sl_dist,
+            max_hold_min=max_hold_min, m1=m1,
+            risk_per_r=risk_per_r, friction_r=friction_eff,
+            tp1_r=2.0, tp2_r=4.0, tp1_fraction=0.25, tp2_fraction=0.25,
+            trail_sma_period=20,
+        )
+        if result["exit_reason"] != "NO_BARS":
+            out.append(result["realized_r"])
+    return out
+
+
 def _simulate_mode_doc(triggers: pl.DataFrame, symbol: str, or_duration: int,
                        m1: dict) -> list[float]:
     """Doc-style: SL = 1.0×OR, TP1 = 1.0×OR (50%), TP2 = 2.0×OR (50%), BE after TP1,
@@ -248,6 +276,18 @@ def run():
             "mode": "DOC",
             "params": "sl=1.0OR,tp1=1.0OR(50%),tp2=2.0OR(50%),BE,timestop@1/2,mfe<0.5R",
             "sl_atr": None, "sl_or_frac": 1.0, "rr_used": 2.0,
+            **metrics,
+        })
+
+        # Mode 4: SWING (Traders Swing-style adapted to intraday)
+        rs = _simulate_mode_swing(trig_slot, symbol, duration, m1)
+        metrics = _aggregate_trades(rs, span_days, None)
+        rows.append({
+            **{k: slot[k] for k in ["symbol", "magic_time", "or_duration_min",
+                                      "pattern_id", "direction"]},
+            "mode": "SWING",
+            "params": "sl=1.0ATR,tp1=2R(25%),tp2=4R(25%),BE,trail_sma20(50%)",
+            "sl_atr": 1.0, "sl_or_frac": None, "rr_used": 3.0,
             **metrics,
         })
 

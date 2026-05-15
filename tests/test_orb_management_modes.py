@@ -131,6 +131,49 @@ def test_friction_subtracted():
     assert out["realized_r"] == pytest.approx(1.2)
 
 
+def test_swing_traders_tp1_tp2_then_trail():
+    """SWING: TP1 (25%) + TP2 (25%) + trail SMA crosses against → exits remainder."""
+    from src.application.orb_management_modes import simulate_swing_traders
+    fill_ts = datetime(2026, 1, 1, 8, 0)
+    # Long, entry=1.10, R=0.01, TP1=1.12 (+2R), TP2=1.14 (+4R), SL=1.09
+    # Bars 0-2: TP1+TP2 hit, then 3 trailing bars, bar 5 crosses below SMA(20)
+    highs = [1.115, 1.125, 1.145, 1.13, 1.12, 1.11]
+    lows = [1.105, 1.115, 1.125, 1.115, 1.105, 1.095]
+    closes = [1.11, 1.12, 1.13, 1.12, 1.11, 1.10]  # last cl=1.10 < short SMA
+    out = simulate_swing_traders(
+        fill_ts=fill_ts, entry=1.10, direction="LONG",
+        sl_distance=0.01,
+        max_hold_min=60,
+        m1=_m1(datetime(2026, 1, 1, 8, 1), highs=highs, lows=lows, closes=closes),
+        risk_per_r=0.01, friction_r=0.0,
+        trail_sma_period=3,  # short SMA so it adapts fast
+    )
+    assert out["tp1_hit"] is True
+    assert out["tp2_hit"] is True
+    # 25% × 2R (TP1) = 0.5R
+    # 25% × 4R (TP2) = 1.0R
+    # 50% × trail at idx=3 (close=1.12, sma=1.1233, LONG cross down) = 50% × (1.12-1.10)/0.01 = 1.0R
+    # Total = 2.5R
+    assert out["realized_r"] == pytest.approx(2.5, abs=0.01)
+
+
+def test_swing_traders_sl_before_tp1():
+    """SWING: SL hit before TP1 = -1R full position."""
+    from src.application.orb_management_modes import simulate_swing_traders
+    fill_ts = datetime(2026, 1, 1, 8, 0)
+    out = simulate_swing_traders(
+        fill_ts=fill_ts, entry=1.10, direction="LONG",
+        sl_distance=0.01,
+        max_hold_min=60,
+        m1=_m1(datetime(2026, 1, 1, 8, 1),
+               highs=[1.105, 1.10],
+               lows=[1.085, 1.10]),
+        risk_per_r=0.01, friction_r=0.0,
+    )
+    assert out["realized_r"] == pytest.approx(-1.0)
+    assert out["exit_reason"] == "SL"
+
+
 def test_short_direction_works():
     """Short: TP1+TP2 mirror of long."""
     fill_ts = datetime(2026, 1, 1, 8, 0)
