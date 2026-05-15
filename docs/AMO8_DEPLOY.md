@@ -159,15 +159,90 @@ mt5.shutdown()
 K3M1-75 (magic 1338) is **completely unaffected** by stopping/starting
 Kha0sysAmo8 — they share no files or state.
 
-## V2 follow-up (DOC + SWING modes)
+## V2 — DOC + SWING modes (partial exits)
 
-V1 ships only ATR + OR_FIXED management (75 of 84 PF≥1.3 configs).
-The 9 dropped configs (3 DOC, 6 SWING) need partial-exit infrastructure:
+V2 ships all 84 configs across 4 modes (ATR + OR_FIXED + DOC + SWING).
 
-1. Position fraction tracker (mid-trade)
-2. Modify-order to shift SL after TP1 hit (BE shift)
-3. Modify-order to lock at +1R after TP2 hit (SWING)
-4. Live SMA(20) M1 calculation for trailing (SWING)
-5. Time-conditional close logic at max_hold/2 if MFE < 0.5R (DOC)
+### V2 architecture
 
-Estimated effort: 3-5 days. Plan separately when ready.
+**New module: `src/execution/amo_position_state.py`**
+- `AmoPosition` dataclass: full state per partial-exit position
+- `PositionStateStore`: JSON-backed persistence
+  (sidecar at `C:\ProgramData\Kha0sysAmo8\state\positions.json`)
+- `evaluate_doc()` / `evaluate_swing()`: pure decision logic, fully unit-tested
+- `apply_decision()`: state mutation after broker confirms action
+
+**Extended `AmoOrderManager`**:
+- `place_partial(strategy, ...)`: market-open + register state. Used for
+  DOC and SWING modes. Sets only the initial SL on the broker; TPs are
+  managed by the state machine.
+- `partial_exit_tick(bars_by_symbol)`: per-poll iteration over positions
+  with `remaining_volume > 0`; evaluates state machine, executes
+  PARTIAL_CLOSE / MODIFY_SL / CLOSE_ALL.
+- `_close_position_market(...)`, `_modify_position_sl(...)`: low-level
+  MT5 actions.
+
+**Extended `AmoTraderEngine`**:
+- `_partial_exit_tick(now)`: fetches live ticks + last M1 bar per symbol
+  with active partial positions, calls `orders.partial_exit_tick(...)`.
+- Called every `SWEEP_INTERVAL` (60s) alongside max-hold sweep.
+
+### State machine rules (mirror of backtest)
+
+**DOC mode:**
+- SL = 1.0 × OR_width (broker-managed)
+- TP1 = +1.0 × OR_width → close 50%, **shift SL → entry (BE)**
+- TP2 = +2.0 × OR_width → close remaining 50%
+- **Midpoint check** at `max_hold/2`: if MFE < 0.5R and TP1 not yet hit,
+  close at market (rule `DOC_TIME_STOP_LOW_MFE`)
+- MAX_HOLD: close remainder at market
+
+**SWING mode:**
+- SL = 1.0 × ATR (broker-managed)
+- TP1 = +2R → close 25%, **shift SL → entry (BE)**
+- TP2 = +4R → close 25%, **lock SL at +1R favorable**
+- Trail 50% remaining with SMA(20) on M1: exit when close crosses against
+- MAX_HOLD: close remainder at market
+
+### V2 state persistence
+
+The `PositionStateStore` writes after every state change. On supervisor
+restart:
+1. `state_dir/positions.json` is loaded; `state_positions` rebuilt
+2. Positions with `remaining_volume == 0` are pruned
+3. The state machine continues from the last known state
+
+**If the state file is corrupt or missing**, the manager starts with empty
+state. Live positions still in MT5 will continue with their broker-set SL
+(originally `entry - 1×OR` for DOC, `entry - 1×ATR` for SWING) but their
+partial-exit progression will be lost — they will run to either broker SL
+or MAX_HOLD. This is a safe degradation: no money at risk beyond the
+initial SL, but the partial-exit edge is reduced for any orphaned position.
+
+### Operational notes
+
+- The state file directory `C:\ProgramData\Kha0sysAmo8\state\` is created
+  automatically on first start. Make sure the service user has write
+  permissions (LocalSystem has them by default).
+- The state file is human-readable JSON for forensics/debugging.
+- After a manual position close in MT5, the next `partial_exit_tick` will
+  detect `remaining_volume <= 0` and prune the state entry.
+
+### V2 telemetry
+
+Telegram events (`[AMO8] *` prefix) added in V2:
+- `ORDER PLACED [DOC]` / `ORDER PLACED [SWING]` — shows TP1, TP2, fractions
+- `PARTIAL CLOSE [DOC_TP1]` / `[SWING_TP1]` / `[SWING_TP2]` — fraction closed,
+  remaining vol, new SL
+- `FULL CLOSE [DOC_TP2]` / `[SWING_TRAIL_SMA]` / `[DOC_TIME_STOP_LOW_MFE]` /
+  `[*_MAX_HOLD]` — reason for full close
+- `SL MOVED [reason]` — bare SL modifications (rare)
+
+### V2 tests
+
+48 tests pass (`pytest tests/test_amo_position_state.py
+tests/test_orb_management_modes.py ...`):
+- 20 state-machine tests (DOC TP1+TP2, BE shift, midpoint MFE, SWING trail,
+  short direction mirror, persistence roundtrip, corrupt-file recovery,
+  apply_decision floor at zero)
+- 28 supporting ORB tests (event detection, MFE/MAE walker, etc.)

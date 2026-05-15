@@ -27,6 +27,7 @@ from src.application.orb_utils import REPORTS_DIR
 MAGIC_NUMBER = 8338
 RISK_PER_TRADE = 0.001  # 0.1% per config; with up to 12 overlap on one signal = 1.2% max
 PF_MIN = 1.3
+ALLOWED_MODES = {"ATR", "OR_FIXED", "DOC", "SWING"}  # V2: includes partial-exit modes.
 
 
 def _load_symbol_mapping() -> dict[str, str]:
@@ -149,8 +150,12 @@ def _exit_rules_for(row: dict) -> dict:
 def main():
     base = Path(REPORTS_DIR)
     df = pl.read_parquet(base / "orb_managements_positive.parquet")
-    winners = df.filter(pl.col("pf") >= PF_MIN).sort("pf", descending=True)
-    print(f"Loaded {len(df)} positive winners; {len(winners)} pass PF>={PF_MIN}")
+    winners = df.filter(
+        (pl.col("pf") >= PF_MIN)
+        & (pl.col("mode").is_in(list(ALLOWED_MODES)))
+    ).sort("pf", descending=True)
+    print(f"Loaded {len(df)} positive winners; "
+          f"{len(winners)} pass PF>={PF_MIN} AND mode in {ALLOWED_MODES}")
 
     sym_map = _load_symbol_mapping()
     portfolio = []

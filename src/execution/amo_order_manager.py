@@ -5,19 +5,26 @@ it never touches MATH state.
 
 Responsibilities:
   - has_pending_or_open_today(symbol, pattern_id, direction): dedup gate per day
-  - place_market(strategy_cfg, entry_price, atr_at_setup, or_width): submits a
-    MARKET order with TP/SL precomputed by mode (ATR or OR_FIXED).
-  - sweep_max_hold(): force-close positions older than max_hold_min.
+  - place_market(strategy_cfg, entry_price, atr_at_setup, or_width): MARKET
+    order with TP/SL precomputed by mode (ATR or OR_FIXED → single-shot).
+  - place_partial(strategy_cfg, entry_price, atr_at_setup, or_width): MARKET
+    order for DOC/SWING modes; registers position in the state machine for
+    subsequent partial-exit management.
+  - partial_exit_tick(...): per-poll iteration over live partial positions;
+    queries ticks + last M1, evaluates state machine, executes partial
+    closes / SL modifications.
+  - sweep_max_hold(): force-close positions older than max_hold_min (also
+    handled by partial_exit_tick for DOC/SWING but ATR/OR_FIXED rely on this).
   - DRY_RUN preserves all logic but skips order_send/position_close.
 
-V1 supports only MARKET entries with single TP/SL (modes ATR and OR_FIXED).
-V2 will add partial exits (DOC + SWING modes).
+V2 supports ATR, OR_FIXED, DOC, SWING.
 """
 from __future__ import annotations
 
 import math
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
 try:
@@ -25,8 +32,18 @@ try:
 except Exception:  # pragma: no cover
     mt5 = None  # type: ignore
 
+from src.execution.amo_position_state import (
+    Action,
+    AmoPosition,
+    Decision,
+    PositionStateStore,
+    apply_decision,
+    evaluate,
+)
+
 
 MAGIC_NUMBER_AMO8 = 8338
+DEFAULT_STATE_DIR = r"C:\ProgramData\Kha0sysAmo8\state"
 
 # MT5 retcodes handled gracefully
 _RETCODE_INVALID_PRICE = 10015
@@ -86,13 +103,27 @@ class PendingAmoOrder:
 class AmoOrderManager:
     """Order manager for the AMO8 portfolio (magic 8338)."""
 
-    def __init__(self, dry_run: bool = True, telegram=None):
+    def __init__(self, dry_run: bool = True, telegram=None,
+                 state_dir: Optional[str] = None):
         self.dry_run = dry_run
         self.telegram = telegram
         # In-memory dedup: {(internal_sym, pattern_id, direction, trade_date): True}
         self._fired_today: dict[tuple, str] = {}
         # In-memory pending tracking for DRY mode and max-hold sweep
         self._pending: list[PendingAmoOrder] = []
+        # Partial-exit state (DOC + SWING modes)
+        state_dir = state_dir or DEFAULT_STATE_DIR
+        try:
+            self.state_store = PositionStateStore(state_dir)
+            self.state_positions: dict[int, AmoPosition] = self.state_store.load()
+            if self.state_positions:
+                print(f"[AMO8] loaded {len(self.state_positions)} partial-exit "
+                      f"positions from {state_dir}")
+        except Exception as e:
+            print(f"[AMO8] state store init error ({state_dir}): {e}; "
+                  f"falling back to in-memory only")
+            self.state_store = None
+            self.state_positions = {}
 
     # ───────────────────────── Dedup ─────────────────────────
 
@@ -316,6 +347,321 @@ class AmoOrderManager:
                   f"({getattr(result, 'comment', '')})")
             return -1, False
         return int(getattr(result, "order", -1)), True
+
+    # ───────────────────────── Partial-exit placement ─────────────────────────
+
+    def place_partial(
+        self,
+        strategy: dict,
+        entry_price: float,
+        atr_at_setup: float,
+        or_width: float,
+        risk_per_trade: float,
+        account_balance: float,
+    ) -> Optional[AmoPosition]:
+        """Place a MARKET order for DOC or SWING mode and register state.
+
+        Computes initial SL/TP distances from the exit_rules and stores an
+        AmoPosition in the state machine for subsequent partial management.
+        Returns the registered AmoPosition (with ticket=-1 in DRY) or None.
+        """
+        internal_sym = strategy["internal_sym"]
+        broker_sym = strategy["broker_sym"]
+        direction = strategy["direction"]
+        rules = strategy["exit_rules"]
+        mode = rules["mode"]
+
+        if mode not in ("DOC", "SWING"):
+            raise ValueError(f"place_partial requires DOC or SWING, got {mode}")
+
+        sign = 1.0 if direction == "LONG" else -1.0
+        risk_per_r = 0.5 * atr_at_setup
+
+        if mode == "DOC":
+            sl_dist = float(rules["sl_or_frac"]) * or_width
+            tp1_dist = float(rules["tp1_or_frac"]) * or_width
+            tp2_dist = float(rules["tp2_or_frac"]) * or_width
+            tp1_frac = float(rules.get("tp1_fraction", 0.5))
+            tp2_frac = 1.0 - tp1_frac
+            mid_mfe_r = float(rules.get("midpoint_mfe_min_r", 0.5))
+            sma_period = 0
+            swing_tp2_lock_r = 0.0
+        else:  # SWING
+            sl_dist = float(rules["sl_atr_mult"]) * atr_at_setup
+            tp1_dist = float(rules["tp1_r"]) * risk_per_r
+            tp2_dist = float(rules["tp2_r"]) * risk_per_r
+            tp1_frac = float(rules.get("tp1_fraction", 0.25))
+            tp2_frac = float(rules.get("tp2_fraction", 0.25))
+            mid_mfe_r = 0.5  # unused
+            sma_period = int(rules.get("trail_sma_period", 20))
+            swing_tp2_lock_r = 1.0
+
+        if sl_dist <= 0 or tp1_dist <= 0 or tp2_dist <= tp1_dist:
+            print(f"[AMO8] skip {strategy['id']}: invalid distances "
+                  f"sl={sl_dist:.6f} tp1={tp1_dist:.6f} tp2={tp2_dist:.6f}")
+            return None
+
+        # Initial broker-level SL: at sl_dist; TP1: at tp1_dist (broker handles
+        # SL natively; TP is managed by our state machine, so we DO NOT set a
+        # broker TP — leave it at 0 / no TP).
+        sl_price = entry_price - sign * sl_dist
+
+        volume = self._compute_volume(
+            broker_sym, sl_dist, risk_per_trade, account_balance
+        )
+        if volume <= 0:
+            print(f"[AMO8] skip {strategy['id']}: computed volume <= 0")
+            return None
+
+        comment = make_order_comment(strategy["id"], mode, strategy["event_type"])
+
+        if self.dry_run:
+            print(f"[AMO8][DRY] would place {mode} MARKET {direction} {broker_sym} "
+                  f"vol={volume} entry≈{entry_price:.5f} sl={sl_price:.5f} "
+                  f"tp1≈{entry_price + sign*tp1_dist:.5f} "
+                  f"tp2≈{entry_price + sign*tp2_dist:.5f}  comment='{comment}'")
+            ticket = -1 * (len(self.state_positions) + 1)  # unique negative for DRY
+            ok = True
+        else:
+            ticket, ok = self._send_market_order(
+                broker_sym, direction, volume, sl_price,
+                tp_price=0.0,   # no broker TP — managed by state machine
+                comment=comment,
+            )
+            if not ok:
+                print(f"[AMO8] order_send failed for {strategy['id']}")
+                return None
+
+        pos = AmoPosition(
+            ticket=ticket,
+            strategy_id=strategy["id"],
+            mode=mode,
+            direction=direction,
+            broker_sym=broker_sym,
+            internal_sym=internal_sym,
+            entry_price=float(entry_price),
+            initial_volume=float(volume),
+            placed_at_iso=datetime.now(timezone.utc).isoformat(),
+            max_hold_min=int(rules.get("max_hold_min", 600)),
+            atr_at_setup=float(atr_at_setup),
+            or_width=float(or_width),
+            sl_distance_initial=float(sl_dist),
+            tp1_distance=float(tp1_dist),
+            tp2_distance=float(tp2_dist),
+            tp1_fraction=float(tp1_frac),
+            tp2_fraction=float(tp2_frac),
+            midpoint_mfe_min_r=float(mid_mfe_r),
+            sma_period=int(sma_period),
+            swing_tp2_lock_r=float(swing_tp2_lock_r),
+        )
+        pos.init_levels()
+        self.state_positions[ticket] = pos
+        if self.state_store is not None:
+            try:
+                self.state_store.save(self.state_positions)
+            except Exception as e:
+                print(f"[AMO8] state save error: {e}")
+
+        self._mark_fired(internal_sym, strategy["pattern_id"], direction)
+
+        if self.telegram is not None:
+            try:
+                self.telegram.send_message(
+                    f"[AMO8] ORDER PLACED [{mode}]\n"
+                    f"strategy: {strategy['id']}\n"
+                    f"symbol: {broker_sym} ({internal_sym})\n"
+                    f"dir: {direction}\n"
+                    f"entry: {entry_price:.5f}  sl: {sl_price:.5f}\n"
+                    f"tp1: {pos.tp1_price:.5f} ({tp1_frac*100:.0f}%)\n"
+                    f"tp2: {pos.tp2_price:.5f} ({tp2_frac*100:.0f}%)\n"
+                    f"vol: {volume}  comment: {comment}\n"
+                    f"expected: PF={strategy.get('expected_pf', '?')} "
+                    f"WR={strategy.get('expected_wr', '?')}"
+                )
+            except Exception as e:
+                print(f"[AMO8] telegram error: {e}")
+
+        return pos
+
+    # ───────────────────────── Partial-exit tick ─────────────────────────
+
+    def partial_exit_tick(self, bars_by_symbol: dict[str, dict]) -> None:
+        """Per-poll: iterate state-machine positions and execute transitions.
+
+        `bars_by_symbol` is {broker_sym: {"bid": .., "ask": .., "m1_high": ..,
+        "m1_low": .., "m1_close": ..}} — caller provides latest data.
+
+        Positions with mode != DOC/SWING are ignored (broker manages them).
+        Positions whose remaining_volume == 0 are removed from state.
+        """
+        if not self.state_positions:
+            return
+        now = datetime.now(timezone.utc)
+        to_remove: list[int] = []
+        for ticket, pos in list(self.state_positions.items()):
+            if pos.remaining_volume <= 0:
+                to_remove.append(ticket)
+                continue
+            data = bars_by_symbol.get(pos.broker_sym)
+            if data is None:
+                continue
+            decision = evaluate(
+                pos,
+                now=now,
+                bid=float(data["bid"]),
+                ask=float(data["ask"]),
+                last_m1_high=float(data["m1_high"]),
+                last_m1_low=float(data["m1_low"]),
+                last_m1_close=float(data["m1_close"]),
+            )
+            if decision.action == Action.HOLD:
+                continue
+            ok = self._execute_decision(pos, decision)
+            if ok:
+                apply_decision(pos, decision)
+                if pos.remaining_volume <= 0:
+                    to_remove.append(ticket)
+                self._emit_decision_telegram(pos, decision)
+
+        for t in to_remove:
+            self.state_positions.pop(t, None)
+
+        if self.state_store is not None and (to_remove or self.state_positions):
+            try:
+                self.state_store.save(self.state_positions)
+            except Exception as e:
+                print(f"[AMO8] state save error: {e}")
+
+    def _execute_decision(self, pos: AmoPosition, decision: Decision) -> bool:
+        """Translate state-machine decision into MT5 orders.
+
+        - PARTIAL_CLOSE(fraction, new_sl_price): close fraction × initial_volume
+          then modify SL on the remaining position.
+        - CLOSE_ALL: close pos.remaining_volume at market.
+        - MODIFY_SL: only update SL.
+
+        Returns True if the broker action succeeded (or DRY).
+        """
+        if self.dry_run or mt5 is None:
+            return True
+
+        if decision.action == Action.CLOSE_ALL:
+            return self._close_position_market(pos.ticket, pos.broker_sym,
+                                                pos.direction, pos.remaining_volume,
+                                                comment=f"A8|{decision.reason[:23]}")
+        if decision.action == Action.PARTIAL_CLOSE:
+            close_vol = decision.fraction * pos.initial_volume
+            close_vol = self._snap_to_step(pos.broker_sym, close_vol)
+            if close_vol <= 0 or close_vol > pos.remaining_volume:
+                return False
+            ok_close = self._close_position_market(
+                pos.ticket, pos.broker_sym, pos.direction, close_vol,
+                comment=f"A8|{decision.reason[:23]}",
+            )
+            if not ok_close:
+                return False
+            if decision.new_sl_price is not None:
+                self._modify_position_sl(pos.ticket, pos.broker_sym,
+                                          decision.new_sl_price)
+            return True
+        if decision.action == Action.MODIFY_SL and decision.new_sl_price is not None:
+            return self._modify_position_sl(pos.ticket, pos.broker_sym,
+                                             decision.new_sl_price)
+        return False
+
+    def _snap_to_step(self, broker_sym: str, volume: float) -> float:
+        if mt5 is None:
+            return volume
+        info = mt5.symbol_info(broker_sym)
+        if info is None:
+            return volume
+        vol_step = float(info.volume_step or 0.01)
+        vol_min = float(info.volume_min or 0.01)
+        snapped = math.floor(volume / vol_step) * vol_step
+        return max(0.0, max(vol_min if snapped > 0 else 0.0, round(snapped, 2)))
+
+    def _close_position_market(
+        self, ticket: int, broker_sym: str, direction: str,
+        volume: float, comment: str,
+    ) -> bool:
+        if mt5 is None:
+            return False
+        tick = mt5.symbol_info_tick(broker_sym)
+        if tick is None:
+            return False
+        is_long = direction == "LONG"
+        close_type = mt5.ORDER_TYPE_SELL if is_long else mt5.ORDER_TYPE_BUY
+        price = tick.bid if is_long else tick.ask
+        req = {
+            "action": mt5.TRADE_ACTION_DEAL,
+            "symbol": broker_sym,
+            "volume": float(volume),
+            "type": close_type,
+            "position": int(ticket),
+            "price": float(price),
+            "deviation": 20,
+            "magic": MAGIC_NUMBER_AMO8,
+            "comment": comment,
+            "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": mt5.ORDER_FILLING_IOC,
+        }
+        result = mt5.order_send(req)
+        if result is None:
+            return False
+        return int(getattr(result, "retcode", 0)) in (_RETCODE_DONE, _RETCODE_DONE_PARTIAL)
+
+    def _modify_position_sl(self, ticket: int, broker_sym: str,
+                            new_sl: float) -> bool:
+        if mt5 is None:
+            return False
+        # SLTP modification doesn't change TP — read current TP and preserve
+        positions = mt5.positions_get(symbol=broker_sym) or []
+        current_tp = 0.0
+        for p in positions:
+            if int(getattr(p, "ticket", -1)) == ticket:
+                current_tp = float(getattr(p, "tp", 0.0))
+                break
+        req = {
+            "action": mt5.TRADE_ACTION_SLTP,
+            "position": int(ticket),
+            "symbol": broker_sym,
+            "sl": float(new_sl),
+            "tp": float(current_tp),
+            "magic": MAGIC_NUMBER_AMO8,
+        }
+        result = mt5.order_send(req)
+        if result is None:
+            return False
+        return int(getattr(result, "retcode", 0)) in (_RETCODE_DONE, _RETCODE_DONE_PARTIAL)
+
+    def _emit_decision_telegram(self, pos: AmoPosition, decision: Decision) -> None:
+        if self.telegram is None:
+            return
+        try:
+            if decision.action == Action.PARTIAL_CLOSE:
+                self.telegram.send_message(
+                    f"[AMO8] PARTIAL CLOSE [{decision.reason}]\n"
+                    f"strategy: {pos.strategy_id}\n"
+                    f"ticket: {pos.ticket}  symbol: {pos.broker_sym}\n"
+                    f"closed: {decision.fraction*100:.0f}% × initial_volume\n"
+                    f"remaining: {pos.remaining_volume - decision.fraction*pos.initial_volume:.2f}\n"
+                    f"new SL: {decision.new_sl_price}"
+                )
+            elif decision.action == Action.CLOSE_ALL:
+                self.telegram.send_message(
+                    f"[AMO8] FULL CLOSE [{decision.reason}]\n"
+                    f"strategy: {pos.strategy_id}\n"
+                    f"ticket: {pos.ticket}  symbol: {pos.broker_sym}\n"
+                    f"closed remaining: {pos.remaining_volume:.2f}"
+                )
+            elif decision.action == Action.MODIFY_SL:
+                self.telegram.send_message(
+                    f"[AMO8] SL MOVED [{decision.reason}]\n"
+                    f"strategy: {pos.strategy_id}  ticket: {pos.ticket}\n"
+                    f"new SL: {decision.new_sl_price}"
+                )
+        except Exception as e:
+            print(f"[AMO8] telegram error: {e}")
 
     # ───────────────────────── Max-hold sweep ─────────────────────────
 

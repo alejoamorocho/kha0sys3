@@ -162,11 +162,12 @@ class AmoTraderEngine:
             self._emit_heartbeat(now)
             self._last_heartbeat = time.time()
 
-        # Periodic max-hold sweep
+        # Periodic max-hold sweep + partial-exit tick for DOC/SWING positions
         if (time.time() - self._last_sweep) > self.SWEEP_INTERVAL:
             closed = self.orders.sweep_max_hold()
             if closed > 0:
                 print(f"[AMO8] sweep closed {closed} positions over max_hold")
+            self._partial_exit_tick(now)
             self._last_sweep = time.time()
 
         # Active slots: those whose OR closed in the last POST_OR_ACTIVE_HOURS hours
@@ -339,14 +340,25 @@ class AmoTraderEngine:
                     strategy["internal_sym"], pattern_id, strategy["direction"]
                 ):
                     continue
-                self.orders.place_market(
-                    strategy=strategy,
-                    entry_price=entry_price,
-                    atr_at_setup=atr_at_setup,
-                    or_width=or_width,
-                    risk_per_trade=self.risk_per_trade,
-                    account_balance=balance,
-                )
+                mode = strategy["exit_rules"]["mode"]
+                if mode in ("DOC", "SWING"):
+                    self.orders.place_partial(
+                        strategy=strategy,
+                        entry_price=entry_price,
+                        atr_at_setup=atr_at_setup,
+                        or_width=or_width,
+                        risk_per_trade=self.risk_per_trade,
+                        account_balance=balance,
+                    )
+                else:  # ATR or OR_FIXED
+                    self.orders.place_market(
+                        strategy=strategy,
+                        entry_price=entry_price,
+                        atr_at_setup=atr_at_setup,
+                        or_width=or_width,
+                        risk_per_trade=self.risk_per_trade,
+                        account_balance=balance,
+                    )
 
     # ───────────────────────── MT5 helpers ─────────────────────────
 
@@ -377,6 +389,57 @@ class AmoTraderEngine:
             return df
         except Exception as e:
             print(f"[AMO8] fetch bars error {broker_sym}/{tf}: {e}")
+            return None
+
+    def _partial_exit_tick(self, now: datetime) -> None:
+        """Build bars_by_symbol snapshot from live MT5 ticks + last M1 close
+        for every symbol that currently has a DOC/SWING partial position open,
+        then delegate to AmoOrderManager.partial_exit_tick."""
+        positions = getattr(self.orders, "state_positions", {})
+        if not positions:
+            return
+        symbols_needed = {pos.broker_sym for pos in positions.values()
+                          if pos.remaining_volume > 0}
+        if not symbols_needed:
+            return
+        bars_by_symbol: dict[str, dict] = {}
+        for sym in symbols_needed:
+            data = self._fetch_partial_snapshot(sym)
+            if data is None:
+                continue
+            bars_by_symbol[sym] = data
+        if bars_by_symbol:
+            self.orders.partial_exit_tick(bars_by_symbol)
+
+    def _fetch_partial_snapshot(self, broker_sym: str) -> Optional[dict]:
+        """Return {bid, ask, m1_high, m1_low, m1_close} for one symbol.
+
+        Falls back gracefully if MT5 is unavailable.
+        """
+        if mt5 is None:
+            return None
+        try:
+            tick = mt5.symbol_info_tick(broker_sym)
+            if tick is None:
+                return None
+            # Last closed M1 bar (count=2 to ensure we get a fully-closed one)
+            rates = mt5.copy_rates_from_pos(broker_sym, mt5.TIMEFRAME_M1, 1, 1)
+            if rates is None or len(rates) == 0:
+                # Fallback: use bid/ask for high/low/close
+                mid = (float(tick.bid) + float(tick.ask)) / 2
+                return {"bid": float(tick.bid), "ask": float(tick.ask),
+                        "m1_high": float(tick.ask), "m1_low": float(tick.bid),
+                        "m1_close": mid}
+            r = rates[0]
+            return {
+                "bid": float(tick.bid),
+                "ask": float(tick.ask),
+                "m1_high": float(r["high"]),
+                "m1_low": float(r["low"]),
+                "m1_close": float(r["close"]),
+            }
+        except Exception as e:
+            print(f"[AMO8] partial snapshot error {broker_sym}: {e}")
             return None
 
     def _get_balance(self) -> Optional[float]:
