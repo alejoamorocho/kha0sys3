@@ -109,6 +109,12 @@ class AmoTraderEngine:
         self._last_heartbeat = 0.0
         self._last_sweep = 0.0
         self._stop = False
+        # Broker offset: magic_time is in BROKER hours (K3M1 convention treats
+        # MT5 broker-time-as-UTC in bar timestamps). To compare correctly,
+        # `now` must be shifted to the broker frame. Default = +3h (Vantage
+        # EEST). Refreshed at startup and every 10 polls from fresh ticks.
+        self._broker_offset_h: int = 3
+        self._last_offset_refresh = 0.0
 
     # ───────────────────────── Lifecycle ─────────────────────────
 
@@ -152,10 +158,70 @@ class AmoTraderEngine:
     def stop(self) -> None:
         self._stop = True
 
+    # ───────────────────────── Broker time ─────────────────────────
+
+    def _refresh_broker_offset(self) -> None:
+        """Detect broker offset vs real UTC from fresh ticks. K3M1 convention
+        treats broker-time-as-UTC in bar/dataframe timestamps, so `now` must
+        be advanced by offset to align with magic_time hours.
+
+        If no fresh tick is available (market closed), KEEP previous offset
+        (no drift). Sanity-reject offsets outside [-1, +12]h.
+        """
+        if mt5 is None:
+            return
+        import time as _t
+        now_real = int(_t.time())
+        best_delta_h = None
+        best_age = float("inf")
+        for sym in ("EURUSD+", "XAUUSD+", "XAGUSD", "GBPUSD+", "AUDUSD+"):
+            try:
+                t = mt5.symbol_info_tick(sym)
+                if t is None or int(t.time) == 0:
+                    continue
+                age = abs(now_real - int(t.time))
+                if age > 300:  # ignore stale ticks > 5 min
+                    continue
+                if age < best_age:
+                    best_age = age
+                    best_delta_h = (int(t.time) - now_real) / 3600.0
+            except Exception:
+                continue
+        if best_delta_h is None:
+            return  # no fresh tick → keep previous offset
+        new_h = int(round(best_delta_h))
+        if not (-1 <= new_h <= 12):
+            print(f"[AMO8] rejecting implausible broker offset {new_h:+d}h")
+            return
+        if new_h != self._broker_offset_h:
+            print(f"[AMO8] broker_offset_h: {self._broker_offset_h:+d}h "
+                  f"-> {new_h:+d}h")
+            self._broker_offset_h = new_h
+
+    def _now_broker(self) -> datetime:
+        """Return current time labeled as broker-time-treated-as-UTC.
+
+        This matches the convention used in bar timestamps: a bar opened at
+        broker 08:00 (real UTC 05:00 if broker is +3h) shows up as 08:00
+        in our DataFrames. Likewise, this function returns 08:00 when
+        broker clock is at 08:00, regardless of real UTC.
+        """
+        offset_h = self._broker_offset_h
+        # `now_real` is real UTC. Adding the offset gives us a datetime that
+        # mirrors what the broker clock currently reads, labeled as UTC for
+        # naive comparison with magic_time / DataFrame bar timestamps.
+        return datetime.now(timezone.utc) + timedelta(hours=offset_h)
+
     # ───────────────────────── Main tick ─────────────────────────
 
     def _tick(self) -> None:
-        now = datetime.now(timezone.utc)
+        # Refresh broker offset every ~5 min (10 polls × 30s)
+        if (time.time() - self._last_offset_refresh) > 300:
+            self._refresh_broker_offset()
+            self._last_offset_refresh = time.time()
+        # IMPORTANT: now is in BROKER time (treated as UTC) so it aligns with
+        # magic_time hours and DataFrame bar timestamps.
+        now = self._now_broker()
 
         # Heartbeat
         if (time.time() - self._last_heartbeat) > self.HEARTBEAT_INTERVAL:
