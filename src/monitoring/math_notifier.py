@@ -92,17 +92,25 @@ class MathNotifier:
 
     def engine_started(self, *, mode: str, n_setups: int, by_tf: dict,
                         by_setup: dict, avg_wr: float, avg_pf_oos: float,
-                        risk_pct: float) -> None:
+                        risk_pct: float, by_symbol: dict | None = None) -> None:
         tf_str = " | ".join(f"{t}: {n}" for t, n in sorted(by_tf.items()))
         setup_str = " | ".join(f"{SETUP_TAG.get(s,s[:5])}: {n}"
                                 for s, n in sorted(by_setup.items(), key=lambda x: -x[1]))
+        n_syms = len(by_symbol) if by_symbol else 0
+        sym_str = ""
+        if by_symbol:
+            top_syms = " | ".join(
+                f"{s}: {n}" for s, n in sorted(by_symbol.items(), key=lambda x: -x[1])[:8]
+            )
+            sym_str = f"Top symbols:  {top_syms}\n"
         self.send(
             f"<b>[K3M1] ENGINE STARTED</b>\n"
             f"Mode:         {mode}\n"
             f"Magic:        {MAGIC_NUMBER_MATH}\n"
-            f"Strategies:   {n_setups}\n"
+            f"<b>Pairs operating: {n_setups}</b> (across {n_syms} symbols)\n"
             f"TF mix:       {tf_str}\n"
             f"Setups:       {setup_str}\n"
+            f"{sym_str}"
             f"Avg WR:       {avg_wr*100:.1f}%\n"
             f"Avg PF OOS:   {avg_pf_oos:.2f}\n"
             f"Risk/trade:   {risk_pct*100:.2f}%\n"

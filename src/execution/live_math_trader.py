@@ -474,11 +474,12 @@ class MathTraderEngine:
             acct_line = (
                 f"Account:  {acct_login} ({acct_server})\n" if acct_login is not None else ""
             )
+            n_syms = len({s.get("sym") for s in self.setups})
             self._tg(
                 f"HEARTBEAT\n"
                 f"{acct_line}"
                 f"Uptime:   {uptime_h:.1f}h\n"
-                f"Setups:   {len(self.setups)} ({tf_line})\n"
+                f"Pairs:    {len(self.setups)} en {n_syms} símbolos ({tf_line})\n"
                 f"Pending:  {len(self.om._pending)}\n"
                 f"Open pos: {n_pos} (floating P&L ${pnl_d:+.2f})\n"
                 f"Balance:  ${bal:.2f}\n"
@@ -577,6 +578,7 @@ class MathTraderEngine:
                     mode=mode, n_setups=n, by_tf=dict(tf_counter),
                     by_setup=dict(setup_counter), avg_wr=avg_wr,
                     avg_pf_oos=avg_pf_oos, risk_pct=risk_pct_disp,
+                    by_symbol=dict(sym_counter),
                 )
             else:
                 self._tg(

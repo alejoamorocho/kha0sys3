@@ -87,21 +87,46 @@ def _load_config(p: Path) -> dict:
         return json.load(f)
 
 
-def detect_broker_offset_hours(client: MT5Client, probe_symbol: str) -> int:
+_TICK_FRESHNESS_MAX_SEC = 300  # 5 min — same convention as MATH bot
+
+
+def detect_broker_offset_hours(client: MT5Client, probe_symbol: str,
+                                current_offset_h: int | None = None) -> int:
     """Detecta offset broker vs UTC via tick reciente.
 
     Returns: horas enteras (positivo = broker adelantado vs UTC).
-    Si no hay tick fresco, retorna BROKER_OFFSET_FALLBACK_H.
+    Si no hay tick fresco (>5min), retorna current_offset_h o
+    BROKER_OFFSET_FALLBACK_H.
+
+    BUG FIX 2026-05-16: previa versión devolvía delta sobre tick stale, lo
+    cual hacía drift -1h/hora durante fines de semana / mercados cerrados.
+    Ahora se respeta el offset previo cuando el tick no es fresco.
     """
+    fallback = current_offset_h if current_offset_h is not None else BROKER_OFFSET_FALLBACK_H
     if mt5 is None:
-        return BROKER_OFFSET_FALLBACK_H
-    tick = mt5.symbol_info_tick(probe_symbol)
-    if tick is None or tick.time == 0:
-        return BROKER_OFFSET_FALLBACK_H
+        return fallback
+    # Probar múltiples símbolos para mayor robustez (igual que MATH bot)
+    candidates = [probe_symbol, "EURUSD+", "XAUUSD+", "XAGUSD", "GBPUSD+", "AUDUSD+"]
+    best_delta = None
+    best_age = float("inf")
     now_utc_epoch = int(datetime.now(timezone.utc).timestamp())
-    delta_h = (int(tick.time) - now_utc_epoch) / 3600.0
-    # Tick puede tener algunos segundos de delay; round a hora entera.
-    return int(round(delta_h))
+    for sym in candidates:
+        try:
+            tick = mt5.symbol_info_tick(sym)
+            if tick is None or tick.time == 0:
+                continue
+            age = abs(now_utc_epoch - int(tick.time))
+            if age > _TICK_FRESHNESS_MAX_SEC:
+                continue
+            if age < best_age:
+                best_age = age
+                best_delta = (int(tick.time) - now_utc_epoch) / 3600.0
+        except Exception:
+            continue
+    if best_delta is None:
+        # No fresh tick available — keep previous offset (no drift)
+        return fallback
+    return int(round(best_delta))
 
 
 def _fetch_m1_bars(client: MT5Client, broker_symbol: str,
@@ -370,12 +395,18 @@ class TradersEngine:
                 tp = pivot * (1.0 + float(first_partial["value"]))
 
             comment = make_swing_comment(strat["setup_type"], strat["variant"], strat["sym"])
+            # BUG FIX 2026-05-16: previous hardcoded expiration_minutes=4h
+            # killed swing STOP orders before they could fill. Swing setups
+            # are D1-level — they should remain valid for valid_days
+            # (default 5 = 7200 min). Cap at 7 days as a safety upper bound.
+            valid_days = max(1, int(strat.get("valid_days", 5)))
+            expiration_min = min(7, valid_days) * 24 * 60
             self.mgr_swing.place_stop_long(
                 symbol=broker_sym, sym_internal=strat["internal_sym"],
                 strategy_id=sid, setup_type=strat["setup_type"],
                 variant=strat["variant"], stop_price=pivot, sl_price=sl,
                 tp_price=tp, atr_or_risk=risk, exit_rules=exit_r,
-                expiration_minutes=60 * 4,  # 4h para llenar
+                expiration_minutes=expiration_min,
                 comment=comment,
             )
 
@@ -500,11 +531,20 @@ class TradersEngine:
                 offset_refresh_counter += 1
                 if offset_refresh_counter >= 10 and all_internal_symbols:
                     probe = self.mapper.to_mt5(all_internal_symbols[0])
-                    new_off = detect_broker_offset_hours(self.client, probe)
+                    new_off = detect_broker_offset_hours(
+                        self.client, probe,
+                        current_offset_h=self.broker_offset_h,
+                    )
                     if new_off != self.broker_offset_h:
-                        print(f"[TradersEngine] broker_offset changed: "
-                              f"{self.broker_offset_h:+d}h -> {new_off:+d}h")
-                        self.broker_offset_h = new_off
+                        # Sanity: reject implausible offsets (must be in [-1h, +12h])
+                        if -1 <= new_off <= 12:
+                            print(f"[TradersEngine] broker_offset changed: "
+                                  f"{self.broker_offset_h:+d}h -> {new_off:+d}h")
+                            self.broker_offset_h = new_off
+                        else:
+                            print(f"[TradersEngine] rejecting implausible "
+                                  f"offset {new_off:+d}h, keeping "
+                                  f"{self.broker_offset_h:+d}h")
                     offset_refresh_counter = 0
 
                 # 1) Reconcile

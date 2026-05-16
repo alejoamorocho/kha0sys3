@@ -75,14 +75,17 @@ class TradersNotifier:
     def engine_started(self, mode: str, swing_n: int, orb_n: int,
                         risk_pct: float, broker_offset_h: int,
                         symbols: list[str]) -> None:
+        total = swing_n + orb_n
         text = (
             f"<b>[TRADERS] ENGINE STARTED</b>\n"
             f"Mode:           {mode}\n"
-            f"T1-SWING:       {swing_n} estrategias (magic {MAGIC_NUMBER_TRADERS_SWING})\n"
-            f"T2-ORB:         {orb_n} estrategias (magic {MAGIC_NUMBER_TRADERS_ORB})\n"
+            f"<b>Pairs operating: {total}</b> (Swing {swing_n} + ORB {orb_n}) "
+            f"across {len(symbols)} symbols\n"
+            f"T1-SWING:       {swing_n} pares (magic {MAGIC_NUMBER_TRADERS_SWING})\n"
+            f"T2-ORB:         {orb_n} pares (magic {MAGIC_NUMBER_TRADERS_ORB})\n"
             f"Risk/trade:     {risk_pct*100:.2f}%\n"
             f"Broker offset:  {broker_offset_h:+d}h vs UTC\n"
-            f"Symbols ({len(symbols)}): {', '.join(symbols)}\n"
+            f"Symbols: {', '.join(symbols)}\n"
             f"Time:           {_now_iso()}"
         )
         self._send(text)
