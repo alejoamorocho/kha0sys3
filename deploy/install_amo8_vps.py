@@ -23,6 +23,8 @@ _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+import os
+
 from deploy.vps_connection import VPSConnection
 
 
@@ -109,11 +111,25 @@ def main():
         "AppRotateOnline": "1",
         "AppRotateBytes": "52428800",  # 50 MB
         "Start": "SERVICE_AUTO_START",
-        "ObjectName": "LocalSystem",
     }
     for key, val in settings.items():
         cmd = f"& '{nssm_path}' set {SERVICE} {key} '{val}'"
         vps.run_ps(cmd)
+
+    # ObjectName: must run as Administrator (NOT LocalSystem) so it can
+    # see the MT5 terminal launched by Administrator. Reuse VPS_PASS for
+    # the Administrator password (same credentials used for WinRM).
+    admin_pass = os.environ.get("VPS_PASS")
+    if not admin_pass:
+        print("[install] WARNING: VPS_PASS not set; service may not be able to "
+              "start under Administrator. Set the env var or configure ObjectName "
+              "manually with: nssm set Kha0sysAmo8 ObjectName .\\Administrator <pass>")
+    else:
+        # NSSM accepts: nssm set <svc> ObjectName "<user>" "<password>"
+        escaped_pass = admin_pass.replace("'", "''")
+        cmd = f"& '{nssm_path}' set {SERVICE} ObjectName '.\\Administrator' '{escaped_pass}'"
+        vps.run_ps(cmd)
+        print("[install] ObjectName set to .\\Administrator")
 
     vps.run_ps(f"& '{nssm_path}' set {SERVICE} AppExit Default Restart")
 

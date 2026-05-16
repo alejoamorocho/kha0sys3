@@ -118,7 +118,7 @@ class AmoTraderEngine:
               f"symbols={len(self.symbols)}  unique_slots={len(self.schedule)}")
         if self.telegram is not None:
             try:
-                self.telegram.send(
+                self.telegram._send(
                     f"[AMO8] ENGINE STARTED\n"
                     f"magic: {MAGIC_NUMBER_AMO8}\n"
                     f"dry_run: {self.dry_run}\n"
@@ -482,7 +482,7 @@ class AmoTraderEngine:
             )
             print(msg)
             if self.telegram is not None:
-                self.telegram.send(msg)
+                self.telegram._send(msg)
         except Exception as e:
             print(f"[AMO8] heartbeat error: {e}")
 
