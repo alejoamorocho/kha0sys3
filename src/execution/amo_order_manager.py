@@ -258,7 +258,7 @@ class AmoOrderManager:
 
         if self.telegram is not None:
             try:
-                self.telegram.send_message(
+                self.telegram.send(
                     f"[AMO8] ORDER PLACED\n"
                     f"strategy: {strategy['id']}\n"
                     f"symbol: {broker_sym} ({internal_sym})\n"
@@ -466,7 +466,7 @@ class AmoOrderManager:
 
         if self.telegram is not None:
             try:
-                self.telegram.send_message(
+                self.telegram.send(
                     f"[AMO8] ORDER PLACED [{mode}]\n"
                     f"strategy: {strategy['id']}\n"
                     f"symbol: {broker_sym} ({internal_sym})\n"
@@ -639,7 +639,7 @@ class AmoOrderManager:
             return
         try:
             if decision.action == Action.PARTIAL_CLOSE:
-                self.telegram.send_message(
+                self.telegram.send(
                     f"[AMO8] PARTIAL CLOSE [{decision.reason}]\n"
                     f"strategy: {pos.strategy_id}\n"
                     f"ticket: {pos.ticket}  symbol: {pos.broker_sym}\n"
@@ -648,14 +648,14 @@ class AmoOrderManager:
                     f"new SL: {decision.new_sl_price}"
                 )
             elif decision.action == Action.CLOSE_ALL:
-                self.telegram.send_message(
+                self.telegram.send(
                     f"[AMO8] FULL CLOSE [{decision.reason}]\n"
                     f"strategy: {pos.strategy_id}\n"
                     f"ticket: {pos.ticket}  symbol: {pos.broker_sym}\n"
                     f"closed remaining: {pos.remaining_volume:.2f}"
                 )
             elif decision.action == Action.MODIFY_SL:
-                self.telegram.send_message(
+                self.telegram.send(
                     f"[AMO8] SL MOVED [{decision.reason}]\n"
                     f"strategy: {pos.strategy_id}  ticket: {pos.ticket}\n"
                     f"new SL: {decision.new_sl_price}"
@@ -697,7 +697,7 @@ class AmoOrderManager:
                 closed += 1
                 if self.telegram is not None:
                     try:
-                        self.telegram.send_message(
+                        self.telegram.send(
                             f"[AMO8] MAX_HOLD CLOSE\n"
                             f"ticket: {int(p.ticket)}  symbol: {p.symbol}\n"
                             f"age: {age_min:.0f}min (limit {max_hold_min}min)\n"

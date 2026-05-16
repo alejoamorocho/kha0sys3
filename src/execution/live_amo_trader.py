@@ -93,7 +93,7 @@ class AmoTraderEngine:
         self.symbols: set[str] = {s["broker_sym"] for s in self.portfolio}
 
         # MT5 client + order manager + telegram
-        self.client = MT5Client()
+        self.client = MT5Client(attach_only=True)
         self.telegram = None
         try:
             from src.monitoring.telegram_notifier import TelegramNotifier
@@ -118,7 +118,7 @@ class AmoTraderEngine:
               f"symbols={len(self.symbols)}  unique_slots={len(self.schedule)}")
         if self.telegram is not None:
             try:
-                self.telegram.send_message(
+                self.telegram.send(
                     f"[AMO8] ENGINE STARTED\n"
                     f"magic: {MAGIC_NUMBER_AMO8}\n"
                     f"dry_run: {self.dry_run}\n"
@@ -482,7 +482,7 @@ class AmoTraderEngine:
             )
             print(msg)
             if self.telegram is not None:
-                self.telegram.send_message(msg)
+                self.telegram.send(msg)
         except Exception as e:
             print(f"[AMO8] heartbeat error: {e}")
 
