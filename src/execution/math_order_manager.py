@@ -53,7 +53,16 @@ _RETCODE_INVALID_EXPIRATION = 10022
 _RETCODE_CLIENT_DISABLES_AT = 10027  # AutoTrading OFF in client terminal
 _RETCODE_INVALID_FILL = 10030
 _SPREAD_MULT_LIMIT = 2.5      # current spread vs typical
-_STALE_STOP_MIN = 90          # minutes after which an idle STOP is nuked
+# Per-TF stale STOP threshold (minutes). Each value matches the backtest's
+# wait window: 5 bars at the signal TF. Slightly relaxed (×1.2) to give the
+# broker time-in-force a chance to expire the order naturally first.
+_STALE_STOP_MIN_BY_TF = {
+    "M1":  6,    # 5min × 1.2
+    "M15": 90,   # 75min × 1.2
+    "H1":  360,  # 300min × 1.2
+    "H4": 1440,  # 1200min × 1.2
+}
+_STALE_STOP_MIN_DEFAULT = 90  # safety fallback when TF can't be parsed
 _TICK_MAX_AGE_SEC = 120       # tick freshness gate: skip if last tick > 2 min old
                               # (weekend / market closed / feed stalled)
 _STOPS_BUFFER_POINTS = 1      # extra points beyond broker's stops_level when
@@ -295,8 +304,15 @@ class MathOrderManager:
         if not self._is_market_tradable(symbol, order_type, stop_price):
             return None
 
-        # Expiration: 5 M15 bars = 75 minutes
-        expiration = datetime.now(timezone.utc) + timedelta(minutes=15 * MATH_WAIT_BARS)
+        # Expiration: MATH_WAIT_BARS bars at the signal's own TF.
+        # BUG FIX 2026-05-16: previous version hardcoded 15min/bar (assumed
+        # M15), which gave M1 signals 75min instead of 5min, and starved
+        # H1/H4 signals (75min instead of 300/1200min). Now uses tf_min(tf).
+        tf_str = str(setup_cfg.get("tf", "M15")).upper()
+        tf_min_lookup = {"M1": 1, "M15": 15, "H1": 60, "H4": 240}
+        tf_min = tf_min_lookup.get(tf_str, 15)
+        expiration_min = tf_min * MATH_WAIT_BARS
+        expiration = datetime.now(timezone.utc) + timedelta(minutes=expiration_min)
 
         ticket = self._submit_stop(
             symbol=symbol, order_type=order_type, stop_price=stop_price,
@@ -711,8 +727,13 @@ class MathOrderManager:
     # ------- stale order sweep (hourly) -------
 
     def sweep_stale(self) -> int:
-        """Cancel STOP orders older than _STALE_STOP_MIN minutes (magic filter).
+        """Cancel STOP orders older than per-TF threshold (magic filter).
         Returns number cancelled. LIVE only; DRY returns 0.
+
+        BUG FIX 2026-05-16: previous version used 90-min flat threshold,
+        which killed H1 (300min wait) and H4 (1200min wait) orders early.
+        Now parses TF from comment 'M|<TF>|...' and uses backtest-aligned
+        per-TF wait windows × 1.2.
         """
         if self.dry_run or mt5 is None:
             return 0
@@ -722,7 +743,6 @@ class MathOrderManager:
             print(f"[MATH] sweep_stale orders_get error: {e}")
             return 0
         now = datetime.now(timezone.utc)
-        cutoff = now - timedelta(minutes=_STALE_STOP_MIN)
         cancelled = 0
         for o in orders:
             try:
@@ -731,6 +751,12 @@ class MathOrderManager:
                 ts = int(getattr(o, "time_setup", 0) or 0)
                 if ts <= 0:
                     continue
+                # Parse TF from comment "M|<TF>|..."
+                comment = str(getattr(o, "comment", ""))
+                parts = comment.split("|")
+                tf = parts[1] if len(parts) >= 2 else None
+                stale_min = _STALE_STOP_MIN_BY_TF.get(tf, _STALE_STOP_MIN_DEFAULT)
+                cutoff = now - timedelta(minutes=stale_min)
                 setup_at = datetime.fromtimestamp(ts, tz=timezone.utc)
                 if setup_at >= cutoff:
                     continue
@@ -745,7 +771,8 @@ class MathOrderManager:
             except Exception as e:
                 print(f"[MATH] sweep_stale iter error: {e}")
         if cancelled > 0:
-            self._tg(f"STALE SWEEP\nCancelled: {cancelled} STOP orders\nAge limit: {_STALE_STOP_MIN} minutes")
+            self._tg(f"STALE SWEEP\nCancelled: {cancelled} STOP orders\n"
+                     f"Per-TF limits: {_STALE_STOP_MIN_BY_TF}")
             print(f"[MATH] sweep_stale cancelled={cancelled}")
         return cancelled
 
@@ -808,18 +835,24 @@ class MathOrderManager:
 
     # ─── Session-end cleanup ─────────────────────────────────────
 
-    def session_end_cleanup(self, all_setups: list[dict]) -> tuple[int, int]:
+    def session_end_cleanup(self, all_setups: list[dict],
+                              broker_offset_h: int = 0) -> tuple[int, int]:
         """Cancel pending STOPs and close open positions whose setup's session
-        has ENDED (real UTC). This enforces the backtest's session_end_hour
-        time-stop in live trading.
+        has ENDED (BROKER hour, matching INDICATOR_SESSIONS convention).
 
         Returns (cancelled_count, closed_count).
+
+        BUG FIX 2026-05-16: previous version used real UTC hour which is
+        wrong — INDICATOR_SESSIONS values are BROKER hours (matching the
+        backtest DataFrame .time.dt.hour() which stores broker time as UTC).
+        Now accepts broker_offset_h from the engine and computes broker hour
+        as (real_utc_hour + offset) % 24.
         """
         if self.dry_run or mt5 is None:
             return (0, 0)
 
         from src.domain.constants import INDICATOR_SESSIONS
-        h_now = datetime.now(timezone.utc).hour
+        h_now = (datetime.now(timezone.utc).hour + int(broker_offset_h)) % 24
 
         # Build map: full comment ("M|<TF>|<SETUP_TAG>|<SESSION_TAG>") ->
         # (session, end_hour). Uses the same helper as placement to guarantee

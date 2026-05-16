@@ -472,12 +472,19 @@ class TradersEngine:
             partial_r = float(exit_r["partials"][0]["value"])
             tp = r_high + partial_r * risk
             comment = make_orb_comment(oh, rm, sym_internal)
+            # BUG FIX 2026-05-16: pending STOP expiration should respect the
+            # BREAKOUT WINDOW (e.g. 180min from OR close), NOT max_hold_hours
+            # which is the post-fill hold. Compute remaining minutes until
+            # the breakout window ends. Minimum 10min to avoid placing an
+            # order that immediately expires.
+            window_end_min = range_end_min + bw
+            remaining_window_min = max(10, window_end_min - now_min_of_day)
             self.mgr_orb.place_stop_long(
                 symbol=broker_sym, sym_internal=strat["internal_sym"],
                 strategy_id=sid, setup_type="ORB", variant="GRID",
                 stop_price=r_high, sl_price=sl, tp_price=tp,
                 atr_or_risk=risk, exit_rules=exit_r,
-                expiration_minutes=max(60, int(exit_r.get("max_hold_hours", 8) * 60)),
+                expiration_minutes=remaining_window_min,
                 comment=comment,
             )
 
