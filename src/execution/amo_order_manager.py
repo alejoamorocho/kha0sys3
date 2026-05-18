@@ -322,6 +322,39 @@ class AmoOrderManager:
 
         order_type = mt5.ORDER_TYPE_BUY if direction == "LONG" else mt5.ORDER_TYPE_SELL
         price = tick.ask if direction == "LONG" else tick.bid
+        bid = float(tick.bid)
+        ask = float(tick.ask)
+        spread = max(ask - bid, 0.0)
+
+        # Stops_level guard — same logic as TRADERS_ORB. Avoid INVALID_STOPS
+        # (10016) when SL/TP distance from entry is below broker's minimum.
+        # Use max of (2x stops_level*point, 3x spread, 0.1% of price).
+        sym_info = mt5.symbol_info(broker_sym)
+        if sym_info is not None:
+            point = float(getattr(sym_info, "point", 0) or 0)
+            stops_lvl_pts = float(getattr(sym_info, "trade_stops_level", 0) or 0)
+            min_stop_dist = max(
+                2.0 * stops_lvl_pts * point,
+                3.0 * spread,
+                0.001 * float(price),
+            )
+            if min_stop_dist > 0:
+                orig_sl, orig_tp = sl_price, tp_price
+                if direction == "LONG":
+                    if (price - sl_price) < min_stop_dist:
+                        sl_price = price - min_stop_dist
+                    if (tp_price - price) < min_stop_dist:
+                        tp_price = price + min_stop_dist
+                else:  # SHORT
+                    if (sl_price - price) < min_stop_dist:
+                        sl_price = price + min_stop_dist
+                    if (price - tp_price) < min_stop_dist:
+                        tp_price = price - min_stop_dist
+                if sl_price != orig_sl or tp_price != orig_tp:
+                    print(f"[AMO8] {broker_sym} min_dist={min_stop_dist:.5f} "
+                          f"(stops_lvl*pt={stops_lvl_pts*point:.5f} "
+                          f"spread={spread:.5f} 0.1%price={0.001*price:.5f}) "
+                          f"-> sl={sl_price:.5f} tp={tp_price:.5f}", flush=True)
 
         req = {
             "action": mt5.TRADE_ACTION_DEAL,
@@ -339,12 +372,12 @@ class AmoOrderManager:
         }
         result = mt5.order_send(req)
         if result is None:
-            print(f"[AMO8] order_send returned None for {broker_sym}")
+            print(f"[AMO8] order_send returned None for {broker_sym}", flush=True)
             return -1, False
         rc = int(getattr(result, "retcode", 0))
         if rc not in (_RETCODE_DONE, _RETCODE_DONE_PARTIAL):
             print(f"[AMO8] order_send retcode={rc} for {broker_sym} "
-                  f"({getattr(result, 'comment', '')})")
+                  f"({getattr(result, 'comment', '')})", flush=True)
             return -1, False
         return int(getattr(result, "order", -1)), True
 
