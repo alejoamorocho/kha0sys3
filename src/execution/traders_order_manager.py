@@ -224,72 +224,32 @@ class TradersOrderManager:
         expiration = now + timedelta(minutes=expiration_minutes)
         comment = comment or strategy_id[:31]
 
-        # BUG FIX 2026-05-18: when the breakout has already happened and
-        # current ask >= stop_price, a BUY_STOP @ stop_price is invalid
-        # (MT5 rejects with INVALID_STOPS / 10016). Detect this case and
-        # fall back to MARKET BUY at current ask. SL/TP remain absolute.
-        use_market = False
-        current_ask = None
-        if mt5 is not None and not self.dry_run:
-            tick = mt5.symbol_info_tick(symbol)
-            if tick is not None and tick.ask > 0:
-                current_ask = float(tick.ask)
-                # MT5 requires stop_price >= ask + stops_level*point
-                stops_level = 0
-                if sym_info is not None:
-                    sl_pts = getattr(sym_info, "trade_stops_level", 0) or 0
-                    point = getattr(sym_info, "point", 0) or 0
-                    stops_level = float(sl_pts) * float(point)
-                if stop_price <= current_ask + stops_level:
-                    use_market = True
-                    print(f"[Traders mgr {self.magic}] {strategy_id}: STOP "
-                          f"{stop_price:.5f} <= ask {current_ask:.5f}+"
-                          f"{stops_level:.5f} -> using MARKET BUY @ ask")
-
         if self.dry_run:
             ticket = -int(now.timestamp() % 1_000_000_000)
-            order_kind = "MARKET_BUY" if use_market else "BUY_STOP"
-            print(f"[DRY][{self.magic}] would {order_kind} {symbol} lots={lots} "
+            print(f"[DRY][{self.magic}] would BUY_STOP {symbol} lots={lots} "
                   f"@ {stop_price:.5f} SL={sl_price:.5f} TP={tp_price:.5f} "
-                  f"id={strategy_id}")
+                  f"id={strategy_id}", flush=True)
         else:
-            if use_market:
-                request = {
-                    "action": mt5.TRADE_ACTION_DEAL,
-                    "symbol": symbol,
-                    "volume": lots,
-                    "type": mt5.ORDER_TYPE_BUY,
-                    "price": self.client.normalize_price(symbol, current_ask),
-                    "sl": self.client.normalize_price(symbol, sl_price),
-                    "tp": self.client.normalize_price(symbol, tp_price),
-                    "deviation": 20,
-                    "magic": self.magic,
-                    "comment": comment,
-                    "type_filling": mt5.ORDER_FILLING_IOC,
-                    "type_time": mt5.ORDER_TIME_GTC,
-                }
-            else:
-                request = {
-                    "action": mt5.TRADE_ACTION_PENDING,
-                    "symbol": symbol,
-                    "volume": lots,
-                    "type": mt5.ORDER_TYPE_BUY_STOP,
-                    "price": self.client.normalize_price(symbol, stop_price),
-                    "sl": self.client.normalize_price(symbol, sl_price),
-                    "tp": self.client.normalize_price(symbol, tp_price),
-                    "magic": self.magic,
-                    "comment": comment,
-                    "type_filling": mt5.ORDER_FILLING_IOC,
-                    "type_time": mt5.ORDER_TIME_SPECIFIED,
-                    "expiration": int(expiration.timestamp()),
-                }
+            request = {
+                "action": mt5.TRADE_ACTION_PENDING,
+                "symbol": symbol,
+                "volume": lots,
+                "type": mt5.ORDER_TYPE_BUY_STOP,
+                "price": self.client.normalize_price(symbol, stop_price),
+                "sl": self.client.normalize_price(symbol, sl_price),
+                "tp": self.client.normalize_price(symbol, tp_price),
+                "magic": self.magic,
+                "comment": comment,
+                "type_filling": mt5.ORDER_FILLING_IOC,
+                "type_time": mt5.ORDER_TIME_SPECIFIED,
+                "expiration": int(expiration.timestamp()),
+            }
             result = self.client.send_order_raw(request)
             if not result or result.get("retcode") not in (10009, 10010, 10008):
                 rc = result.get("retcode") if result else "no_result"
-                kind = "MKT" if use_market else "STOP"
-                print(f"[Traders mgr {self.magic}] place {kind} FAIL "
-                      f"{strategy_id} rc={rc} price={stop_price:.5f} "
-                      f"ask={current_ask}")
+                print(f"[Traders mgr {self.magic}] place STOP FAIL "
+                      f"{strategy_id} rc={rc} price={stop_price:.5f}",
+                      flush=True)
                 return None
             ticket = result.get("order")
 
@@ -331,6 +291,115 @@ class TradersOrderManager:
                 broker_sym=symbol, internal_sym=sym_internal,
                 entry=stop_price, sl=sl_price, tp=tp_price,
                 lots=lots, ticket=ticket, expiration_minutes=expiration_minutes,
+            )
+        return ticket
+
+    def place_market_long(
+        self, *, symbol: str, sym_internal: str, strategy_id: str,
+        setup_type: str, variant: str, ref_price: float,
+        sl_price: float, tp_price: float, atr_or_risk: float,
+        exit_rules: dict, comment: str | None = None,
+    ) -> Optional[int]:
+        """Coloca MARKET BUY (TRADE_ACTION_DEAL). Devuelve ticket de la posición
+        resultante, o None.
+
+        Usado por ORB strategy donde la entrada es post-breakout (precio
+        ya cruzó r_high). ref_price es el nivel de referencia teórico
+        (e.g. r_high) usado solo para logging; el fill real es al ask actual.
+        """
+        if self.has_open_or_pending(symbol, strategy_id):
+            return None
+        if mt5 is None:
+            print(f"[DRY] No MT5 module, would MARKET {strategy_id}", flush=True)
+            return None
+        if not self.client.ensure_connected():
+            print(f"[Traders mgr {self.magic}] MT5 not connected, skip MARKET",
+                  flush=True)
+            return None
+
+        bal = self.client.get_account_balance()
+        if bal is None or bal <= 0:
+            print(f"[Traders mgr {self.magic}] no balance, skip", flush=True)
+            return None
+        sym_info = self.client.get_symbol_info(symbol)
+        lots = self._calc_lots(bal, ref_price, sl_price, sym_info)
+        if lots <= 0:
+            print(f"[Traders mgr {self.magic}] lots=0 for {strategy_id}, skip",
+                  flush=True)
+            return None
+
+        now = datetime.now(timezone.utc)
+        comment = comment or strategy_id[:31]
+
+        if self.dry_run:
+            print(f"[DRY][{self.magic}] would MARKET_BUY {symbol} lots={lots} "
+                  f"ref={ref_price:.5f} SL={sl_price:.5f} TP={tp_price:.5f} "
+                  f"id={strategy_id}", flush=True)
+            ticket = -int(now.timestamp() % 1_000_000_000)
+        else:
+            tick = mt5.symbol_info_tick(symbol)
+            if tick is None or tick.ask <= 0:
+                print(f"[Traders mgr {self.magic}] {strategy_id}: no tick, "
+                      f"skip", flush=True)
+                return None
+            ask = float(tick.ask)
+            request = {
+                "action": mt5.TRADE_ACTION_DEAL,
+                "symbol": symbol,
+                "volume": lots,
+                "type": mt5.ORDER_TYPE_BUY,
+                "price": self.client.normalize_price(symbol, ask),
+                "sl": self.client.normalize_price(symbol, sl_price),
+                "tp": self.client.normalize_price(symbol, tp_price),
+                "deviation": 20,
+                "magic": self.magic,
+                "comment": comment,
+                "type_filling": mt5.ORDER_FILLING_IOC,
+                "type_time": mt5.ORDER_TIME_GTC,
+            }
+            result = self.client.send_order_raw(request)
+            if not result or result.get("retcode") not in (10009, 10010, 10008):
+                rc = result.get("retcode") if result else "no_result"
+                print(f"[Traders mgr {self.magic}] place MARKET FAIL "
+                      f"{strategy_id} rc={rc} ask={ask:.5f}", flush=True)
+                return None
+            ticket = result.get("order", -1)
+            # For MARKET DEAL, the actual position ticket is in result.deal
+            # or we fetch it via positions_get filtered by comment shortly
+            print(f"[Traders mgr {self.magic}] place MARKET OK "
+                  f"{strategy_id} fill_ref={ask:.5f} order_id={ticket}",
+                  flush=True)
+
+        # Track in pending_orders so reconcile_with_broker will pick up the
+        # actual position on next tick and emit the fill notification.
+        placed_us = int(now.timestamp() * 1_000_000)
+        self.pending_orders[ticket] = TradersPendingOrder(
+            ticket=ticket, magic=self.magic, symbol=symbol,
+            sym_internal=sym_internal, strategy_id=strategy_id,
+            setup_type=setup_type, variant=variant, direction="LONG",
+            stop_price=ref_price, tp_price=tp_price, sl_price=sl_price,
+            atr_or_risk=atr_or_risk, placed_us=placed_us,
+            # No real expiration on a market deal — set far future as marker.
+            expiration_us=placed_us + 24 * 3600 * 1_000_000,
+            exit_rules=exit_rules,
+        )
+        trader_name = self._infer_trader(strategy_id, setup_type)
+        self.strategy_meta[strategy_id] = {
+            "trader": trader_name, "setup_type": setup_type,
+            "variant": variant, "internal_sym": sym_internal,
+            "broker_sym": symbol,
+        }
+        self._save_state()
+        if self.notifier and ticket > 0:
+            self.notifier.order_placed(
+                strategy_id=strategy_id, trader=trader_name,
+                setup_type=setup_type, variant=variant, magic=self.magic,
+                broker_sym=symbol, internal_sym=sym_internal,
+                entry=ref_price, sl=sl_price, tp=tp_price,
+                lots=lots, ticket=int(ticket),
+                expiration=datetime.fromtimestamp(
+                    placed_us / 1_000_000, tz=timezone.utc,
+                ).isoformat(),
             )
         return ticket
 

@@ -464,7 +464,12 @@ class TradersEngine:
             last_close = float(m1.tail(1)["close"][0])
             if last_close <= r_high:
                 continue
-            # Place STOP @ r_high
+            # BUG FIX 2026-05-18: ORB strategy is MARKET-on-breakout, not
+            # STOP-pending. By the time we observe last_close > r_high, the
+            # breakout has already happened. STOP @ r_high is invalid
+            # (price already above). The backtest semantic is "enter at the
+            # close of the M1 bar that broke out", which in live = MARKET
+            # BUY at current ask.
             exit_r = strat["exit_rules"]
             sl_atr_mult = float(exit_r.get("initial_sl_atr_mult") or 0.5)
             risk = sl_atr_mult * atr_m1
@@ -472,19 +477,14 @@ class TradersEngine:
             partial_r = float(exit_r["partials"][0]["value"])
             tp = r_high + partial_r * risk
             comment = make_orb_comment(oh, rm, sym_internal)
-            # BUG FIX 2026-05-16: pending STOP expiration should respect the
-            # BREAKOUT WINDOW (e.g. 180min from OR close), NOT max_hold_hours
-            # which is the post-fill hold. Compute remaining minutes until
-            # the breakout window ends. Minimum 10min to avoid placing an
-            # order that immediately expires.
-            window_end_min = range_end_min + bw
-            remaining_window_min = max(10, window_end_min - now_min_of_day)
-            self.mgr_orb.place_stop_long(
+            print(f"[TradersEngine][orb] {sid}: BREAKOUT detected "
+                  f"r_high={r_high:.5f} last_close={last_close:.5f} "
+                  f"sl={sl:.5f} tp={tp:.5f} -> placing MARKET", flush=True)
+            self.mgr_orb.place_market_long(
                 symbol=broker_sym, sym_internal=strat["internal_sym"],
                 strategy_id=sid, setup_type="ORB", variant="GRID",
-                stop_price=r_high, sl_price=sl, tp_price=tp,
+                ref_price=r_high, sl_price=sl, tp_price=tp,
                 atr_or_risk=risk, exit_rules=exit_r,
-                expiration_minutes=remaining_window_min,
                 comment=comment,
             )
 
