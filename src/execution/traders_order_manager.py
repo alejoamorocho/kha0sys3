@@ -190,21 +190,27 @@ class TradersOrderManager:
             print(f"[Traders mgr {self.magic}] state save WARN: {e}")
 
     # ── Once-per-day-per-strategy gate ───────────────────────────────────
+    # Keyed by COMMENT (the canonical broker-visible identifier of the
+    # strategy) so orphan positions/orders in MT5 — even those placed by a
+    # previous service incarnation we lost track of — count as "already
+    # fired today" and prevent duplicates.
 
     @staticmethod
     def _today_utc() -> str:
         return datetime.now(timezone.utc).date().isoformat()
 
-    def has_fired_today(self, strategy_id: str) -> bool:
-        """True if this strategy already placed an order today (UTC).
-
-        Backtest assumption: 1 trade per strategy per day. After fill+close,
-        DO NOT re-enter the same strategy until next UTC day.
+    def has_fired_today(self, strategy_id_or_comment: str) -> bool:
+        """True if any order with this key (comment or strategy_id) was
+        already placed today (UTC).
         """
-        return self._fired_today.get(strategy_id) == self._today_utc()
+        return self._fired_today.get(strategy_id_or_comment) == self._today_utc()
 
-    def _mark_fired_today(self, strategy_id: str) -> None:
-        self._fired_today[strategy_id] = self._today_utc()
+    def _mark_fired_today(self, *keys: str) -> None:
+        """Mark one or more keys (strategy_id + comment) as fired today."""
+        today = self._today_utc()
+        for k in keys:
+            if k:
+                self._fired_today[k] = today
         self._save_state()
 
     # ── Helpers MT5 ──────────────────────────────────────────────────────
@@ -313,8 +319,9 @@ class TradersOrderManager:
             atr_or_risk=atr_or_risk, placed_us=placed_us,
             expiration_us=exp_us, exit_rules=exit_rules,
         )
-        # Once-per-day gate: mark this strategy as fired today.
-        self._mark_fired_today(strategy_id)
+        # Once-per-day gate: mark BOTH the strategy_id and the comment so
+        # orphan-by-comment checks also resolve.
+        self._mark_fired_today(strategy_id, comment)
         # Cache meta for notifications later (fill, partial, close)
         # Extract trader from strategy_id (TS_XAU_QULLAHTF_PDF -> Qulla, TO_WTI -> Qulla)
         trader_name = self._infer_trader(strategy_id, setup_type)
@@ -461,8 +468,9 @@ class TradersOrderManager:
             expiration_us=placed_us + 24 * 3600 * 1_000_000,
             exit_rules=exit_rules,
         )
-        # Once-per-day gate: mark this strategy as fired today.
-        self._mark_fired_today(strategy_id)
+        # Once-per-day gate: mark BOTH the strategy_id and the comment so
+        # orphan-by-comment checks also resolve.
+        self._mark_fired_today(strategy_id, comment)
         trader_name = self._infer_trader(strategy_id, setup_type)
         self.strategy_meta[strategy_id] = {
             "trader": trader_name, "setup_type": setup_type,
@@ -503,7 +511,12 @@ class TradersOrderManager:
     # ── Reconciliation: pending -> open on fill, cleanup closed ──────────
 
     def reconcile_with_broker(self):
-        """Sync: detectar fills (pending -> open), cierres (open -> remove)."""
+        """Sync: detectar fills (pending -> open), cierres (open -> remove).
+
+        Also adopts ORPHAN broker positions/orders (those in MT5 but not
+        tracked by the bot) so they count toward the once-per-day gate and
+        don't get duplicated on the next breakout tick.
+        """
         if mt5 is None or not self.client.ensure_connected():
             return
 
@@ -512,6 +525,33 @@ class TradersOrderManager:
 
         # 2) Posiciones abiertas
         broker_pos = {p.ticket: p for p in (mt5.positions_get() or []) if p.magic == self.magic}
+
+        # 0) ORPHAN ADOPTION: positions/orders in broker but not in our state.
+        # Mark by COMMENT (broker-visible strategy ID) so when the bot next
+        # tries to place with the same comment, has_fired_today blocks it.
+        today = self._today_utc()
+        for p in broker_pos.values():
+            if p.ticket in self.open_positions:
+                continue
+            comment = str(getattr(p, "comment", "")).strip()
+            if comment and self._fired_today.get(comment) != today:
+                opened = datetime.fromtimestamp(int(p.time), tz=timezone.utc).date().isoformat()
+                if opened == today:
+                    self._fired_today[comment] = today
+                    print(f"[Traders mgr {self.magic}] adopted orphan POS "
+                          f"{p.ticket} ({p.symbol}) cmt='{comment}' -> mark fired_today",
+                          flush=True)
+        for o in broker_pending.values():
+            if o.ticket in self.pending_orders:
+                continue
+            comment = str(getattr(o, "comment", "")).strip()
+            if comment and self._fired_today.get(comment) != today:
+                placed = datetime.fromtimestamp(int(o.time_setup), tz=timezone.utc).date().isoformat()
+                if placed == today:
+                    self._fired_today[comment] = today
+                    print(f"[Traders mgr {self.magic}] adopted orphan ORD "
+                          f"{o.ticket} ({o.symbol}) cmt='{comment}' -> mark fired_today",
+                          flush=True)
 
         # 3) Pendings que ya no estan en broker -> FILL o CANCEL
         for ticket, pend in list(self.pending_orders.items()):

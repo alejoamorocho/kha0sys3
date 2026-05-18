@@ -349,9 +349,13 @@ class TradersEngine:
             if not rows:
                 continue
             broker_sym = self.mapper.to_mt5(strat["sym"])
+            expected_comment = make_swing_comment(
+                strat["setup_type"], strat["variant"], strat["sym"],
+            )
             # Once-per-day gate (backtest semantic). After today's STOP
             # filled+closed, don't re-arm the same strategy until next UTC day.
-            if self.mgr_swing.has_fired_today(sid):
+            if (self.mgr_swing.has_fired_today(sid)
+                    or self.mgr_swing.has_fired_today(expected_comment)):
                 continue
             if self.mgr_swing.has_open_or_pending(broker_sym, sid):
                 continue
@@ -435,9 +439,17 @@ class TradersEngine:
         strategies_for_sym = [s for s in self.orb_strategies if s["sym"] == sym_internal]
         for strat in strategies_for_sym:
             sid = strat["id"]
+            params = strat["orb_params"]
+            expected_comment = make_orb_comment(
+                int(params["open_hour_utc"]),
+                int(params["range_minutes"]),
+                sym_internal,
+            )
             # Once-per-day gate (backtest semantic). Skip even if previous
-            # position closed — no HFT re-entries.
-            if self.mgr_orb.has_fired_today(sid):
+            # position closed — no HFT re-entries. Check BOTH the
+            # strategy_id and the broker comment so orphan positions count.
+            if (self.mgr_orb.has_fired_today(sid)
+                    or self.mgr_orb.has_fired_today(expected_comment)):
                 continue
             if self.mgr_orb.has_open_or_pending(broker_sym, sid):
                 continue
