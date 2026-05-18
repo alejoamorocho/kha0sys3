@@ -343,21 +343,33 @@ class TradersOrderManager:
                       f"skip", flush=True)
                 return None
             ask = float(tick.ask)
-            # Enforce broker min stops_level — for thin ATR like WTI/BRENT
-            # the backtest sl=0.5×ATR_M1 can be below broker's minimum SL
-            # distance, causing INVALID_STOPS (10016). Inflate SL/TP to at
-            # least 1.5× the broker's minimum stops distance.
+            bid = float(tick.bid)
+            spread = max(ask - bid, 0.0)
+            # Enforce a SAFE minimum stop distance to avoid INVALID_STOPS
+            # (10016). Vantage's freeze_level + spread on energies can be
+            # larger than stops_level alone. Use the MAX of:
+            #   - 2× broker stops_level × point (broker hard min × 2)
+            #   - 3× spread (clear of bid-ask buffer)
+            #   - 0.1% of ask (price-relative floor for thin instruments)
             point = float(getattr(sym_info, "point", 0)) if sym_info else 0
             stops_lvl_pts = float(getattr(sym_info, "trade_stops_level", 0) or 0) if sym_info else 0
-            min_stop_dist = max(1.5 * stops_lvl_pts * point, 0.0)
+            min_stop_dist = max(
+                2.0 * stops_lvl_pts * point,
+                3.0 * spread,
+                0.001 * ask,
+            )
             if min_stop_dist > 0:
+                orig_sl, orig_tp = sl_price, tp_price
                 if (ask - sl_price) < min_stop_dist:
                     sl_price = ask - min_stop_dist
                 if (tp_price - ask) < min_stop_dist:
                     tp_price = ask + min_stop_dist
-                print(f"[Traders mgr {self.magic}] {strategy_id}: "
-                      f"stops_min={min_stop_dist:.5f} -> "
-                      f"sl={sl_price:.5f} tp={tp_price:.5f}", flush=True)
+                if sl_price != orig_sl or tp_price != orig_tp:
+                    print(f"[Traders mgr {self.magic}] {strategy_id}: "
+                          f"min_dist={min_stop_dist:.5f} (stops_lvl*pt="
+                          f"{stops_lvl_pts*point:.5f} spread={spread:.5f} "
+                          f"0.1%ask={0.001*ask:.5f}) -> "
+                          f"sl={sl_price:.5f} tp={tp_price:.5f}", flush=True)
             request = {
                 "action": mt5.TRADE_ACTION_DEAL,
                 "symbol": symbol,
