@@ -449,8 +449,8 @@ class TradersEngine:
             range_end_min = oh * 60 + om + rm
             range_bars = m1.filter(
                 (pl.col("time").dt.date() == m1.tail(1)["time"][0].date())
-                & ((pl.col("time").dt.hour() * 60 + pl.col("time").dt.minute()) >= (oh * 60 + om))
-                & ((pl.col("time").dt.hour() * 60 + pl.col("time").dt.minute()) < range_end_min)
+                & ((pl.col("time").dt.hour().cast(pl.Int32) * 60 + pl.col("time").dt.minute()) >= (oh * 60 + om))
+                & ((pl.col("time").dt.hour().cast(pl.Int32) * 60 + pl.col("time").dt.minute()) < range_end_min)
             )
             if len(range_bars) < max(1, rm // 2):
                 continue
