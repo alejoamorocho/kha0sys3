@@ -349,6 +349,10 @@ class TradersEngine:
             if not rows:
                 continue
             broker_sym = self.mapper.to_mt5(strat["sym"])
+            # Once-per-day gate (backtest semantic). After today's STOP
+            # filled+closed, don't re-arm the same strategy until next UTC day.
+            if self.mgr_swing.has_fired_today(sid):
+                continue
             if self.mgr_swing.has_open_or_pending(broker_sym, sid):
                 continue
             tick = mt5.symbol_info_tick(broker_sym) if mt5 else None
@@ -431,6 +435,10 @@ class TradersEngine:
         strategies_for_sym = [s for s in self.orb_strategies if s["sym"] == sym_internal]
         for strat in strategies_for_sym:
             sid = strat["id"]
+            # Once-per-day gate (backtest semantic). Skip even if previous
+            # position closed — no HFT re-entries.
+            if self.mgr_orb.has_fired_today(sid):
+                continue
             if self.mgr_orb.has_open_or_pending(broker_sym, sid):
                 continue
             params = strat["orb_params"]

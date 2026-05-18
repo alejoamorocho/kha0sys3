@@ -127,6 +127,11 @@ class TradersOrderManager:
         self.notifier = notifier   # TradersNotifier o None
         # mapping para enriquecer notifs: strategy_id -> {trader, setup, variant, internal_sym}
         self.strategy_meta: dict[str, dict] = {}
+        # Once-per-day-per-strategy gate — matches backtest semantic. Each
+        # strategy fires at most 1 entry per UTC day. After fill+close, the
+        # strategy is DONE for the day even if breakout conditions persist.
+        # Persisted so a service restart doesn't reset the day's firings.
+        self._fired_today: dict[str, str] = {}  # strategy_id -> UTC date "YYYY-MM-DD"
         self._load_state()
 
     # ── Persistencia ─────────────────────────────────────────────────────
@@ -142,6 +147,31 @@ class TradersOrderManager:
                 self.open_positions[p.ticket] = p
             for d in state.get("pending_orders", []):
                 self.pending_orders[d["ticket"]] = TradersPendingOrder(**d)
+            for sid, day in (state.get("fired_today") or {}).items():
+                self._fired_today[sid] = day
+            # Backfill: any strategy with an open position or pending order
+            # from today counts as fired today, so we don't double-place
+            # after a restart.
+            today = self._today_utc()
+            for p in self.open_positions.values():
+                if p.strategy_id and p.strategy_id not in self._fired_today:
+                    # Best-effort: only mark today if the position was opened
+                    # in the last 24h. Without entry_time_us we'd skip; here
+                    # we have it from to_dict.
+                    if hasattr(p, "entry_time_us") and p.entry_time_us:
+                        opened = datetime.fromtimestamp(
+                            p.entry_time_us / 1_000_000, tz=timezone.utc
+                        ).date().isoformat()
+                        if opened == today:
+                            self._fired_today[p.strategy_id] = today
+            for p in self.pending_orders.values():
+                if p.strategy_id and p.strategy_id not in self._fired_today:
+                    if p.placed_us:
+                        placed = datetime.fromtimestamp(
+                            p.placed_us / 1_000_000, tz=timezone.utc
+                        ).date().isoformat()
+                        if placed == today:
+                            self._fired_today[p.strategy_id] = today
             print(f"[Traders mgr {self.magic}] loaded state: {len(self.open_positions)} open, "
                   f"{len(self.pending_orders)} pending")
         except Exception as e:
@@ -151,12 +181,31 @@ class TradersOrderManager:
         state = {
             "open_positions": [p.to_dict() for p in self.open_positions.values()],
             "pending_orders": [p.__dict__ for p in self.pending_orders.values()],
+            "fired_today": dict(self._fired_today),
         }
         try:
             with self.state_file.open("w", encoding="utf-8") as f:
                 json.dump(state, f, indent=2)
         except Exception as e:
             print(f"[Traders mgr {self.magic}] state save WARN: {e}")
+
+    # ── Once-per-day-per-strategy gate ───────────────────────────────────
+
+    @staticmethod
+    def _today_utc() -> str:
+        return datetime.now(timezone.utc).date().isoformat()
+
+    def has_fired_today(self, strategy_id: str) -> bool:
+        """True if this strategy already placed an order today (UTC).
+
+        Backtest assumption: 1 trade per strategy per day. After fill+close,
+        DO NOT re-enter the same strategy until next UTC day.
+        """
+        return self._fired_today.get(strategy_id) == self._today_utc()
+
+    def _mark_fired_today(self, strategy_id: str) -> None:
+        self._fired_today[strategy_id] = self._today_utc()
+        self._save_state()
 
     # ── Helpers MT5 ──────────────────────────────────────────────────────
 
@@ -264,6 +313,8 @@ class TradersOrderManager:
             atr_or_risk=atr_or_risk, placed_us=placed_us,
             expiration_us=exp_us, exit_rules=exit_rules,
         )
+        # Once-per-day gate: mark this strategy as fired today.
+        self._mark_fired_today(strategy_id)
         # Cache meta for notifications later (fill, partial, close)
         # Extract trader from strategy_id (TS_XAU_QULLAHTF_PDF -> Qulla, TO_WTI -> Qulla)
         trader_name = self._infer_trader(strategy_id, setup_type)
@@ -410,6 +461,8 @@ class TradersOrderManager:
             expiration_us=placed_us + 24 * 3600 * 1_000_000,
             exit_rules=exit_rules,
         )
+        # Once-per-day gate: mark this strategy as fired today.
+        self._mark_fired_today(strategy_id)
         trader_name = self._infer_trader(strategy_id, setup_type)
         self.strategy_meta[strategy_id] = {
             "trader": trader_name, "setup_type": setup_type,
