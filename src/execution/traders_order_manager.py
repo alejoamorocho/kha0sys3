@@ -380,21 +380,14 @@ class TradersOrderManager:
             print(f"[Traders mgr {self.magic}] no balance, skip", flush=True)
             return None
         sym_info = self.client.get_symbol_info(symbol)
-        lots = self._calc_lots(bal, ref_price, sl_price, sym_info)
-        if lots <= 0:
-            print(f"[Traders mgr {self.magic}] lots=0 for {strategy_id}, skip",
-                  flush=True)
-            return None
-
         now = datetime.now(timezone.utc)
         comment = comment or strategy_id[:31]
 
-        if self.dry_run:
-            print(f"[DRY][{self.magic}] would MARKET_BUY {symbol} lots={lots} "
-                  f"ref={ref_price:.5f} SL={sl_price:.5f} TP={tp_price:.5f} "
-                  f"id={strategy_id}", flush=True)
-            ticket = -int(now.timestamp() % 1_000_000_000)
-        else:
+        # ── STEP 1: query market + apply stops_level guard FIRST ─────────
+        # CRITICAL: lots must be sized AFTER the SL guard inflates the
+        # stop distance, otherwise position is over-sized (risk_per_lot
+        # computed with tight SL but actual loss-at-SL uses wide SL).
+        if not self.dry_run:
             tick = mt5.symbol_info_tick(symbol)
             if tick is None or tick.ask <= 0:
                 print(f"[Traders mgr {self.magic}] {strategy_id}: no tick, "
@@ -403,12 +396,6 @@ class TradersOrderManager:
             ask = float(tick.ask)
             bid = float(tick.bid)
             spread = max(ask - bid, 0.0)
-            # Enforce a SAFE minimum stop distance to avoid INVALID_STOPS
-            # (10016). Vantage's freeze_level + spread on energies can be
-            # larger than stops_level alone. Use the MAX of:
-            #   - 2× broker stops_level × point (broker hard min × 2)
-            #   - 3× spread (clear of bid-ask buffer)
-            #   - 0.1% of ask (price-relative floor for thin instruments)
             point = float(getattr(sym_info, "point", 0)) if sym_info else 0
             stops_lvl_pts = float(getattr(sym_info, "trade_stops_level", 0) or 0) if sym_info else 0
             min_stop_dist = max(
@@ -428,6 +415,22 @@ class TradersOrderManager:
                           f"{stops_lvl_pts*point:.5f} spread={spread:.5f} "
                           f"0.1%ask={0.001*ask:.5f}) -> "
                           f"sl={sl_price:.5f} tp={tp_price:.5f}", flush=True)
+        else:
+            ask = ref_price  # for DRY sizing
+
+        # ── STEP 2: size lots based on FINAL SL (post-guard) ─────────────
+        lots = self._calc_lots(bal, ref_price, sl_price, sym_info)
+        if lots <= 0:
+            print(f"[Traders mgr {self.magic}] lots=0 for {strategy_id}, skip",
+                  flush=True)
+            return None
+
+        if self.dry_run:
+            print(f"[DRY][{self.magic}] would MARKET_BUY {symbol} lots={lots} "
+                  f"ref={ref_price:.5f} SL={sl_price:.5f} TP={tp_price:.5f} "
+                  f"id={strategy_id}", flush=True)
+            ticket = -int(now.timestamp() % 1_000_000_000)
+        else:
             request = {
                 "action": mt5.TRADE_ACTION_DEAL,
                 "symbol": symbol,

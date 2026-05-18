@@ -213,9 +213,21 @@ class AmoOrderManager:
         sl_price = entry_price - sign * sl_dist
         tp_price = entry_price + sign * tp_dist
 
-        # Volume sizing: risk_per_trade × balance / (sl_dist × tick_value / tick_size × vol_min_step)
+        # CRITICAL: apply stops_level guard BEFORE volume sizing, otherwise
+        # the position is over-sized for the actual SL distance the broker
+        # will accept. Inflate sl/tp here (caller frame), then size lots
+        # against the FINAL SL distance.
+        sl_price, tp_price, _ = self._inflate_sl_tp(
+            broker_sym, direction, entry_price, sl_price, tp_price,
+        )
+        final_sl_dist = abs(entry_price - sl_price)
+        if final_sl_dist <= 0:
+            print(f"[AMO8] skip {strategy['id']}: final SL distance == 0")
+            return None
+
+        # Volume sizing uses the FINAL (post-guard) SL distance
         volume = self._compute_volume(
-            broker_sym, sl_dist, risk_per_trade, account_balance
+            broker_sym, final_sl_dist, risk_per_trade, account_balance
         )
         if volume <= 0:
             print(f"[AMO8] skip {strategy['id']}: computed volume <= 0")
@@ -302,6 +314,48 @@ class AmoOrderManager:
         return round(lots, 2)
 
     # ───────────────────────── MT5 order_send ─────────────────────────
+
+    def _inflate_sl_tp(
+        self, broker_sym: str, direction: str, ref_price: float,
+        sl_price: float, tp_price: float,
+    ) -> tuple[float, float, float]:
+        """Inflate SL/TP to satisfy broker's min stop distance.
+
+        Returns (sl_price, tp_price, min_stop_dist). Used by place_market
+        and place_partial BEFORE volume sizing so lot calc uses the FINAL
+        SL distance (otherwise position is over-sized).
+        """
+        if mt5 is None:
+            return sl_price, tp_price, 0.0
+        sym_info = mt5.symbol_info(broker_sym)
+        tick = mt5.symbol_info_tick(broker_sym)
+        if sym_info is None or tick is None:
+            return sl_price, tp_price, 0.0
+        bid = float(tick.bid)
+        ask = float(tick.ask)
+        spread = max(ask - bid, 0.0)
+        point = float(getattr(sym_info, "point", 0) or 0)
+        stops_lvl_pts = float(getattr(sym_info, "trade_stops_level", 0) or 0)
+        # Use ask for LONG, bid for SHORT as the "current price" reference
+        cur = ask if direction == "LONG" else bid
+        min_stop_dist = max(
+            2.0 * stops_lvl_pts * point,
+            3.0 * spread,
+            0.001 * cur,
+        )
+        if min_stop_dist <= 0:
+            return sl_price, tp_price, 0.0
+        if direction == "LONG":
+            if (cur - sl_price) < min_stop_dist:
+                sl_price = cur - min_stop_dist
+            if (tp_price - cur) < min_stop_dist:
+                tp_price = cur + min_stop_dist
+        else:
+            if (sl_price - cur) < min_stop_dist:
+                sl_price = cur + min_stop_dist
+            if (cur - tp_price) < min_stop_dist:
+                tp_price = cur - min_stop_dist
+        return sl_price, tp_price, min_stop_dist
 
     def _send_market_order(
         self, broker_sym: str, direction: str, volume: float,
@@ -439,8 +493,19 @@ class AmoOrderManager:
         # broker TP — leave it at 0 / no TP).
         sl_price = entry_price - sign * sl_dist
 
+        # Apply stops_level guard BEFORE sizing to keep position correctly
+        # sized for the FINAL SL distance.
+        sl_price, _tp_unused, _ = self._inflate_sl_tp(
+            broker_sym, direction, entry_price, sl_price,
+            entry_price + sign * 1.0,  # dummy TP since broker has no TP here
+        )
+        final_sl_dist = abs(entry_price - sl_price)
+        if final_sl_dist <= 0:
+            print(f"[AMO8] skip {strategy['id']}: final SL distance == 0")
+            return None
+
         volume = self._compute_volume(
-            broker_sym, sl_dist, risk_per_trade, account_balance
+            broker_sym, final_sl_dist, risk_per_trade, account_balance
         )
         if volume <= 0:
             print(f"[AMO8] skip {strategy['id']}: computed volume <= 0")
