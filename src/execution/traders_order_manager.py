@@ -343,6 +343,21 @@ class TradersOrderManager:
                       f"skip", flush=True)
                 return None
             ask = float(tick.ask)
+            # Enforce broker min stops_level — for thin ATR like WTI/BRENT
+            # the backtest sl=0.5×ATR_M1 can be below broker's minimum SL
+            # distance, causing INVALID_STOPS (10016). Inflate SL/TP to at
+            # least 1.5× the broker's minimum stops distance.
+            point = float(getattr(sym_info, "point", 0)) if sym_info else 0
+            stops_lvl_pts = float(getattr(sym_info, "trade_stops_level", 0) or 0) if sym_info else 0
+            min_stop_dist = max(1.5 * stops_lvl_pts * point, 0.0)
+            if min_stop_dist > 0:
+                if (ask - sl_price) < min_stop_dist:
+                    sl_price = ask - min_stop_dist
+                if (tp_price - ask) < min_stop_dist:
+                    tp_price = ask + min_stop_dist
+                print(f"[Traders mgr {self.magic}] {strategy_id}: "
+                      f"stops_min={min_stop_dist:.5f} -> "
+                      f"sl={sl_price:.5f} tp={tp_price:.5f}", flush=True)
             request = {
                 "action": mt5.TRADE_ACTION_DEAL,
                 "symbol": symbol,
