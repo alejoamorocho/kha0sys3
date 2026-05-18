@@ -470,20 +470,27 @@ class TradersEngine:
             # (price already above). The backtest semantic is "enter at the
             # close of the M1 bar that broke out", which in live = MARKET
             # BUY at current ask.
+            # SL/TP must be relative to ACTUAL entry (current ask), not
+            # r_high. Otherwise TP can land below ask (BUY needs TP > ask),
+            # triggering MT5 INVALID_STOPS (10016). The R-multiple risk
+            # distance stays the same → same backtest semantic.
             exit_r = strat["exit_rules"]
             sl_atr_mult = float(exit_r.get("initial_sl_atr_mult") or 0.5)
             risk = sl_atr_mult * atr_m1
-            sl = r_high - risk
             partial_r = float(exit_r["partials"][0]["value"])
-            tp = r_high + partial_r * risk
+            tick = mt5.symbol_info_tick(broker_sym) if mt5 else None
+            entry_ref = float(tick.ask) if tick and tick.ask > 0 else last_close
+            sl = entry_ref - risk
+            tp = entry_ref + partial_r * risk
             comment = make_orb_comment(oh, rm, sym_internal)
-            print(f"[TradersEngine][orb] {sid}: BREAKOUT detected "
-                  f"r_high={r_high:.5f} last_close={last_close:.5f} "
-                  f"sl={sl:.5f} tp={tp:.5f} -> placing MARKET", flush=True)
+            print(f"[TradersEngine][orb] {sid}: BREAKOUT r_high={r_high:.5f} "
+                  f"last_close={last_close:.5f} ask={entry_ref:.5f} "
+                  f"sl={sl:.5f} tp={tp:.5f} risk={risk:.5f} "
+                  f"partial_r={partial_r:.1f} -> placing MARKET", flush=True)
             self.mgr_orb.place_market_long(
                 symbol=broker_sym, sym_internal=strat["internal_sym"],
                 strategy_id=sid, setup_type="ORB", variant="GRID",
-                ref_price=r_high, sl_price=sl, tp_price=tp,
+                ref_price=entry_ref, sl_price=sl, tp_price=tp,
                 atr_or_risk=risk, exit_rules=exit_r,
                 comment=comment,
             )
