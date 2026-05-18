@@ -418,16 +418,19 @@ class TradersOrderManager:
         }
         self._save_state()
         if self.notifier and ticket > 0:
-            self.notifier.order_placed(
-                strategy_id=strategy_id, trader=trader_name,
-                setup_type=setup_type, variant=variant, magic=self.magic,
-                broker_sym=symbol, internal_sym=sym_internal,
-                entry=ref_price, sl=sl_price, tp=tp_price,
-                lots=lots, ticket=int(ticket),
-                expiration=datetime.fromtimestamp(
-                    placed_us / 1_000_000, tz=timezone.utc,
-                ).isoformat(),
-            )
+            try:
+                self.notifier.order_placed(
+                    strategy_id=strategy_id, trader=trader_name,
+                    setup_type=setup_type, variant=variant, magic=self.magic,
+                    broker_sym=symbol, internal_sym=sym_internal,
+                    entry=ref_price, sl=sl_price, tp=tp_price,
+                    lots=lots, ticket=int(ticket),
+                )
+            except Exception as e:
+                # Don't let notifier error fail the placement — order is in
+                # MT5 already, we just lost the Telegram event.
+                print(f"[Traders mgr {self.magic}] notifier.order_placed "
+                      f"error (non-fatal): {e}", flush=True)
         return ticket
 
     @staticmethod
