@@ -17,7 +17,7 @@ import numpy as np
 import polars as pl
 import MetaTrader5 as mt5
 
-from src.execution.live_amo_trader import AmoLiveTrader
+from src.execution.live_amo_trader import AmoTraderEngine as AmoLiveTrader
 from src.application.orb_patterns import detect_events_for_day, add_state_columns
 from src.application.data_enricher import DataEnricher
 
