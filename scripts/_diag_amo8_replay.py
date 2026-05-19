@@ -21,7 +21,8 @@ from src.execution.live_amo_trader import AmoTraderEngine as AmoLiveTrader
 from src.application.orb_patterns import detect_events_for_day, add_state_columns
 from src.application.calculators import DataEnricher
 
-bot = AmoLiveTrader()
+bot = AmoLiveTrader(dry_run=True)
+bot.client.ensure_connected()
 bot._refresh_broker_offset()
 print(f"Broker offset: {bot._broker_offset_h:+d}h")
 
