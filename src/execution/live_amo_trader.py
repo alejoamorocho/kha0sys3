@@ -68,8 +68,9 @@ class AmoTraderEngine:
     POLL_INTERVAL = 30                    # secs between detection passes
     HEARTBEAT_INTERVAL = 15 * 60          # 15 min
     SWEEP_INTERVAL = 60                   # 60s — max-hold check
-    M1_LOOKBACK_BARS = 600                # ~10h M1 — covers any 8h post-OR window
-    M15_LOOKBACK_BARS = 800               # for OR computation (PD context)
+    M1_LOOKBACK_BARS = 800                # ~13h M1 — covers any 8h post-OR window
+    M15_LOOKBACK_BARS = 2200              # ≥21 trading days needed for daily ATR(14)
+                                          # (was 800 → only ~8 days, atr_14 stayed null)
     POST_OR_ACTIVE_HOURS = 8              # listen window after OR close
 
     def __init__(self, config_path: str = "src/execution/bot_config_amo8.json",
@@ -84,10 +85,17 @@ class AmoTraderEngine:
         self.dry_run = dry_run
 
         # Build schedule: { (broker_sym, magic_time, or_duration_min): [strategies] }
+        # NOTE: magic_time in config is stored as UTC. K3M1 convention treats
+        # broker-time-as-UTC, so we shift magic_time forward by broker offset
+        # at runtime (see _build_schedule) so OR detection fires at the same
+        # REAL-UTC moment that the backtest validated.
         self.schedule: dict[tuple, list[dict]] = {}
-        for s in self.portfolio:
-            k = (s["broker_sym"], s["magic_time"], int(s["or_duration_min"]))
-            self.schedule.setdefault(k, []).append(s)
+        self._build_schedule()  # initial build with default offset
+
+        # One-shot diagnostic emitter: prints the same message only once per
+        # day per key, so logs aren't flooded by the 30s tick. Reset daily.
+        self._diag_emitted: set[str] = set()
+        self._diag_emit_date = None
 
         # Strategies grouped by symbol for fast M1/M15 fetch dedup
         self.symbols: set[str] = {s["broker_sym"] for s in self.portfolio}
@@ -144,6 +152,16 @@ class AmoTraderEngine:
             if not ok:
                 print("[AMO8] MT5 connection failed; running DRY without ticks")
 
+        # Refresh broker offset NOW (before first tick) so schedule keys
+        # are aligned to broker time. Log the resulting schedule for ops.
+        self._refresh_broker_offset()
+        slot_summary = sorted({(k[0], k[1], k[2]) for k in self.schedule.keys()})
+        print(f"[AMO8] broker_offset={self._broker_offset_h:+d}h  "
+              f"schedule keys (broker time):", flush=True)
+        for sym, mt_br, dur in slot_summary:
+            print(f"  {sym:<10} OR_start_broker={mt_br}  duration={dur}m  "
+                  f"strats={len(self.schedule[(sym, mt_br, dur)])}", flush=True)
+
         # Main loop
         while not self._stop:
             try:
@@ -197,6 +215,44 @@ class AmoTraderEngine:
             print(f"[AMO8] broker_offset_h: {self._broker_offset_h:+d}h "
                   f"-> {new_h:+d}h")
             self._broker_offset_h = new_h
+            # Rebuild schedule keys to use broker-shifted magic_time so OR
+            # detection fires at the same REAL-UTC moment as backtest.
+            self._build_schedule()
+
+    def _build_schedule(self) -> None:
+        """(Re)build slot schedule with broker-shifted magic_time.
+
+        Config stores magic_time in UTC (e.g. "00:00" = real UTC midnight,
+        the moment the backtest used). At runtime we shift forward by the
+        broker offset so the slot key matches MT5 bar timestamps (which are
+        broker-time-treated-as-UTC under K3M1 convention).
+
+        Example (Vantage +3h EEST):
+          config magic_time "00:00" UTC  →  schedule key "03:00" broker
+        """
+        offset_h = getattr(self, "_broker_offset_h", 3)
+        self.schedule = {}
+        for s in self.portfolio:
+            mt_utc = s["magic_time"]  # config value, kept untouched
+            hh, mm = mt_utc.split(":")
+            shifted_h = (int(hh) + offset_h) % 24
+            mt_broker = f"{shifted_h:02d}:{mm}"
+            k = (s["broker_sym"], mt_broker, int(s["or_duration_min"]))
+            self.schedule.setdefault(k, []).append(s)
+
+    def _diag_once(self, key: str, msg: str) -> None:
+        """Emit a diagnostic line at most once per UTC day per key.
+
+        Prevents the 30s tick from flooding logs while still surfacing
+        every reason a slot ended a tick early."""
+        today = datetime.now(timezone.utc).date()
+        if self._diag_emit_date != today:
+            self._diag_emitted = set()
+            self._diag_emit_date = today
+        if key in self._diag_emitted:
+            return
+        self._diag_emitted.add(key)
+        print(msg, flush=True)
 
     def _now_broker(self) -> datetime:
         """Return current time labeled as broker-time-treated-as-UTC.
@@ -323,11 +379,18 @@ class AmoTraderEngine:
             (pl.col("trade_date") == today) & (pl.col("is_post_or"))
         ).sort("time")
         if today_rows.is_empty():
+            self._diag_once(f"no_post_or_rows {broker_sym} {magic_time}/{or_dur}",
+                            f"[AMO8] {broker_sym} {magic_time}/{or_dur}: no post-OR rows for {today}")
             return
         row0 = today_rows.row(0, named=True)
         # Required fields
         for k in ("or_high", "or_low", "atr_14"):
             if row0.get(k) is None:
+                self._diag_once(
+                    f"miss_{k} {broker_sym} {magic_time}/{or_dur}",
+                    f"[AMO8] {broker_sym} {magic_time}/{or_dur}: missing {k}=None "
+                    f"(or_high={row0.get('or_high')} or_low={row0.get('or_low')} atr_14={row0.get('atr_14')})"
+                )
                 return
 
         or_close_ts = row0["time"]
@@ -335,6 +398,7 @@ class AmoTraderEngine:
         or_low = float(row0["or_low"])
         or_width = or_high - or_low
         if or_width <= 0:
+            self._diag_once(f"or_width0 {broker_sym}", f"[AMO8] {broker_sym}: or_width<=0")
             return
         atr_at_setup = float(row0["atr_14"])
         if atr_at_setup <= 0:
@@ -350,6 +414,11 @@ class AmoTraderEngine:
         last_closed_ts = now.replace(second=0, microsecond=0) - timedelta(minutes=1)
         end_idx = bisect.bisect_right(m1_times, last_closed_ts)
         if end_idx <= start_idx:
+            self._diag_once(
+                f"empty_slice {broker_sym} {magic_time}/{or_dur} {or_close_ts.date()}",
+                f"[AMO8] {broker_sym} {magic_time}/{or_dur}: empty M1 slice "
+                f"(or_close={or_close_ts} last_closed={last_closed_ts})"
+            )
             return
 
         # Cooldown: don't reprocess if we already saw this last bar timestamp
@@ -380,6 +449,13 @@ class AmoTraderEngine:
             pd_mid=row0.get("pd_mid"), pd_close=row0.get("pd_close"),
             pd_or_high=row0.get("pd_or_high"), pd_or_low=row0.get("pd_or_low"),
             atr_at_setup=atr_at_setup, m1=day_slice,
+        )
+        self._diag_once(
+            f"slot_ready {broker_sym} {magic_time}/{or_dur} {or_close_ts.date()}",
+            f"[AMO8] {broker_sym} {magic_time}/{or_dur}: OR=[{or_low:.5f}..{or_high:.5f}] "
+            f"atr={atr_at_setup:.5f} or_pos={row0.get('or_position_vs_pd')} "
+            f"or_atr_b={row0.get('or_atr_bucket')} pd_or_b={row0.get('pd_or_overlap_bucket')} "
+            f"m1_slice={end_idx-start_idx} events={len(events)}"
         )
         if not events:
             return
