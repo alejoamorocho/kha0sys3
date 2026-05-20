@@ -409,9 +409,19 @@ class AmoTraderEngine:
         m1_times = m1_sorted["time"].to_list()
         if not m1_times:
             return
-        start_idx = bisect.bisect_right(m1_times, or_close_ts)
+        # m1_times come from Polars datetime (tz-naive). `now` is broker-as-UTC
+        # tz-aware. Strip tz on the comparison key to keep bisect type-uniform.
+        sample_ts = m1_times[0]
+        bar_is_naive = getattr(sample_ts, "tzinfo", None) is None
+        if bar_is_naive and getattr(or_close_ts, "tzinfo", None) is not None:
+            or_close_ts_cmp = or_close_ts.replace(tzinfo=None)
+        else:
+            or_close_ts_cmp = or_close_ts
+        start_idx = bisect.bisect_right(m1_times, or_close_ts_cmp)
         # End: last M1 bar (current bar may still be forming; use closed bars)
         last_closed_ts = now.replace(second=0, microsecond=0) - timedelta(minutes=1)
+        if bar_is_naive:
+            last_closed_ts = last_closed_ts.replace(tzinfo=None)
         end_idx = bisect.bisect_right(m1_times, last_closed_ts)
         if end_idx <= start_idx:
             self._diag_once(
