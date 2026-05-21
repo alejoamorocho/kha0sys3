@@ -143,7 +143,7 @@ print()
 print(f"=== AGGREGATE ===")
 print(f"  total slot-days observed:        {sum(s['days_with_atr'] for s in slot_stats.values())}")
 print(f"  total slot-days with match:      {total_matchable}")
-print(f"  unique calendar days with ≥1 match: {sum(1 for c in daily_match_count.values() if c>0)} / {len(daily_slots_processed)}")
+print(f"  unique calendar days with >=1 match: {sum(1 for c in daily_match_count.values() if c>0)} / {len(daily_slots_processed)}")
 print(f"  total config-fires in window:    {total_configs_fired}  ({total_configs_fired/LOOKBACK_DAYS:.2f}/day avg)")
 print(f"  backtest expected total tpy:     {cfg['_metrics_aggregate']['sum_trades_per_year']}  ({cfg['_metrics_aggregate']['sum_trades_per_year']/260:.2f}/trading-day)")
 
