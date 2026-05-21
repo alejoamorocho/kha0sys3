@@ -1,0 +1,512 @@
+{
+  "XAUUSD": [
+    {
+      "date": "2026-05-08",
+      "n_bars": 92,
+      "max_bar_range": 30.4399999999996,
+      "med_bar_range": 8.014999999999873,
+      "outlier_ratio": 3.8,
+      "d_range": 72.06999999999971,
+      "d_high": 4749.41,
+      "d_low": 4677.34
+    },
+    {
+      "date": "2026-05-11",
+      "n_bars": 92,
+      "max_bar_range": 27.81999999999971,
+      "med_bar_range": 8.050000000000182,
+      "outlier_ratio": 3.5,
+      "d_range": 100.39999999999964,
+      "d_high": 4748.58,
+      "d_low": 4648.18
+    },
+    {
+      "date": "2026-05-12",
+      "n_bars": 92,
+      "max_bar_range": 27.8100000000004,
+      "med_bar_range": 8.304999999999836,
+      "outlier_ratio": 3.3,
+      "d_range": 135.15000000000055,
+      "d_high": 4773.55,
+      "d_low": 4638.4
+    },
+    {
+      "date": "2026-05-13",
+      "n_bars": 92,
+      "max_bar_range": 17.659999999999854,
+      "med_bar_range": 7.739999999999782,
+      "outlier_ratio": 2.3,
+      "d_range": 57.409999999999854,
+      "d_high": 4726.9,
+      "d_low": 4669.49
+    },
+    {
+      "date": "2026-05-14",
+      "n_bars": 92,
+      "max_bar_range": 25.57000000000062,
+      "med_bar_range": 7.829999999999927,
+      "outlier_ratio": 3.3,
+      "d_range": 74.5,
+      "d_high": 4718.9,
+      "d_low": 4644.4
+    },
+    {
+      "date": "2026-05-15",
+      "n_bars": 92,
+      "max_bar_range": 31.23999999999978,
+      "med_bar_range": 10.795000000000073,
+      "outlier_ratio": 2.9,
+      "d_range": 153.59000000000015,
+      "d_high": 4665.37,
+      "d_low": 4511.78
+    },
+    {
+      "date": "2026-05-18",
+      "n_bars": 92,
+      "max_bar_range": 38.44999999999982,
+      "med_bar_range": 10.8449999999998,
+      "outlier_ratio": 3.5,
+      "d_range": 103.90000000000055,
+      "d_high": 4584.26,
+      "d_low": 4480.36
+    },
+    {
+      "date": "2026-05-19",
+      "n_bars": 92,
+      "max_bar_range": 37.17000000000007,
+      "med_bar_range": 8.889999999999873,
+      "outlier_ratio": 4.2,
+      "d_range": 124.43000000000029,
+      "d_high": 4589.37,
+      "d_low": 4464.94
+    },
+    {
+      "date": "2026-05-20",
+      "n_bars": 92,
+      "max_bar_range": 34.27000000000044,
+      "med_bar_range": 8.419999999999618,
+      "outlier_ratio": 4.1,
+      "d_range": 99.11000000000058,
+      "d_high": 4552.76,
+      "d_low": 4453.65
+    },
+    {
+      "date": "2026-05-21",
+      "n_bars": 84,
+      "max_bar_range": 26.150000000000546,
+      "med_bar_range": 8.74499999999989,
+      "outlier_ratio": 3.0,
+      "d_range": 82.09000000000015,
+      "d_high": 4570.74,
+      "d_low": 4488.65
+    }
+  ],
+  "GBPUSD": [
+    {
+      "date": "2026-05-11",
+      "n_bars": 96,
+      "max_bar_range": 0.0022800000000000598,
+      "med_bar_range": 0.0005849999999998357,
+      "outlier_ratio": 3.9,
+      "d_range": 0.008920000000000039,
+      "d_high": 1.36533,
+      "d_low": 1.35641
+    },
+    {
+      "date": "2026-05-12",
+      "n_bars": 96,
+      "max_bar_range": 0.0033600000000000296,
+      "med_bar_range": 0.0007600000000000939,
+      "outlier_ratio": 4.4,
+      "d_range": 0.01097999999999999,
+      "d_high": 1.36101,
+      "d_low": 1.35003
+    },
+    {
+      "date": "2026-05-13",
+      "n_bars": 96,
+      "max_bar_range": 0.0027600000000000957,
+      "med_bar_range": 0.0006899999999999684,
+      "outlier_ratio": 4.0,
+      "d_range": 0.006680000000000019,
+      "d_high": 1.35513,
+      "d_low": 1.34845
+    },
+    {
+      "date": "2026-05-14",
+      "n_bars": 96,
+      "max_bar_range": 0.0022299999999999542,
+      "med_bar_range": 0.0006149999999999212,
+      "outlier_ratio": 3.6,
+      "d_range": 0.01377000000000006,
+      "d_high": 1.35328,
+      "d_low": 1.33951
+    },
+    {
+      "date": "2026-05-15",
+      "n_bars": 92,
+      "max_bar_range": 0.0022999999999999687,
+      "med_bar_range": 0.0008200000000000429,
+      "outlier_ratio": 2.8,
+      "d_range": 0.00886000000000009,
+      "d_high": 1.3403800000000001,
+      "d_low": 1.33152
+    },
+    {
+      "date": "2026-05-17",
+      "n_bars": 4,
+      "max_bar_range": 0.0006200000000000649,
+      "med_bar_range": 0.000320000000000098,
+      "outlier_ratio": 1.9,
+      "d_range": 0.0007800000000000029,
+      "d_high": 1.33226,
+      "d_low": 1.33148
+    },
+    {
+      "date": "2026-05-18",
+      "n_bars": 96,
+      "max_bar_range": 0.0033999999999998476,
+      "med_bar_range": 0.0007599999999999829,
+      "outlier_ratio": 4.5,
+      "d_range": 0.01472999999999991,
+      "d_high": 1.34496,
+      "d_low": 1.33023
+    },
+    {
+      "date": "2026-05-19",
+      "n_bars": 96,
+      "max_bar_range": 0.0019200000000001438,
+      "med_bar_range": 0.0006850000000000467,
+      "outlier_ratio": 2.8,
+      "d_range": 0.005900000000000016,
+      "d_high": 1.34374,
+      "d_low": 1.33784
+    },
+    {
+      "date": "2026-05-20",
+      "n_bars": 96,
+      "max_bar_range": 0.004049999999999887,
+      "med_bar_range": 0.0007349999999999302,
+      "outlier_ratio": 5.5,
+      "d_range": 0.008809999999999985,
+      "d_high": 1.34633,
+      "d_low": 1.33752
+    },
+    {
+      "date": "2026-05-21",
+      "n_bars": 84,
+      "max_bar_range": 0.0024700000000001943,
+      "med_bar_range": 0.0007250000000000867,
+      "outlier_ratio": 3.4,
+      "d_range": 0.006290000000000129,
+      "d_high": 1.34548,
+      "d_low": 1.3391899999999999
+    }
+  ],
+  "NASDAQ100": [
+    {
+      "date": "2026-05-08",
+      "n_bars": 92,
+      "max_bar_range": 131.5,
+      "med_bar_range": 28.774999999999636,
+      "outlier_ratio": 4.6,
+      "d_range": 812.5,
+      "d_high": 29288.85,
+      "d_low": 28476.35
+    },
+    {
+      "date": "2026-05-11",
+      "n_bars": 92,
+      "max_bar_range": 151.0,
+      "med_bar_range": 33.75,
+      "outlier_ratio": 4.5,
+      "d_range": 251.79999999999927,
+      "d_high": 29391.1,
+      "d_low": 29139.3
+    },
+    {
+      "date": "2026-05-12",
+      "n_bars": 92,
+      "max_bar_range": 180.5,
+      "med_bar_range": 38.475000000000364,
+      "outlier_ratio": 4.7,
+      "d_range": 708.3799999999974,
+      "d_high": 29370.1,
+      "d_low": 28661.72
+    },
+    {
+      "date": "2026-05-13",
+      "n_bars": 92,
+      "max_bar_range": 159.70000000000073,
+      "med_bar_range": 33.649999999999636,
+      "outlier_ratio": 4.7,
+      "d_range": 510.25,
+      "d_high": 29490.35,
+      "d_low": 28980.1
+    },
+    {
+      "date": "2026-05-14",
+      "n_bars": 92,
+      "max_bar_range": 168.75,
+      "med_bar_range": 39.375,
+      "outlier_ratio": 4.3,
+      "d_range": 328.5,
+      "d_high": 29703.45,
+      "d_low": 29374.95
+    },
+    {
+      "date": "2026-05-15",
+      "n_bars": 92,
+      "max_bar_range": 196.34999999999854,
+      "med_bar_range": 56.975000000000364,
+      "outlier_ratio": 3.4,
+      "d_range": 639.5,
+      "d_high": 29657.72,
+      "d_low": 29018.22
+    },
+    {
+      "date": "2026-05-18",
+      "n_bars": 92,
+      "max_bar_range": 230.95000000000073,
+      "med_bar_range": 68.25,
+      "outlier_ratio": 3.4,
+      "d_range": 603.6500000000015,
+      "d_high": 29354.2,
+      "d_low": 28750.55
+    },
+    {
+      "date": "2026-05-19",
+      "n_bars": 92,
+      "max_bar_range": 218.25,
+      "med_bar_range": 58.625,
+      "outlier_ratio": 3.7,
+      "d_range": 522.75,
+      "d_high": 29123.15,
+      "d_low": 28600.4
+    },
+    {
+      "date": "2026-05-20",
+      "n_bars": 92,
+      "max_bar_range": 157.20000000000073,
+      "med_bar_range": 48.899999999999636,
+      "outlier_ratio": 3.2,
+      "d_range": 596.0,
+      "d_high": 29336.4,
+      "d_low": 28740.4
+    },
+    {
+      "date": "2026-05-21",
+      "n_bars": 84,
+      "max_bar_range": 165.04999999999927,
+      "med_bar_range": 45.25,
+      "outlier_ratio": 3.6,
+      "d_range": 439.7999999999993,
+      "d_high": 29494.05,
+      "d_low": 29054.25
+    }
+  ],
+  "SP500": [
+    {
+      "date": "2026-05-08",
+      "n_bars": 92,
+      "max_bar_range": 14.13000000000011,
+      "med_bar_range": 4.875,
+      "outlier_ratio": 2.9,
+      "d_range": 82.80000000000018,
+      "d_high": 7410.0,
+      "d_low": 7327.2
+    },
+    {
+      "date": "2026-05-11",
+      "n_bars": 92,
+      "max_bar_range": 19.0,
+      "med_bar_range": 4.75,
+      "outlier_ratio": 4.0,
+      "d_range": 63.75,
+      "d_high": 7437.65,
+      "d_low": 7373.9
+    },
+    {
+      "date": "2026-05-12",
+      "n_bars": 92,
+      "max_bar_range": 20.11999999999989,
+      "med_bar_range": 5.75,
+      "outlier_ratio": 3.5,
+      "d_range": 80.84999999999945,
+      "d_high": 7427.15,
+      "d_low": 7346.3
+    },
+    {
+      "date": "2026-05-13",
+      "n_bars": 92,
+      "max_bar_range": 22.25,
+      "med_bar_range": 5.25,
+      "outlier_ratio": 4.2,
+      "d_range": 84.75,
+      "d_high": 7468.2,
+      "d_low": 7383.45
+    },
+    {
+      "date": "2026-05-14",
+      "n_bars": 92,
+      "max_bar_range": 20.25,
+      "med_bar_range": 5.75,
+      "outlier_ratio": 3.5,
+      "d_range": 68.75,
+      "d_high": 7525.1,
+      "d_low": 7456.35
+    },
+    {
+      "date": "2026-05-15",
+      "n_bars": 92,
+      "max_bar_range": 34.0,
+      "med_bar_range": 9.625,
+      "outlier_ratio": 3.5,
+      "d_range": 119.94999999999982,
+      "d_high": 7513.95,
+      "d_low": 7394.0
+    },
+    {
+      "date": "2026-05-18",
+      "n_bars": 92,
+      "max_bar_range": 44.1200000000008,
+      "med_bar_range": 10.6850000000004,
+      "outlier_ratio": 4.1,
+      "d_range": 80.55000000000018,
+      "d_high": 7440.95,
+      "d_low": 7360.4
+    },
+    {
+      "date": "2026-05-19",
+      "n_bars": 92,
+      "max_bar_range": 31.75,
+      "med_bar_range": 9.510000000000218,
+      "outlier_ratio": 3.3,
+      "d_range": 85.18000000000029,
+      "d_high": 7427.67,
+      "d_low": 7342.49
+    },
+    {
+      "date": "2026-05-20",
+      "n_bars": 92,
+      "max_bar_range": 33.5,
+      "med_bar_range": 8.1850000000004,
+      "outlier_ratio": 4.1,
+      "d_range": 101.63000000000011,
+      "d_high": 7446.57,
+      "d_low": 7344.94
+    },
+    {
+      "date": "2026-05-21",
+      "n_bars": 84,
+      "max_bar_range": 31.199999999999818,
+      "med_bar_range": 7.559999999999945,
+      "outlier_ratio": 4.1,
+      "d_range": 78.86999999999989,
+      "d_high": 7475.34,
+      "d_low": 7396.47
+    }
+  ],
+  "NATGAS": [
+    {
+      "date": "2026-05-08",
+      "n_bars": 92,
+      "max_bar_range": 0.051000000000000156,
+      "med_bar_range": 0.008000000000000007,
+      "outlier_ratio": 6.4,
+      "d_range": 0.10400000000000009,
+      "d_high": 2.766,
+      "d_low": 2.662
+    },
+    {
+      "date": "2026-05-11",
+      "n_bars": 92,
+      "max_bar_range": 0.03399999999999981,
+      "med_bar_range": 0.008000000000000007,
+      "outlier_ratio": 4.2,
+      "d_range": 0.17799999999999994,
+      "d_high": 2.862,
+      "d_low": 2.684
+    },
+    {
+      "date": "2026-05-12",
+      "n_bars": 92,
+      "max_bar_range": 0.03399999999999981,
+      "med_bar_range": 0.007000000000000117,
+      "outlier_ratio": 4.9,
+      "d_range": 0.13500000000000023,
+      "d_high": 2.878,
+      "d_low": 2.743
+    },
+    {
+      "date": "2026-05-13",
+      "n_bars": 92,
+      "max_bar_range": 0.05600000000000005,
+      "med_bar_range": 0.007000000000000117,
+      "outlier_ratio": 8.0,
+      "d_range": 0.11500000000000021,
+      "d_high": 2.867,
+      "d_low": 2.752
+    },
+    {
+      "date": "2026-05-14",
+      "n_bars": 92,
+      "max_bar_range": 0.051000000000000156,
+      "med_bar_range": 0.008000000000000007,
+      "outlier_ratio": 6.4,
+      "d_range": 0.1200000000000001,
+      "d_high": 2.864,
+      "d_low": 2.7439999999999998
+    },
+    {
+      "date": "2026-05-15",
+      "n_bars": 92,
+      "max_bar_range": 0.05699999999999994,
+      "med_bar_range": 0.007000000000000117,
+      "outlier_ratio": 8.1,
+      "d_range": 0.08300000000000018,
+      "d_high": 2.928,
+      "d_low": 2.8449999999999998
+    },
+    {
+      "date": "2026-05-18",
+      "n_bars": 92,
+      "max_bar_range": 0.052000000000000046,
+      "med_bar_range": 0.009999999999999787,
+      "outlier_ratio": 5.2,
+      "d_range": 0.12499999999999956,
+      "d_high": 3.046,
+      "d_low": 2.9210000000000003
+    },
+    {
+      "date": "2026-05-19",
+      "n_bars": 92,
+      "max_bar_range": 0.04300000000000015,
+      "med_bar_range": 0.008499999999999952,
+      "outlier_ratio": 5.1,
+      "d_range": 0.12299999999999978,
+      "d_high": 3.089,
+      "d_low": 2.966
+    },
+    {
+      "date": "2026-05-20",
+      "n_bars": 92,
+      "max_bar_range": 0.06400000000000006,
+      "med_bar_range": 0.006999999999999895,
+      "outlier_ratio": 9.1,
+      "d_range": 0.1499999999999999,
+      "d_high": 3.102,
+      "d_low": 2.952
+    },
+    {
+      "date": "2026-05-21",
+      "n_bars": 84,
+      "max_bar_range": 0.04900000000000038,
+      "med_bar_range": 0.009000000000000119,
+      "outlier_ratio": 5.4,
+      "d_range": 0.07900000000000018,
+      "d_high": 3.019,
+      "d_low": 2.94
+    }
+  ]
+}

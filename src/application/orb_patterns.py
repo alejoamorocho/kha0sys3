@@ -28,18 +28,60 @@ EVENTS = [
 ]
 
 
-def add_state_columns(df: pl.DataFrame) -> pl.DataFrame:
+BUCKET_ROLLING_WINDOW_DAYS = 90
+BUCKET_MIN_SAMPLES = 20
+BUCKET_FALLBACK_Q30 = 0.3
+BUCKET_FALLBACK_Q70 = 0.7
+
+
+def add_state_columns(
+    df: pl.DataFrame,
+    bucket_window: int = BUCKET_ROLLING_WINDOW_DAYS,
+    bucket_min_samples: int = BUCKET_MIN_SAMPLES,
+) -> pl.DataFrame:
     """Add `or_atr_bucket` and `pd_or_overlap_bucket` columns.
 
+    `or_atr_bucket` is computed against a CAUSAL rolling-percentile threshold
+    per symbol (bottom 30% = compressed, top 30% = expanded). This avoids the
+    bias of fixed absolute thresholds when the symbol's ATR baseline shifts
+    between regimes (e.g., between historical backtest data and current
+    Vantage live data, where atr_14 magnitudes can differ ~10x for the same
+    symbol despite similar OR widths).
+
+    Falls back to fixed 0.3 / 0.7 thresholds during warm-up (when the rolling
+    window has fewer than `bucket_min_samples` daily observations).
+
     Assumes `df` already has `or_atr_ratio`, `or_high`, `or_low`,
-    `pd_or_high`, `pd_or_low` from `DataEnricher.enrich_with_opening_range`.
+    `pd_or_high`, `pd_or_low`, `trade_date` from
+    `DataEnricher.enrich_with_opening_range`.
     """
-    return df.with_columns([
+    # Reduce to one row per trade_date (or_atr_ratio is constant within a day)
+    daily = (
+        df.filter(pl.col("or_atr_ratio").is_not_null())
+          .group_by("trade_date")
+          .agg(pl.col("or_atr_ratio").first().alias("_daily_ratio"))
+          .sort("trade_date")
+    )
+    # Causal rolling thresholds — shift(1) ensures we never use today's value
+    daily = daily.with_columns([
+        pl.col("_daily_ratio")
+          .rolling_quantile(0.30, window_size=bucket_window, min_samples=bucket_min_samples)
+          .shift(1)
+          .alias("_q30"),
+        pl.col("_daily_ratio")
+          .rolling_quantile(0.70, window_size=bucket_window, min_samples=bucket_min_samples)
+          .shift(1)
+          .alias("_q70"),
+    ])
+    df = df.join(daily.select(["trade_date", "_q30", "_q70"]), on="trade_date", how="left")
+
+    out = df.with_columns([
+        # Use rolling threshold when available, fall back to fixed 0.3/0.7
         pl.when(pl.col("or_atr_ratio").is_null())
           .then(pl.lit(None, dtype=pl.Utf8))
-          .when(pl.col("or_atr_ratio") <= 0.3)
+          .when(pl.col("or_atr_ratio") <= pl.coalesce(pl.col("_q30"), pl.lit(BUCKET_FALLBACK_Q30)))
           .then(pl.lit("compressed"))
-          .when(pl.col("or_atr_ratio") >= 0.7)
+          .when(pl.col("or_atr_ratio") >= pl.coalesce(pl.col("_q70"), pl.lit(BUCKET_FALLBACK_Q70)))
           .then(pl.lit("expanded"))
           .otherwise(pl.lit("normal"))
           .alias("or_atr_bucket"),
@@ -52,7 +94,8 @@ def add_state_columns(df: pl.DataFrame) -> pl.DataFrame:
           .then(pl.lit("gap_down"))
           .otherwise(pl.lit("inside"))
           .alias("pd_or_overlap_bucket"),
-    ])
+    ]).drop(["_q30", "_q70"])
+    return out
 
 
 import numpy as np
