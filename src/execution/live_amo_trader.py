@@ -157,10 +157,10 @@ class AmoTraderEngine:
         self._refresh_broker_offset()
         slot_summary = sorted({(k[0], k[1], k[2]) for k in self.schedule.keys()})
         print(f"[AMO8] broker_offset={self._broker_offset_h:+d}h  "
-              f"schedule keys (broker time):", flush=True)
-        for sym, mt_br, dur in slot_summary:
-            print(f"  {sym:<10} OR_start_broker={mt_br}  duration={dur}m  "
-                  f"strats={len(self.schedule[(sym, mt_br, dur)])}", flush=True)
+              f"schedule keys (real UTC — bars are offset-corrected):", flush=True)
+        for sym, mt_utc, dur in slot_summary:
+            print(f"  {sym:<10} OR_start_UTC={mt_utc}  duration={dur}m  "
+                  f"strats={len(self.schedule[(sym, mt_utc, dur)])}", flush=True)
 
         # Main loop
         while not self._stop:
@@ -220,24 +220,20 @@ class AmoTraderEngine:
             self._build_schedule()
 
     def _build_schedule(self) -> None:
-        """(Re)build slot schedule with broker-shifted magic_time.
+        """(Re)build slot schedule keyed by literal magic_time (real UTC).
 
-        Config stores magic_time in UTC (e.g. "00:00" = real UTC midnight,
-        the moment the backtest used). At runtime we shift forward by the
-        broker offset so the slot key matches MT5 bar timestamps (which are
-        broker-time-treated-as-UTC under K3M1 convention).
-
-        Example (Vantage +3h EEST):
-          config magic_time "00:00" UTC  →  schedule key "03:00" broker
+        Convention (matches ORB/SWING/MATH via traders_live_engine):
+        - `_fetch_bars` subtracts the broker offset, so bar timestamps are
+          in REAL UTC.
+        - `magic_time` from config is the REAL UTC moment the backtest used
+          (e.g. "00:00" = midnight UTC = London pre-open / active Asia for
+          the backtest source data in data/enriched_math_tf/).
+        - No shift is applied here — bars and magic_time are both in real UTC.
         """
-        offset_h = getattr(self, "_broker_offset_h", 3)
         self.schedule = {}
         for s in self.portfolio:
-            mt_utc = s["magic_time"]  # config value, kept untouched
-            hh, mm = mt_utc.split(":")
-            shifted_h = (int(hh) + offset_h) % 24
-            mt_broker = f"{shifted_h:02d}:{mm}"
-            k = (s["broker_sym"], mt_broker, int(s["or_duration_min"]))
+            mt = s["magic_time"]  # real-UTC HH:MM
+            k = (s["broker_sym"], mt, int(s["or_duration_min"]))
             self.schedule.setdefault(k, []).append(s)
 
     def _diag_once(self, key: str, msg: str) -> None:
@@ -255,18 +251,14 @@ class AmoTraderEngine:
         print(msg, flush=True)
 
     def _now_broker(self) -> datetime:
-        """Return current time labeled as broker-time-treated-as-UTC.
+        """Return current REAL UTC time.
 
-        This matches the convention used in bar timestamps: a bar opened at
-        broker 08:00 (real UTC 05:00 if broker is +3h) shows up as 08:00
-        in our DataFrames. Likewise, this function returns 08:00 when
-        broker clock is at 08:00, regardless of real UTC.
+        Name kept for backwards-compat but the new convention (matching
+        traders_live_engine) puts bars and magic_time in REAL UTC after
+        `_fetch_bars` subtracts the broker offset. So `now` must be real
+        UTC too, not broker time.
         """
-        offset_h = self._broker_offset_h
-        # `now_real` is real UTC. Adding the offset gives us a datetime that
-        # mirrors what the broker clock currently reads, labeled as UTC for
-        # naive comparison with magic_time / DataFrame bar timestamps.
-        return datetime.now(timezone.utc) + timedelta(hours=offset_h)
+        return datetime.now(timezone.utc)
 
     # ───────────────────────── Main tick ─────────────────────────
 
@@ -275,8 +267,8 @@ class AmoTraderEngine:
         if (time.time() - self._last_offset_refresh) > 300:
             self._refresh_broker_offset()
             self._last_offset_refresh = time.time()
-        # IMPORTANT: now is in BROKER time (treated as UTC) so it aligns with
-        # magic_time hours and DataFrame bar timestamps.
+        # `now` is REAL UTC. Bars (post _fetch_bars) and magic_time are also
+        # in real UTC, so direct comparisons are valid.
         now = self._now_broker()
 
         # Heartbeat
@@ -526,9 +518,13 @@ class AmoTraderEngine:
             rates = mt5.copy_rates_from_pos(broker_sym, tf_const, 0, count)
             if rates is None or len(rates) == 0:
                 return None
-            # broker time treated as UTC (matches K3M1 + backtest convention)
+            # SUBTRACT broker offset to convert bar timestamps to REAL UTC.
+            # This matches the convention used in src/execution/traders_live_engine.py
+            # (_fetch_m1_bars / _fetch_d1_bars) and aligns with our backtest source
+            # data (`data/enriched_math_tf/`), where 00:00 = real UTC midnight.
+            offset_sec = self._broker_offset_h * 3600
             df = pl.DataFrame({
-                "time": [datetime.fromtimestamp(int(r["time"]), tz=timezone.utc)
+                "time": [datetime.fromtimestamp(int(r["time"]) - offset_sec, tz=timezone.utc)
                          for r in rates],
                 "open": [float(r["open"]) for r in rates],
                 "high": [float(r["high"]) for r in rates],
