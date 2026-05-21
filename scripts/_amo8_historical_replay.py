@@ -16,7 +16,7 @@ import MetaTrader5 as mt5
 import polars as pl
 import numpy as np
 
-from src.application.data_enricher import DataEnricher
+from src.application.calculators import DataEnricher
 from src.application.orb_patterns import add_state_columns
 
 # ---- config ----
