@@ -476,12 +476,24 @@ class AmoTraderEngine:
             event_type = ev["event_type"]
             pattern_id = f"{event_type}_{or_position}_{or_atr_bucket}_{pd_or_bucket}"
             entry_price = float(ev["trigger_close"])
-            # Match strategies on this slot with same pattern_id
+            # Match strategies on this slot. Two match modes supported:
+            #   - "event_only" (V2 catalog, 2026-05-24): match by event_type
+            #     only. The 45-way sub-bucketing (position×atr_bucket×gap)
+            #     was found to fragment edge into statistically insignificant
+            #     samples; event-level aggregation reveals real edge.
+            #   - default (original V1 catalog): exact pattern_id match.
             for strategy in strategies:
-                if strategy["pattern_id"] != pattern_id:
-                    continue
+                if strategy.get("match_mode") == "event_only":
+                    if strategy.get("event_type") != event_type:
+                        continue
+                    # Use synthetic pattern_id for dedup tracking
+                    dedup_pid = f"EVENT_ONLY:{event_type}"
+                else:
+                    if strategy["pattern_id"] != pattern_id:
+                        continue
+                    dedup_pid = pattern_id
                 if self.orders.has_fired_today(
-                    strategy["internal_sym"], pattern_id, strategy["direction"]
+                    strategy["internal_sym"], dedup_pid, strategy["direction"]
                 ):
                     continue
                 mode = strategy["exit_rules"]["mode"]
