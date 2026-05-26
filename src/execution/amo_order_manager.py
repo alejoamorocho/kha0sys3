@@ -174,6 +174,20 @@ class AmoOrderManager:
     def _mark_fired(self, internal_sym: str, pattern_id: str, direction: str) -> None:
         self._fired_today[(internal_sym, pattern_id, direction)] = self._today_utc()
 
+    @staticmethod
+    def _dedup_pid_for(strategy: dict) -> str:
+        """Return the dedup key for has_fired_today / _mark_fired.
+
+        For event_only matching configs (V2 catalog): collapse the synthetic
+        pattern_id back to "EVENT_ONLY:{event_type}" so all configs sharing
+        an event share a dedup entry. Prevents the 2026-05-26 stampede bug
+        where 28 ticks of the same trigger each opened a position because
+        check used short key but mark used the per-(sl,rr) long key.
+        """
+        if strategy.get("match_mode") == "event_only" and strategy.get("event_type"):
+            return f"EVENT_ONLY:{strategy['event_type']}"
+        return strategy["pattern_id"]
+
     def _broker_sym_for(self, internal_sym: str) -> str:
         """Lookup helper: relies on caller to pass broker_sym, but kept for sanity."""
         # In practice the caller supplies broker_sym; this is a fallback.
@@ -274,7 +288,7 @@ class AmoOrderManager:
             mode=mode,
         )
         self._pending.append(order)
-        self._mark_fired(internal_sym, strategy["pattern_id"], direction)
+        self._mark_fired(internal_sym, self._dedup_pid_for(strategy), direction)
 
         if self.telegram is not None:
             try:
@@ -572,7 +586,7 @@ class AmoOrderManager:
             except Exception as e:
                 print(f"[AMO8] state save error: {e}")
 
-        self._mark_fired(internal_sym, strategy["pattern_id"], direction)
+        self._mark_fired(internal_sym, self._dedup_pid_for(strategy), direction)
 
         if self.telegram is not None:
             try:
