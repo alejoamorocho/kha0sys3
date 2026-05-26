@@ -107,6 +107,11 @@ class AmoOrderManager:
                  state_dir: Optional[str] = None):
         self.dry_run = dry_run
         self.telegram = telegram
+        # Broker offset in seconds. MT5 reports tick.time in BROKER local epoch
+        # (e.g. Vantage EEST = UTC+3 → tick.time = real_utc_epoch + 10800).
+        # Set by the engine via _set_broker_offset_sec() after detection.
+        # Used by tick freshness check to avoid false "stale tick" rejections.
+        self._broker_offset_sec: int = 0
         # In-memory dedup: {(internal_sym, pattern_id, direction, trade_date): True}
         self._fired_today: dict[tuple, str] = {}
         # In-memory pending tracking for DRY mode and max-hold sweep
@@ -364,14 +369,18 @@ class AmoOrderManager:
         """Submit MARKET order. Returns (ticket, ok)."""
         if mt5 is None:
             return -1, False
-        # Tick freshness check
+        # Tick freshness check — subtract broker offset so we compare in real UTC.
+        # MATCHES math_order_manager pattern (line 637-640): tick.time arrives in
+        # broker-local epoch (broker_offset_sec ahead of real UTC for EEST).
         tick = mt5.symbol_info_tick(broker_sym)
         if tick is None or int(tick.time) == 0:
-            print(f"[AMO8] no tick for {broker_sym}, skip")
+            print(f"[AMO8] no tick for {broker_sym}, skip", flush=True)
             return -1, False
-        age = (datetime.now(timezone.utc).timestamp() - int(tick.time))
-        if abs(age) > _TICK_MAX_AGE_SEC:
-            print(f"[AMO8] stale tick for {broker_sym} ({age:.0f}s), skip")
+        now_ts = datetime.now(timezone.utc).timestamp()
+        tick_age = now_ts - (int(tick.time) - self._broker_offset_sec)
+        if abs(tick_age) > _TICK_MAX_AGE_SEC:
+            print(f"[AMO8] stale tick for {broker_sym} ({tick_age:.0f}s, "
+                  f"offset_sec={self._broker_offset_sec}), skip", flush=True)
             return -1, False
 
         order_type = mt5.ORDER_TYPE_BUY if direction == "LONG" else mt5.ORDER_TYPE_SELL

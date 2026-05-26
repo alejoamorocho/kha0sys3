@@ -179,45 +179,52 @@ class AmoTraderEngine:
     # ───────────────────────── Broker time ─────────────────────────
 
     def _refresh_broker_offset(self) -> None:
-        """Detect broker offset vs real UTC from fresh ticks. K3M1 convention
-        treats broker-time-as-UTC in bar/dataframe timestamps, so `now` must
-        be advanced by offset to align with magic_time hours.
+        """Detect broker offset (hours) from MT5 ticks via MEDIAN consensus.
 
-        If no fresh tick is available (market closed), KEEP previous offset
-        (no drift). Sanity-reject offsets outside [-1, +12]h.
+        BUG FIX 2026-05-26: previous version filtered by `age = abs(now_real -
+        tick.time)` < 300s, but tick.time arrives in BROKER local epoch (= real
+        UTC + offset_seconds), so for any non-zero offset this age is ~|offset|×
+        3600, ALWAYS rejecting all ticks. Result: detector silently returned
+        without ever updating (lucky default of +3h saved us until DST shift
+        or stale tick anomaly flipped it to 0).
+
+        New approach: compute delta_h = (tick.time - now_real)/3600 per symbol,
+        take median across all symbols with valid ticks. Stale ticks (e.g.
+        weekend frozen ticks) are outliers and the median rejects them. Sanity
+        bound [-1, +12]h.
         """
         if mt5 is None:
             return
         import time as _t
         now_real = int(_t.time())
-        best_delta_h = None
-        best_age = float("inf")
-        for sym in ("EURUSD+", "XAUUSD+", "XAGUSD", "GBPUSD+", "AUDUSD+"):
+        deltas_h: list[float] = []
+        for sym in ("EURUSD+", "XAUUSD+", "XAGUSD", "GBPUSD+", "AUDUSD+",
+                    "USDJPY+", "AUDUSD+", "XAGUSD"):
             try:
                 t = mt5.symbol_info_tick(sym)
                 if t is None or int(t.time) == 0:
                     continue
-                age = abs(now_real - int(t.time))
-                if age > 300:  # ignore stale ticks > 5 min
-                    continue
-                if age < best_age:
-                    best_age = age
-                    best_delta_h = (int(t.time) - now_real) / 3600.0
+                deltas_h.append((int(t.time) - now_real) / 3600.0)
             except Exception:
                 continue
-        if best_delta_h is None:
-            return  # no fresh tick → keep previous offset
-        new_h = int(round(best_delta_h))
+        if not deltas_h:
+            return  # no ticks at all → keep previous
+        deltas_h.sort()
+        median = deltas_h[len(deltas_h) // 2]
+        new_h = int(round(median))
         if not (-1 <= new_h <= 12):
-            print(f"[AMO8] rejecting implausible broker offset {new_h:+d}h")
+            print(f"[AMO8] rejecting implausible broker offset {new_h:+d}h "
+                  f"(deltas={[round(d,2) for d in deltas_h]})", flush=True)
             return
         if new_h != self._broker_offset_h:
             print(f"[AMO8] broker_offset_h: {self._broker_offset_h:+d}h "
-                  f"-> {new_h:+d}h")
+                  f"-> {new_h:+d}h  (deltas={[round(d,2) for d in deltas_h]})",
+                  flush=True)
             self._broker_offset_h = new_h
-            # Rebuild schedule keys to use broker-shifted magic_time so OR
-            # detection fires at the same REAL-UTC moment as backtest.
             self._build_schedule()
+        # Propagate to order manager for correct tick-freshness checks
+        if hasattr(self, "orders") and self.orders is not None:
+            self.orders._broker_offset_sec = self._broker_offset_h * 3600
 
     def _build_schedule(self) -> None:
         """(Re)build slot schedule keyed by literal magic_time (real UTC).
