@@ -14,30 +14,43 @@ frm = to - timedelta(days=DAYS)
 frm_b = frm + timedelta(hours=3)
 to_b = to + timedelta(hours=3)
 deals = mt5.history_deals_get(frm_b, to_b) or []
+orders = mt5.history_orders_get(frm_b, to_b) or []
 
-# Build positions
+# Build positions from deals (entry+exits)
 positions = {}
 for d in deals:
     if d.magic != 8338: continue
     if d.entry == 0:
-        positions[d.position_id] = {"entry": d, "exits": []}
+        positions[d.position_id] = {"entry": d, "exits": [], "order_sl": None, "order_tp": None}
     else:
         if d.position_id in positions:
             positions[d.position_id]["exits"].append(d)
 
-# For each position: entry.sl, entry.tp (from MT5), compute distance
-print(f"{'symbol':<10} {'open_px':>10} {'sl':>10} {'tp':>10} {'sl_dist':>10} {'tp_dist':>10} {'sl_pct':>7} {'rr':>5}  {'vol':>5}  {'comment':<25}")
+# Cross-reference original orders to recover sl/tp (deals don't carry them but orders do)
+for o in orders:
+    if o.magic != 8338: continue
+    # The order has position_id == position created from it (when filled)
+    pid = o.position_id
+    if pid in positions:
+        if o.sl != 0: positions[pid]["order_sl"] = float(o.sl)
+        if o.tp != 0: positions[pid]["order_tp"] = float(o.tp)
+
+# For each position: derive sl/tp from order, exit deal price, compute distance
+print(f"{'symbol':<10} {'open_px':>10} {'sl':>10} {'tp':>10} {'sl_dist':>10} {'tp_dist':>10} {'sl_pct':>7} {'rr':>5}  {'vol':>5}  {'comment':<22}")
+target_syms = ("NG-C", "USOUSD", "UKOUSD", "GBPUSD+", "XAGUSD", "XAUUSD+", "SP500", "NAS100")
 for pid, pp in positions.items():
     ent = pp["entry"]
     sym = ent.symbol
-    if sym not in ("NG-C", "USOUSD", "UKOUSD", "GBPUSD+", "XAGUSD", "XAUUSD+", "SP500", "NAS100"):
+    if sym not in target_syms:
         continue
-    sl = ent.sl; tp = ent.tp; px = ent.price
+    sl = pp.get("order_sl") or 0.0
+    tp = pp.get("order_tp") or 0.0
+    px = ent.price
     sl_dist = abs(px - sl) if sl else 0
     tp_dist = abs(px - tp) if tp else 0
     sl_pct = (sl_dist / px * 100) if px > 0 else 0
     rr = tp_dist / sl_dist if sl_dist > 0 else 0
-    print(f"  {sym:<10} {px:>10.5f} {sl:>10.5f} {tp:>10.5f} {sl_dist:>10.5f} {tp_dist:>10.5f} {sl_pct:>6.3f}% {rr:>5.2f}  {ent.volume:>5.2f}  {(ent.comment or '')[:24]:<25}")
+    print(f"  {sym:<10} {px:>10.5f} {sl:>10.5f} {tp:>10.5f} {sl_dist:>10.5f} {tp_dist:>10.5f} {sl_pct:>6.3f}% {rr:>5.2f}  {ent.volume:>5.2f}  {(ent.comment or '')[:22]:<22}")
 
 # For NG-C specifically: what does the broker require as min stop dist?
 print()
