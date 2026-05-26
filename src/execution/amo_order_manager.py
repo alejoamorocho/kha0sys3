@@ -71,14 +71,17 @@ _EVENT_TAG = {
 
 
 def make_order_comment(strategy_id: str, mode: str, event_type: str) -> str:
-    """MT5 order comment: 'A8|<MODE>|<EVENT>|<id_tail>'. <= 31 chars.
+    """MT5 order comment: 'AMO|<MODE>|<EVENT>|<id_tail>'. <= 31 chars.
 
     Single source of truth — placement + sweep matching use this.
+    Renamed from "A8|..." prefix on 2026-05-26 so the comment is clearly
+    identifiable in MT5 history/journal (the "A8" prefix could be mistaken
+    for noise; "AMO" makes the system attribution obvious).
     """
     event_tag = _EVENT_TAG.get(event_type, event_type[:3])
     # Take last 12 chars of strategy_id for uniqueness (e.g. "_OR_FIXED_42")
     id_tail = strategy_id.split("_")[-1][:8]
-    return f"A8|{mode[:3]}|{event_tag}|{id_tail}"
+    return f"AMO|{mode[:3]}|{event_tag}|{id_tail}"
 
 
 @dataclass
@@ -144,7 +147,7 @@ class AmoOrderManager:
             return True
         # Also check live MT5 for any AMO8 position on this slot today
         if mt5 is not None and not self.dry_run:
-            comment_prefix = "A8|"  # ours
+            comment_prefix = "AMO|"  # ours (renamed from "A8|" 2026-05-26 for MT5 readability)
             for getter in (mt5.positions_get, mt5.orders_get):
                 try:
                     items = getter() or []
