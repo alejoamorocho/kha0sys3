@@ -12,7 +12,36 @@ from typing import Optional
 
 
 def _load_broker_config(path: str = "config/broker.yaml") -> Optional[dict]:
-    """Lee config/broker.yaml. Devuelve None si falta o esta vacio."""
+    """Load MT5 broker credentials.
+
+    Precedence (2026-05-27 migration):
+      1. Environment variables MT5_LOGIN / MT5_PASSWORD / MT5_SERVER
+         (typically set from .env via src.domain.env_loader, or directly
+         exported in NSSM service environment on the VPS).
+      2. Legacy config/broker.yaml file (deprecated, kept for backcompat).
+
+    Returns None if neither source has a valid login.
+    """
+    import os
+    # Auto-load .env if not already loaded (idempotent)
+    try:
+        from src.domain.env_loader import load_env
+        load_env()
+    except Exception:
+        pass  # .env loader not critical — env vars may be set by NSSM/shell
+    env_login = os.environ.get("MT5_LOGIN")
+    env_pass = os.environ.get("MT5_PASSWORD")
+    env_server = os.environ.get("MT5_SERVER")
+    if env_login and env_pass and env_server:
+        try:
+            return {
+                "login": int(env_login),
+                "password": str(env_pass),
+                "server": str(env_server),
+            }
+        except (ValueError, TypeError) as e:
+            print(f"MT5Client: bad MT5_LOGIN in env ({e}); falling back to yaml")
+    # Legacy fallback: config/broker.yaml
     p = Path(path)
     if not p.exists():
         return None
