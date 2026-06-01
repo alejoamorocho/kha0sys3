@@ -55,6 +55,17 @@ def main():
     )
     print(f"  {result['stdout']}")
 
+    # 3b. Ensure MT5 ready (patches common.ini Enabled=1, kills orphan
+    #     terminal64 in Session 0, verifies trade_allowed). Always non-fatal
+    #     so a soft warning doesn't block deploy of working code.
+    print("Verificando MT5...")
+    result = vps.run_ps(
+        f"cd '{BOT_PATH}'; C:\\Python312\\python.exe scripts\\ensure_mt5_ready.py 2>&1"
+    )
+    for line in (result.get("stdout") or "").splitlines():
+        if line.strip():
+            print(f"  {line}")
+
     # 4. Reiniciar servicios
     print("Reiniciando servicios...")
     for svc in SERVICES:
