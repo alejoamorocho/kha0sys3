@@ -111,8 +111,24 @@ class MT5Client:
             return True
 
         if self._broker_cfg is None:
-            print("MT5Client: WARNING — config/broker.yaml ausente; usando cuenta activa del terminal.")
+            print("MT5Client: WARNING — credenciales ausentes; usando cuenta activa del terminal.")
             return bool(mt5.initialize())
+
+        # CRITICAL (2026-06-02): try ATTACH-FIRST. A full
+        # mt5.initialize(login=,password=,server=) forces a re-login on the
+        # already-running terminal, which RESETS the AutoTrading toolbar
+        # button to OFF (trade_allowed=False). That broke trading after
+        # every MathBot restart/reconnect. So: attach to the running
+        # terminal and, if it's ALREADY logged into the expected account,
+        # do NOT re-login. Only fall back to full login if the terminal is
+        # absent or logged into a different account.
+        if mt5.initialize():
+            info = mt5.account_info()
+            if info is not None and int(info.login) == self._broker_cfg["login"]:
+                # Already on the right account — no re-login, preserve
+                # AutoTrading button state.
+                return True
+            # Wrong account or no login — needs explicit login below.
 
         ok = mt5.initialize(
             login=self._broker_cfg["login"],
@@ -136,6 +152,8 @@ class MT5Client:
                 f"se esperaba {self._broker_cfg['login']}."
             )
             return False
+        print("MT5Client: re-login completo realizado (AutoTrading puede requerir "
+              "reactivación con Ctrl+E si el terminal lo reseteó).")
         return True
 
     def connect(self) -> bool:
