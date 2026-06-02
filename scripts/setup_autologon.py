@@ -1,50 +1,41 @@
 """Configure Windows autologon + at-logon MT5/AutoTrading setup.
 
-Reads VPS_PASS from C:\Proyectos\kha0sys3\.env (the Administrator password,
-same one used for WinRM) and writes the autologon registry keys. Registers a
-scheduled task that runs on_logon_setup.py at every Administrator logon.
+Robust version (2026-06-02): reads VPS_PASS from .env ON the VPS inside the
+PowerShell call so the password never crosses the command line (avoids
+escaping issues with special characters that previously left
+DefaultPassword empty and AutoAdminLogon reset to 0).
 
-After this + a reboot, the VPS will:
-  - auto-login Administrator to an interactive console session
-  - launch MT5, enable AutoTrading, restart bots — all unattended
+After this + a reboot:
+  - Windows auto-logs-in Administrator to an interactive console session
+  - the KhaosysOnLogon scheduled task runs on_logon_setup.py which launches
+    MT5, enables AutoTrading (Ctrl+E works because the logon session has
+    real focus), and restarts the bot services.
 """
-import os, subprocess, sys
+import subprocess, sys
 
 def ps(cmd, timeout=60):
     r = subprocess.run(["powershell","-NoProfile","-Command",cmd], capture_output=True, text=True, timeout=timeout)
     return r.stdout.strip(), r.stderr.strip()
 
-# read VPS_PASS from .env
-pw = None
-envp = r"C:\Proyectos\kha0sys3\.env"
-for line in open(envp, encoding="utf-8"):
-    if line.strip().startswith("VPS_PASS="):
-        pw = line.split("=",1)[1].strip()
-        break
-if not pw:
-    print("ERROR: VPS_PASS not found in .env"); sys.exit(1)
-print("VPS_PASS loaded (hidden)")
+# 1. Autologon registry — read password from .env inside PowerShell
+reg_cmd = r'''
+$reg='HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+$pw = ((Get-Content C:\Proyectos\kha0sys3\.env | Where-Object { $_ -match '^VPS_PASS=' }) -replace '^VPS_PASS=','').Trim()
+if (-not $pw) { Write-Output 'ERROR: VPS_PASS empty'; exit 1 }
+Set-ItemProperty -Path $reg -Name DefaultPassword   -Value $pw -Type String
+Set-ItemProperty -Path $reg -Name AutoAdminLogon    -Value '1' -Type String
+Set-ItemProperty -Path $reg -Name DefaultUserName   -Value 'Administrator' -Type String
+Set-ItemProperty -Path $reg -Name DefaultDomainName -Value $env:COMPUTERNAME -Type String
+Set-ItemProperty -Path $reg -Name DisableCAD        -Value 1 -Type DWord
+$c = Get-ItemProperty -Path $reg
+Write-Output "AutoAdminLogon=$($c.AutoAdminLogon) User=$($c.DefaultUserName) Domain=$($c.DefaultDomainName) PwLen=$($c.DefaultPassword.Length)"
+'''
+o,e = ps(reg_cmd)
+print("registry:", o)
+if e: print("  warn:", e[:200])
 
-# Hostname for DefaultDomainName
-host,_ = ps("$env:COMPUTERNAME")
-print(f"hostname: {host}")
-
-# Set autologon registry keys
-reg = r"HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
-cmds = [
-    f"Set-ItemProperty -Path '{reg}' -Name AutoAdminLogon -Value '1' -Type String",
-    f"Set-ItemProperty -Path '{reg}' -Name DefaultUserName -Value 'Administrator' -Type String",
-    f"Set-ItemProperty -Path '{reg}' -Name DefaultPassword -Value '{pw}' -Type String",
-    f"Set-ItemProperty -Path '{reg}' -Name DefaultDomainName -Value '{host}' -Type String",
-    f"Set-ItemProperty -Path '{reg}' -Name AutoLogonCount -Value 0 -Type DWord -ErrorAction SilentlyContinue",
-]
-for c in cmds:
-    o,e = ps(c)
-    if e: print(f"  warn: {e[:150]}")
-print("autologon registry set")
-
-# Register at-logon scheduled task
-task = r"""
+# 2. At-logon scheduled task
+task_cmd = r'''
 $task='KhaosysOnLogon'
 Unregister-ScheduledTask -TaskName $task -Confirm:$false -ErrorAction SilentlyContinue
 $action=New-ScheduledTaskAction -Execute 'C:\Python312\python.exe' -Argument 'C:\Proyectos\kha0sys3\scripts\on_logon_setup.py'
@@ -54,12 +45,8 @@ $settings=New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoing
 $t=New-ScheduledTask -Action $action -Trigger $trigger -Principal $principal -Settings $settings
 Register-ScheduledTask -TaskName $task -InputObject $t -Force | Out-Null
 Write-Output 'at-logon task registered'
-"""
-o,e = ps(task)
+'''
+o,e = ps(task_cmd)
 print(o)
-if e: print(f"  task err: {e[:200]}")
-
-# verify
-o,_ = ps(r"Get-ItemProperty -Path '" + reg + r"' -Name AutoAdminLogon,DefaultUserName | Select-Object AutoAdminLogon,DefaultUserName | Format-List | Out-String")
-print(o)
-print("\nDONE. Reboot required to take effect.")
+if e: print("  task warn:", e[:200])
+print("DONE. Reboot to take effect.")
