@@ -125,14 +125,28 @@ for sym in SYMBOLS:
     evW = detect_crossings(times, closes, lvlW, week_key)
     events = sorted(evD + evW, key=lambda e: e[0])
 
-    # Build transitions: next crossing event the SAME UTC day
+    # Build transitions: next crossing of a DIFFERENT level the same UTC day.
+    # Re-crosses of the SAME level (whipsaw) are skipped — we want the real
+    # destination (break S1 -> reach S2/S3 = continuation, or return to
+    # PP/R1 = reversal). Also dedup: only emit one transition per
+    # (level, direction) per day to avoid counting whipsaw entries N times.
+    seen_today = set()
+    cur_day = None
     for i, (idx, lvl, dirn) in enumerate(events):
         d = dates[idx]; h = int(hours[idx])
+        if d != cur_day:
+            cur_day = d; seen_today = set()
+        key = (lvl, dirn)
+        if key in seen_today:
+            continue  # already recorded this level-break today
+        seen_today.add(key)
         nxt = "EOD"
         for j in range(i+1, len(events)):
             jidx, jlvl, jdir = events[j]
             if dates[jidx] != d:
                 break
+            if jlvl == lvl:
+                continue  # skip whipsaw re-cross of same level
             nxt = jlvl
             break
         all_rows.append({"sym": sym, "hour": h, "from_level": lvl,
