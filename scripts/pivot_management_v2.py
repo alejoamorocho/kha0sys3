@@ -26,9 +26,8 @@ SYMBOLS = ["XAUUSD","XAGUSD","BRENT","WTI","GBPUSD","GBPJPY","EURUSD",
            "GBPAUD","USDJPY","AUDUSD","EURJPY","NASDAQ100","NATGAS","SP500"]
 DATA = "data/enriched_math_tf"
 OUTDIR = Path("reports/pivot"); OUTDIR.mkdir(parents=True, exist_ok=True)
-TP_FRACS = [0.25, 0.5, 0.75]
+TP_FRACS = [0.05, 0.10, 0.15, 0.20, 0.25, 0.50]  # include small fast-scalp targets
 RR = 2.0                 # fixed 2:1 -> SL = TP/RR
-FRICTION_R = 0.3
 MAX_HOLD_BARS = 600      # cap intraday walk (~10h)
 
 LEVELS_ORDER = ["S3","S2","S1","PP","R1","R2","R3"]  # low->high
@@ -127,7 +126,8 @@ for sym in SYMBOLS:
                             out=walk(idx,highs,lows,daykey,n,tp_price,sl_price,is_long)
                             rows.append({"sym":sym,"period":period,"level":lvl,
                                 "bdir":bdir,"ttype":ttype,"tpf":tpf,"hour":h,
-                                "outcome":out,"sl_atr":sl_dist/a})
+                                "outcome":out,"sl_atr":sl_dist/a,
+                                "sl_dist_price":float(sl_dist)})
 
 df=pl.DataFrame(rows)
 df.write_parquet(OUTDIR/"pivot_mgmt_v2_raw.parquet")
