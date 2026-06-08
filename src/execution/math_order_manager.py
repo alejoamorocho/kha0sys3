@@ -371,7 +371,7 @@ class MathOrderManager:
                 tp=tp_price, atr=atr, rr=float(rr),
                 risk_pct=risk_pct, expected_wr=expected_wr,
                 pf_oos=float(pf_oos), ticket=int(ticket),
-                lots=float(volume) if volume else 0.0,
+                lots=float(getattr(self, "_last_submit_volume", 0.0) or 0.0),
             )
         else:
             # Fallback to legacy plain format
@@ -510,6 +510,9 @@ class MathOrderManager:
             vmin = float(getattr(sym_info, "volume_min", 0.01))
             vmax = float(getattr(sym_info, "volume_max", 100.0))
             volume = max(vmin, min(vmax, volume))
+            # Expose the final volume so detect_and_place can include it in the
+            # Telegram notification (was raising "name 'volume' is not defined").
+            self._last_submit_volume = volume
 
             req = {
                 "action": mt5.TRADE_ACTION_PENDING,
