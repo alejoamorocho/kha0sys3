@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 CHECK_SEC = 180          # poll every 3 min
 LOG = r"C:\ProgramData\Kha0sysMath\logs\at_watchdog.log"
 COMMON_INI = r"C:\Users\Administrator\AppData\Roaming\MetaQuotes\Terminal\D0E8209F77C8CF37AD8BF550E51FF075\config\common.ini"
+TERMINAL_EXE = r"C:\Program Files\MetaTrader 5\terminal64.exe"
 
 os.makedirs(os.path.dirname(LOG), exist_ok=True)
 def log(m):
@@ -66,20 +67,42 @@ def ensure_common_enabled():
     except Exception as e:
         log(f"common.ini error: {e}")
 
+def _admin_session():
+    """Return (session_id, state) for the Administrator session, or (None, None).
+    state is 'Active', 'Disc', or '?'."""
+    qw,_=ps("qwinsta")
+    for line in qw.splitlines():
+        if "Administrator" in line:
+            sid=next((t for t in line.split() if t.isdigit()), None)
+            state="Active" if "Active" in line else ("Disc" if "Disc" in line else "?")
+            return sid, state
+    return None, None
+
+def restart_terminal():
+    """Session-independent fallback when the Ctrl+E toggle can't restore
+    AutoTrading (RDP session disconnected -> no desktop focus). Relaunching MT5
+    with common.ini [Experts] Enabled=1 brings AutoTrading back ON on startup,
+    no foreground window required. MT5 auto-logins to the saved account."""
+    ensure_common_enabled()
+    log("restarting MT5 terminal (Enabled=1 -> AutoTrading ON on launch)")
+    ps("Stop-Process -Name terminal64 -Force -ErrorAction SilentlyContinue", timeout=30)
+    time.sleep(6)
+    ps(f"Start-Process '{TERMINAL_EXE}'", timeout=30)
+    time.sleep(45)  # allow auto-login + broker reconnect
+
 def reactivate():
     """Run the in-session toggle (Ctrl+E) via interactive scheduled task,
     after making sure the Administrator session is attached to console so
     SetForegroundWindow works."""
     ensure_common_enabled()
-    # 1) reconnect any disconnected Administrator session to console for focus
-    qw,_=ps("qwinsta")
-    admin_id=None
-    for line in qw.splitlines():
-        if "Administrator" in line:
-            for tok in line.split():
-                if tok.isdigit(): admin_id=tok; break
-    if admin_id and admin_id!="1":
-        ps(f"tscon {admin_id} /dest:console")
+    # 1) reconnect the Administrator session to console for focus.
+    # The weekend RDP disconnect leaves the session in 'Disc' (session id is
+    # usually 1) -> the toggle's SetForegroundWindow silently no-ops. Always
+    # re-attach unless it is already Active on console. (Previously this was
+    # skipped whenever admin_id=='1', which is exactly the broken weekend case.)
+    sid, state = _admin_session()
+    if sid and state != "Active":
+        ps(f"tscon {sid} /dest:console")
         time.sleep(2)
     # 2) interactive scheduled task runs the toggle script in the user session
     task=r"""
@@ -99,11 +122,13 @@ Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyConti
 def main():
     log("=== AutoTrading watchdog START ===")
     off_count=0
+    restarted=False   # terminal already restarted this outage? (rate-limit)
     while True:
         ta=trade_allowed()
         if ta is True:
             if off_count>0: log("trade_allowed back ON")
             off_count=0
+            restarted=False
         elif ta is False:
             off_count+=1
             log(f"trade_allowed=OFF (count={off_count})")
@@ -113,8 +138,16 @@ def main():
                 time.sleep(8)
                 after=trade_allowed()
                 log(f"after reactivation: trade_allowed={after}")
+                if after is not True and not restarted:
+                    # Ctrl+E toggle failed even after console attach -> escalate
+                    # to a session-independent terminal restart, once per outage.
+                    restart_terminal()
+                    restarted=True
+                    after=trade_allowed()
+                    log(f"after terminal restart: trade_allowed={after}")
                 if after is True:
                     off_count=0
+                    restarted=False
                     # restart bots so they reconnect cleanly
                     ps("Restart-Service Kha0sysAmo8,Kha0sysTradersBot,Kha0sysMathBot -Force -ErrorAction SilentlyContinue", timeout=90)
                     log("bots restarted")
