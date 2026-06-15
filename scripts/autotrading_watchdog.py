@@ -51,19 +51,29 @@ def trade_allowed():
         log(f"check error: {e}")
         return None
 
+# Root cause of the weekend AutoTrading-off: MT5 re-authorizes the account
+# repeatedly when the market is closed, and with [Experts] Account=1 / Profile=1
+# it auto-disables AutoTrading on each "account/profile change". Force those OFF
+# and keep Enabled ON so weekend reconnects no longer kill trading. (Read at
+# terminal launch, so a change only takes effect after a terminal restart.)
+EXPERTS_ENFORCE = {"Enabled": "1", "Account": "0", "Profile": "0"}
+
 def ensure_common_enabled():
     try:
         raw=open(COMMON_INI,"rb").read(); bom=raw[:2]
         enc="utf-16-le" if bom==b"\xff\xfe" else "utf-8"
-        text=raw.decode(enc).lstrip("﻿"); out=[]; in_exp=False; changed=False
+        text=raw.decode(enc).lstrip("﻿"); out=[]; in_exp=False; changed=[]
         for ln in text.splitlines():
             s=ln.strip()
             if s.startswith("["): in_exp=(s.lower()=="[experts]")
-            if in_exp and s.startswith("Enabled="):
-                out.append("Enabled=1"); changed=(s!="Enabled=1")
+            key=s.split("=",1)[0] if "=" in s else ""
+            if in_exp and key in EXPERTS_ENFORCE:
+                want=f"{key}={EXPERTS_ENFORCE[key]}"
+                if s!=want: changed.append(want)
+                out.append(want)
             else: out.append(ln)
         open(COMMON_INI,"wb").write(bom+("\r\n".join(out)+"\r\n").encode(enc))
-        if changed: log("common.ini Enabled=1 set")
+        if changed: log("common.ini enforced: "+", ".join(changed))
     except Exception as e:
         log(f"common.ini error: {e}")
 
