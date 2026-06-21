@@ -1,5 +1,5 @@
 {
-  "_doc": "AMO8 V2 (event-level discovery). Built 2026-05-24T05:15:37.519502+00:00. Replaces V1 (84 sub-bucketed configs that never fired live due to ATR bias). V2 = 116 winners from event-level aggregation across 14 symbols × 4 magic_times × 4 OR_dur. Filter: PF>=2.0, WR>=0.65, tpy>=50.0. Risk reduced to 0.050% per trade (max simultaneous = 5.8%). | 2026-06-10: PROFIT PURGE — keep only 11 groups net-positive in 30d live. 2-week eval before live promotion.",
+  "_doc": "[2026-06-20 LIVE: podado a 5 estrategias (SP500/XAUUSD FBD+FBU, NAS100 FBD) + risk_fixed_usd=100.] AMO8 V2 (event-level discovery). Built 2026-05-24T05:15:37.519502+00:00. Replaces V1 (84 sub-bucketed configs that never fired live due to ATR bias). V2 = 116 winners from event-level aggregation across 14 symbols × 4 magic_times × 4 OR_dur. Filter: PF>=2.0, WR>=0.65, tpy>=50.0. Risk reduced to 0.050% per trade (max simultaneous = 5.8%). | 2026-06-10: PROFIT PURGE — keep only 11 groups net-positive in 30d live. 2-week eval before live promotion.",
   "_metrics_aggregate": {
     "n_strategies": 5,
     "n_unique_pattern_slots": 50,

@@ -1,16 +1,50 @@
-# KHA0SYS3 — MATH Bot (K3M1-75) + Traders Replication (2026-05-14)
+# KHA0SYS3 — Portafolio multi-bot sobre cuenta MT5 Vantage
 
-Tres sistemas live en paralelo, aislados por magic number y manejo de
-ordenes pero compartiendo cuenta MT5:
+> **ESTADO LIVE ACTUAL: 2026-06-20** (ver sección "Estado live actual" abajo).
+> Las secciones históricas más abajo (K3M1-75 con 75 strats, Traders 12 ORB /
+> 5 Swing) documentan el **descubrimiento original**. El portafolio
+> **DESPLEGADO HOY** es de **10 estrategias con riesgo FIJO de $100/trade**.
 
-| Sistema | Magic | n strats | Filosofia | Risk/trade |
+Cuatro motores live aislados por magic number, compartiendo una cuenta MT5:
+
+| Sistema | Magic | n live | Filosofía | Risk/trade |
 |---|---|---|---|---|
-| **K3M1-75** | **1338** | 63 | Fade math momentum (INVERT) | 0.1% |
-| **Traders Swing** | **1339** | 5 | LONG VCP/HTF (PDFs Minervini/Qulla) | 0.1% |
-| **Traders ORB** | **1340** | 12 | LONG opening range breakout (PDF Qulla) | 0.1% |
+| **MATH (K3M1)** | **1338** | 2 | Fade math momentum (INVERT) | **$100 fijo** |
+| **Traders Swing** | **1339** | 0 | LONG VCP/HTF (retirado) | — |
+| **Traders ORB** | **1340** | 3 | LONG opening range breakout | **$100 fijo** |
+| **AMO8** | **8338** | 5 | False-break ORB intradía | **$100 fijo** |
 
-Total: **80 estrategias activas, 0.1% per trade uniformes**. FADE (magic 1337)
-permanece retirado.
+Total: **10 estrategias live, riesgo FIJO $100 por trade**. FADE (magic 1337) retirado.
+
+## Estado live actual (2026-06-20)
+
+Portafolio podado a las 10 estrategias con edge real en vivo (medido en pips
+para neutralizar distorsión de tamaño/comisión). Riesgo **fijo $100/trade**.
+
+| Bot | Magic | Estrategias desplegadas |
+|---|---|---|
+| MATH | 1338 | `XAUUSD_M1_KAL_LONDON_INV` · `GBPUSD_M15_HURS_ASIA_INV` |
+| ORB | 1340 | `TO_GBPJPY_07h_30m` · `TO_GBPAUD_07h_30m` · `TO_NASDAQ100_13h_30m` |
+| AMO8 | 8338 | SP500 FBD·018 / FBU·066 · XAUUSD FBD·046 / FBU·112 · NAS100 FBD·081 |
+| Swing | 1339 | (vacío — retirado) |
+
+**Riesgo fijo $100**: flag `risk_fixed_usd: 100` en cada `bot_config_*.json`.
+Cuando está, cada trade arriesga exactamente esa cifra (override de balance×pct
+y del escalado por WR). Honrado por los 3 motores:
+- `risk_manager.py` — `DynamicRiskAllocator`/`BalanceTieredRiskAllocator` aceptan `risk_fixed_usd`.
+- `live_amo_trader.py` — pasa `risk_per_trade efectivo = risk_fixed_usd / balance`.
+- `traders_order_manager.py` — `_calc_lots` usa el monto fijo.
+- Test: `tests/test_fixed_risk.py`. Confirmación al arranque: log `Risk: FIXED $100 per trade`.
+
+**Por qué $100 fijo:** MATH corría a 0.5% de un balance de ~$380k → ~100 lotes
+en FX y ~$291 comisión/trade (65% de su pérdida). Ver memoria
+`project_portfolio_fixed100_2026-06-20`.
+
+**Servicios NSSM en VPS:** `Kha0sysMathBot` (1338) · `Kha0sysTradersBot`
+(1339+1340) · `Kha0sysAmo8` (8338) · `Kha0sysWatchdog3` + `Kha0sysMathWatchdog`
+(monitor) · `Kha0sysATWatchdog` (reactiva AutoTrading; ver memoria
+`project_weekend_autotrading_fix`). Reiniciar con `Restart-Service <svc> -Force`
+(no `nssm restart`, que puede no ciclar el proceso).
 
 ## Architecture (post-cleanup)
 
@@ -23,18 +57,28 @@ engine/              k3_universe_m1_mgmt (discovery)
                      run_indicator_discovery (helpers)
                      indicator_validation (compute_metrics)
                      friction_real (per-symbol Vantage friction)
-execution/           live_math_trader (K3M1 engine, magic 1338)
+execution/           live_math_trader (MATH engine, magic 1338)
                      math_order_manager (orders + telegram events)
-                     mt5_client, risk_manager
-                     bot_config_math.json (63 K3M1 strategies)
-                     bot_config_traders_swing.json (5 swing, magic 1339)
-                     bot_config_traders_orb.json (12 ORB, magic 1340)
+                     live_amo_trader / amo_order_manager (AMO8, magic 8338)
+                     traders_live_engine / traders_order_manager (Swing 1339 + ORB 1340)
+                     mt5_client, risk_manager (soporta risk_fixed_usd)
+                     bot_config_math.json (2 MATH live, magic 1338)
+                     bot_config_traders_orb.json (3 ORB live, magic 1340)
+                     bot_config_traders_swing.json (0, retirado, magic 1339)
+                     bot_config_amo8.json (5 AMO8 live, magic 8338)
 monitoring/          telegram_notifier, telegram_bot (interactive cmds)
                      mt5_reporter, system_health
 infrastructure/      polars_loader, symbol_mapper
 ```
 
-## Live deploy: K3M1-75 (2026-05-12)
+> Conteos arriba = portafolio LIVE actual (10). Las secciones siguientes
+> describen el descubrimiento histórico (75 MATH, 12 ORB, 5 Swing).
+
+## Discovery histórico: K3M1-75 (2026-05-12) — NO es el portafolio live actual
+
+> Esta sección documenta el descubrimiento original de 75 estrategias MATH.
+> En vivo hoy solo quedan **2** MATH (ver "Estado live actual"). El riesgo
+> mostrado abajo (0.1%) fue reemplazado por **$100 fijo**.
 
 | Item | Valor |
 |---|---|
@@ -94,7 +138,9 @@ El engine procesa cada TF SOLO en su bar close. Tracker `_last_tf_processed` pre
 
 | Comando | Descripción |
 |---|---|
-| `python scripts/run_math_bot_supervisor.py --live` | Live bot entry point (NSSM) |
+| `python scripts/run_math_bot_supervisor.py --live` | MATH live entry (NSSM Kha0sysMathBot) |
+| `python scripts/run_amo_bot_supervisor.py --live` | AMO8 live entry (NSSM Kha0sysAmo8) |
+| `python scripts/run_traders_bot_supervisor.py --live` | Swing+ORB live entry (NSSM Kha0sysTradersBot) |
 | `python scripts/run_math_bot_supervisor.py --dry-run` | DRY mode (no `order_send`) |
 | `python -m src.engine.k3_universe_m1_mgmt` | Re-run Phase A+B discovery |
 | `python -m src.engine.k3m1_robustness` | Re-run MC+WF+decay validation on dedup 75 |
@@ -107,7 +153,9 @@ El engine procesa cada TF SOLO en su bar close. Tracker `_last_tf_processed` pre
 ## Conventions
 
 - **Polars vectorized** (no row loops); numpy for the M1 exit walk
-- **Risk**: balance-based (no `free_margin`), tier único 0.5%
+- **Risk**: **$100 fijo por trade** (`risk_fixed_usd` en cada config). El cálculo
+  de lotes sigue siendo `risk_money / loss_per_lot`, pero `risk_money` = $100
+  fijo en vez de `balance × pct`. Balance-based (no `free_margin`) si se quitara el flag.
 - **Dedup**: 1 trade per `(symbol, setup_type)` per day
 - **Direction**: 100% INVERT — math momentum signals are FADED
 - **MT5 order comment**: `M|<TF>|<setup_tag>|<session_tag>` (unified via `make_order_comment`)
@@ -160,9 +208,15 @@ Resulting effective friction per trade (SL=0.5×ATR):
 ## VPS deploy
 
 - Windows Server via WinRM (`deploy/vps_connection.py`)
-- Services (NSSM): **Kha0sysMathBot** (live K3M1-75) + Kha0sysWatchdog3 (monitoreo)
-- Logs en `C:\ProgramData\Kha0sysMath\logs\math_bot.log`
-- Servidor MT5: VantageInternational-Demo, login 25246666
+- Services (NSSM): **Kha0sysMathBot** (1338) · **Kha0sysAmo8** (8338) ·
+  **Kha0sysTradersBot** (1339+1340) · **Kha0sysWatchdog3** + **Kha0sysMathWatchdog**
+  (monitoreo) · **Kha0sysATWatchdog** (reactiva AutoTrading fin de semana)
+- Reiniciar servicios con `Restart-Service <svc> -Force` (el `nssm restart`
+  puede no ciclar el proceso → quedaría código viejo en memoria)
+- Logs: `C:\ProgramData\Kha0sysMath\logs\math_bot.log` · `...\Kha0sysAmo8\logs\amo8.log`
+  · `...\Kha0sysTraders\logs\traders_bot.log` · `...\Kha0sysMath\logs\at_watchdog.log`
+- Servidor MT5: VantageMarkets-Demo, login 25246666. AutoTrading: `common.ini`
+  `[Experts] Account=0/Profile=0` para que no se apague en reconexiones de fin de semana
 - Server time offset: +3h (EEST) — engine auto-corrects via `_refresh_server_offset_if_stale` cuando hay tick fresco
 
 ## Reports + artifacts
@@ -180,7 +234,9 @@ Replica geometrica de los PDFs Minervini/Zanger/Qullamaggie/Ryan adaptada a
 FX/commodities/indices. Backtest 2018-2026, friction Vantage real + 0.2R
 slippage. **Risk unificado 0.1% per trade** alineado con K3M1-75.
 
-### Tier 1: Traders Swing (magic 1339, 5 estrategias)
+### Tier 1: Traders Swing (magic 1339) — RETIRADO (0 live)
+
+> Histórico: 5 estrategias descubiertas. Hoy el config está vacío (no opera).
 
 D1 setup detection + M1 intraday breakout entry + walker M1 con exit per trader.
 Nomenclatura `TS_<SYM>_<SETUP>_<VARIANTE>`.
@@ -193,7 +249,10 @@ Nomenclatura `TS_<SYM>_<SETUP>_<VARIANTE>`.
 | TS_XAGUSD_MINERVINI_VCP_GRID | Grid | 1.5×ATR / 30%@1.5R + 30%@3R / SMA50 / 30d | 1.47 | 1.80 |
 | TS_BRENT_MINERVINI_VCP_GRID | Grid | 1×ATR / 30%@1R + 30%@2R / SMA50 / 30d | 1.57 | 1.96 |
 
-### Tier 2: Traders ORB (magic 1340, 12 estrategias)
+### Tier 2: Traders ORB (magic 1340) — 3 live (de 12 históricas)
+
+> Live hoy: `TO_GBPJPY_07h_30m`, `TO_GBPAUD_07h_30m`, `TO_NASDAQ100_13h_30m`.
+> La tabla siguiente es el grid histórico de 12 (las otras 9 ya purgadas).
 
 Opening range breakout intradia: rango = primeros 15-30 min desde open_hour,
 entrada en primer M1.close > range_high con bar_range >= 0.5×ATR_M1.
@@ -246,3 +305,33 @@ Nomenclatura `TO_<SYM>_<OH>h_<RM>m`.
 - `reports/qulla_orb_robustness.parquet` — fuente verdad ORB
 - `reports/traders_swing_robustness.parquet` — fuente verdad swing grid
 - `reports/traders_pdf_strict.parquet` — fuente verdad PDF-strict
+
+## AMO8 (magic 8338) — False-break ORB intradía
+
+Bot de opening-range-breakout por **falsos rompimientos** (event-level discovery
+V2). Detecta `FALSE_BREAK_DOWN`/`FALSE_BREAK_UP` del rango de apertura y entra a
+favor de la reversión. Filtros de descubrimiento: PF≥2.0, WR≥0.65, tpy≥50.
+
+| Item | Valor |
+|---|---|
+| Magic | 8338 |
+| Live hoy | **5** estrategias (de 116 V2 / 28 post-purga profit-only) |
+| Símbolos live | SP500 · XAUUSD · NASDAQ100 |
+| Params por strat | `event_type`, `or_duration_min`, `magic_time` (UTC), `direction` (L/S), `RR`, `exit_rules` |
+| Risk | **$100 fijo** (`risk_fixed_usd`) |
+| Comentario MT5 | `AMO|OR_|FBD/FBU|<id>` |
+
+**Código:** `src/execution/live_amo_trader.py` (engine), `amo_order_manager.py`
+(órdenes + sizing), `amo_position_state.py` (estado). Config:
+`src/execution/bot_config_amo8.json`. Discovery/auditoría:
+`scripts/_audit_amo8_trades_full.py`, `scripts/_amo8_edge_metric_audit.py`.
+
+**Edge live (post-purga, 2026-06):** el bloque con mejor PF del portafolio —
+SP500/NAS100/XAUUSD false-break con PF 5–9. Ver `project_portfolio_fixed100_2026-06-20`.
+
+## Diagnóstico de rentabilidad live
+
+- `scripts/_report_winners_per_bot.py` — desglose 30d por bot/símbolo/estrategia (WR/PF/$).
+- `scripts/_report_live_postpurge.py` — solo portafolio actual (post-purga), por estrategia/sesión/hora.
+- `scripts/_report_pips_postpurge.py` — ranking de edge en **pips** (size-independent; neutraliza sizing/comisión).
+- `scripts/_audit_profit.py` — cross-audit de PnL vs ledger de la cuenta.

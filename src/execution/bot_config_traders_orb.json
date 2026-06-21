@@ -1,5 +1,5 @@
 {
-  "_doc": "Traders ORB portfolio (magic 1340) — 12 estrategias intraday opening range breakout. Grid uniform winners. SL tight 0.5xATR_M1, partial 50% en R, max_hold 4-8h. Risk unificado 0.1% per trade. Built 2026-05-14T08:10:27.146215+00:00. | 2026-05-21: purge BRENT/WTI/GBPUSD (live PnL -$14k in 14d) | 2026-05-26: purge round 2 — AUDUSD/EURJPY/EURUSD/USDJPY (-$3.0k in 5d post-purge) | 2026-05-27: purge 3 — keep only 3 winners (NAS100, GBPAUD, GBPJPY)",
+  "_doc": "[2026-06-20 LIVE: 3 ORB (GBPJPY/GBPAUD 07h30, NASDAQ100 13h30) + risk_fixed_usd=100.] Traders ORB portfolio (magic 1340) — 12 estrategias intraday opening range breakout. Grid uniform winners. SL tight 0.5xATR_M1, partial 50% en R, max_hold 4-8h. Risk unificado 0.1% per trade. Built 2026-05-14T08:10:27.146215+00:00. | 2026-05-21: purge BRENT/WTI/GBPUSD (live PnL -$14k in 14d) | 2026-05-26: purge round 2 — AUDUSD/EURJPY/EURUSD/USDJPY (-$3.0k in 5d post-purge) | 2026-05-27: purge 3 — keep only 3 winners (NAS100, GBPAUD, GBPJPY)",
   "_metrics_aggregate": {
     "n_strategies": 3,
     "avg_pf": 2.47,

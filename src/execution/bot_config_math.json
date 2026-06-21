@@ -1,5 +1,5 @@
 {
-  "_doc": "K3+M1mgmt 75 portfolio — discovery on 4 signal TFs (M1/M15/H1/H4) with M1 management (TP/SL walked minute-by-minute). Realistic Vantage friction (per-symbol). All FUERTE + ACEPTABLE after MC 10k bootstrap + walk-forward 50/50 + decay analysis. DEDUPED: best session per (symbol, tf, setup, direction). | 2026-06-10: PROFIT-ONLY — reactivate all MATH groups net-positive in 30d live (per user). 2-week eval.",
+  "_doc": "[2026-06-20 LIVE: podado a 2 estrategias MATH + risk_fixed_usd=100 (riesgo fijo $100/trade, override balance×pct). Historico abajo.] K3+M1mgmt 75 portfolio — discovery on 4 signal TFs (M1/M15/H1/H4) with M1 management (TP/SL walked minute-by-minute). Realistic Vantage friction (per-symbol). All FUERTE + ACEPTABLE after MC 10k bootstrap + walk-forward 50/50 + decay analysis. DEDUPED: best session per (symbol, tf, setup, direction). | 2026-06-10: PROFIT-ONLY — reactivate all MATH groups net-positive in 30d live (per user). 2-week eval.",
   "_metrics_aggregate": {
     "n_strategies": 2,
     "by_robustness": {
