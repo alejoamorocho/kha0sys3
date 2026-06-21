@@ -246,11 +246,15 @@ class TradersEngine:
             risk_pct=self.risk_pct, dry_run=self.dry_run,
             notifier=self.notifier,
         )
+        orb_fixed = self.orb_cfg.get("risk_fixed_usd")
+        orb_fixed = float(orb_fixed) if orb_fixed else None
         self.mgr_orb = TradersOrderManager(
             self.client, MAGIC_NUMBER_TRADERS_ORB,
             risk_pct=self.risk_pct, dry_run=self.dry_run,
-            notifier=self.notifier,
+            notifier=self.notifier, risk_fixed_usd=orb_fixed,
         )
+        if orb_fixed:
+            print(f"[TRADERS-ORB] Risk: FIXED ${orb_fixed:.0f} per trade")
         self.swing_state = SwingState()
         self.orb_state = ORBState()
         # daily SMA cache for trail: {sym_internal: {sma10, sma20, sma50}}

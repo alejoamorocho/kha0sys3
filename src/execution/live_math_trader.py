@@ -113,20 +113,26 @@ class MathTraderEngine:
             print(f"[MATH] TelegramCommandBot init skipped: {e}")
 
         # Risk allocator: prefer balance-tiered if present in config, else flat.
+        # When config has risk_fixed_usd, every trade risks exactly that USD
+        # amount (overrides balance×pct and WR scaling).
         rs = cfg.get("risk_scaling", {})
         min_wr = float(rs.get("min_wr", MATH_WR_MIN))
         max_wr = float(rs.get("max_wr", MATH_WR_MAX))
+        rfx = cfg.get("risk_fixed_usd")
+        rfx = float(rfx) if rfx else None
         if "tiers" in rs:
             self.risk = BalanceTieredRiskAllocator(
-                tiers=rs["tiers"], min_wr=min_wr, max_wr=max_wr,
+                tiers=rs["tiers"], min_wr=min_wr, max_wr=max_wr, risk_fixed_usd=rfx,
             )
             print(f"[MATH] Risk: balance-tiered {len(rs['tiers'])} tiers, WR range {min_wr:.2f}-{max_wr:.2f}")
         else:
             self.risk = DynamicRiskAllocator(
                 min_risk=float(rs.get("min_risk", MATH_RISK_MIN_PCT)),
                 max_risk=float(rs.get("max_risk", MATH_RISK_MAX_PCT)),
-                min_wr=min_wr, max_wr=max_wr,
+                min_wr=min_wr, max_wr=max_wr, risk_fixed_usd=rfx,
             )
+        if rfx:
+            print(f"[MATH] Risk: FIXED ${rfx:.0f} per trade (overrides balance×pct)")
 
         self.om = MathOrderManager(
             client=self.client, magic=MAGIC_NUMBER_MATH,

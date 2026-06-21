@@ -82,6 +82,12 @@ class AmoTraderEngine:
         self.cfg = cfg
         self.portfolio = cfg["portfolio"]
         self.risk_per_trade = float(cfg.get("risk_per_trade", 0.001))
+        # Fixed USD risk per trade (overrides balance×pct). Applied as an
+        # effective per-trade pct = risk_fixed_usd / balance at order time.
+        rfx = cfg.get("risk_fixed_usd")
+        self.risk_fixed_usd = float(rfx) if rfx else None
+        if self.risk_fixed_usd:
+            print(f"[AMO8] Risk: FIXED ${self.risk_fixed_usd:.0f} per trade")
         self.dry_run = dry_run
 
         # Build schedule: { (broker_sym, magic_time, or_duration_min): [strategies] }
@@ -503,6 +509,10 @@ class AmoTraderEngine:
                     strategy["internal_sym"], dedup_pid, strategy["direction"]
                 ):
                     continue
+                # Effective per-trade pct: fixed-USD when configured so the
+                # order manager's risk_per_trade×balance equals risk_fixed_usd.
+                rpt = (self.risk_fixed_usd / balance) if (self.risk_fixed_usd and balance > 0) \
+                    else self.risk_per_trade
                 mode = strategy["exit_rules"]["mode"]
                 if mode in ("DOC", "SWING"):
                     self.orders.place_partial(
@@ -510,7 +520,7 @@ class AmoTraderEngine:
                         entry_price=entry_price,
                         atr_at_setup=atr_at_setup,
                         or_width=or_width,
-                        risk_per_trade=self.risk_per_trade,
+                        risk_per_trade=rpt,
                         account_balance=balance,
                     )
                 else:  # ATR or OR_FIXED
@@ -519,7 +529,7 @@ class AmoTraderEngine:
                         entry_price=entry_price,
                         atr_at_setup=atr_at_setup,
                         or_width=or_width,
-                        risk_per_trade=self.risk_per_trade,
+                        risk_per_trade=rpt,
                         account_balance=balance,
                     )
 

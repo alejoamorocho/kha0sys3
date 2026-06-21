@@ -115,10 +115,13 @@ class TradersOrderManager:
 
     def __init__(self, client, magic: int, risk_pct: float = 0.001,
                  dry_run: bool = False, state_file: Optional[Path] = None,
-                 notifier=None, internal_to_broker: Optional[dict] = None):
+                 notifier=None, internal_to_broker: Optional[dict] = None,
+                 risk_fixed_usd: float | None = None):
         self.client = client
         self.magic = magic
         self.risk_pct = risk_pct
+        # When set, risk a FIXED USD amount per trade (overrides balance×pct).
+        self.risk_fixed_usd = risk_fixed_usd
         self.dry_run = dry_run
         self.state_file = state_file or Path("logs") / f"traders_state_magic{magic}.json"
         self.state_file.parent.mkdir(parents=True, exist_ok=True)
@@ -218,7 +221,7 @@ class TradersOrderManager:
     def _calc_lots(self, balance: float, entry: float, sl: float, sym_info) -> float:
         if sl <= 0 or entry <= 0 or sym_info is None:
             return 0.0
-        risk_money = balance * self.risk_pct
+        risk_money = self.risk_fixed_usd if self.risk_fixed_usd else balance * self.risk_pct
         price_diff = abs(entry - sl)
         if price_diff <= 0:
             return 0.0

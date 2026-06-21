@@ -20,11 +20,14 @@ class DynamicRiskAllocator:
 
     def __init__(self, min_risk: float = RISK_MIN_PCT, max_risk: float = RISK_MAX_PCT,
                  min_wr: float = WR_MIN, max_wr: float = WR_MAX,
-                 risk_tiers: list | None = None, tiers: list | None = None):
+                 risk_tiers: list | None = None, tiers: list | None = None,
+                 risk_fixed_usd: float | None = None):
         self.min_risk = min_risk
         self.max_risk = max_risk
         self.min_wr = min_wr
         self.max_wr = max_wr
+        # When set, risk a FIXED USD amount per trade (overrides balance×pct).
+        self.risk_fixed_usd = risk_fixed_usd
         # Accept 'tiers' from bot_config.json (list of dicts) or 'risk_tiers' (list of tuples)
         if risk_tiers:
             self.risk_tiers = risk_tiers
@@ -74,7 +77,7 @@ class DynamicRiskAllocator:
             return 0.0
 
         risk_pct = self.get_risk_percent(win_rate, balance=account_balance)
-        risk_money = account_balance * risk_pct
+        risk_money = self.risk_fixed_usd if self.risk_fixed_usd else account_balance * risk_pct
 
         price_diff = abs(entry_price - sl_price)
         if price_diff <= 0:
@@ -112,7 +115,7 @@ class BalanceTieredRiskAllocator(DynamicRiskAllocator):
     """
 
     def __init__(self, tiers: list[dict], min_wr: float = WR_MIN,
-                 max_wr: float = WR_MAX):
+                 max_wr: float = WR_MAX, risk_fixed_usd: float | None = None):
         self.tiers = tiers
         self.min_wr = min_wr
         self.max_wr = max_wr
@@ -120,7 +123,7 @@ class BalanceTieredRiskAllocator(DynamicRiskAllocator):
         t0 = tiers[0] if tiers else {"min_risk": RISK_MIN_PCT, "max_risk": RISK_MAX_PCT}
         super().__init__(
             min_risk=t0["min_risk"], max_risk=t0["max_risk"],
-            min_wr=min_wr, max_wr=max_wr,
+            min_wr=min_wr, max_wr=max_wr, risk_fixed_usd=risk_fixed_usd,
         )
 
     def _tier_for_balance(self, balance: float) -> dict:
@@ -146,9 +149,9 @@ class BalanceTieredRiskAllocator(DynamicRiskAllocator):
                        volume_step: float, win_rate: float = DEFAULT_WIN_RATE) -> float:
         if tick_value <= 0 or tick_size <= 0 or volume_step <= 0:
             return 0.0
-        # Balance-tiered risk pct
+        # Balance-tiered risk pct (overridden by fixed USD risk when set)
         risk_pct = self.get_risk_percent(win_rate, account_balance)
-        risk_money = account_balance * risk_pct
+        risk_money = self.risk_fixed_usd if self.risk_fixed_usd else account_balance * risk_pct
 
         price_diff = abs(entry_price - sl_price)
         if price_diff <= 0:
