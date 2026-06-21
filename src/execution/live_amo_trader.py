@@ -116,6 +116,23 @@ class AmoTraderEngine:
             print(f"[AMO8] Telegram init skipped: {e}")
         self.orders = AmoOrderManager(dry_run=self.dry_run, telegram=self.telegram)
 
+        # Interactive Telegram command bot, scoped to magic=8338 (AMO8). The
+        # read commands (/balance /pnl /positions /status) report the LIVE
+        # account; /stop /resume pause new AMO8 entries. Runs in its own daemon
+        # thread, isolated from the trading loop.
+        self._tg_paused = False
+        self.command_bot = None
+        try:
+            from src.monitoring.telegram_bot import TelegramCommandBot
+            self.command_bot = TelegramCommandBot(
+                stop_callback=self._on_stop_command,
+                resume_callback=self._on_resume_command,
+                magic_filter=MAGIC_NUMBER_AMO8,
+                bot_label="AMO8 Live",
+            )
+        except Exception as e:
+            print(f"[AMO8] TelegramCommandBot init skipped: {e}")
+
         # Cooldown: don't reprocess the same OR-window/bar within POLL_INTERVAL
         # key=(broker_sym, magic_time, or_duration_min, m1_bar_ts_iso)
         self._processed: dict[tuple, bool] = {}
@@ -168,6 +185,15 @@ class AmoTraderEngine:
             print(f"  {sym:<10} OR_start_UTC={mt_utc}  duration={dur}m  "
                   f"strats={len(self.schedule[(sym, mt_utc, dur)])}", flush=True)
 
+        # Interactive Telegram command bot (daemon thread; never blocks trading)
+        if self.command_bot is not None:
+            try:
+                self.command_bot.start_polling()
+                print("[AMO8] Telegram command bot polling started "
+                      "(/status /balance /pnl /positions /orders /stop /resume)")
+            except Exception as e:
+                print(f"[AMO8] command bot start err: {e}")
+
         # Main loop
         while not self._stop:
             try:
@@ -181,6 +207,17 @@ class AmoTraderEngine:
 
     def stop(self) -> None:
         self._stop = True
+
+    def _on_stop_command(self):
+        """Telegram /stop: pause NEW AMO8 entries. Open positions keep their
+        broker-side SL/TP; only new placements are gated."""
+        self._tg_paused = True
+        print("[AMO8] Telegram /stop: new entries PAUSED")
+
+    def _on_resume_command(self):
+        """Telegram /resume: re-enable new AMO8 entries."""
+        self._tg_paused = False
+        print("[AMO8] Telegram /resume: new entries ENABLED")
 
     # ───────────────────────── Broker time ─────────────────────────
 
@@ -508,6 +545,8 @@ class AmoTraderEngine:
                 if self.orders.has_fired_today(
                     strategy["internal_sym"], dedup_pid, strategy["direction"]
                 ):
+                    continue
+                if self._tg_paused:    # Telegram /stop — gate new entries
                     continue
                 # Effective per-trade pct: fixed-USD when configured so the
                 # order manager's risk_per_trade×balance equals risk_fixed_usd.
