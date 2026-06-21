@@ -1,7 +1,7 @@
 {
   "_doc": "[2026-06-20 LIVE: 3 ORB (GBPJPY/GBPAUD 07h30, NASDAQ100 13h30) + risk_fixed_usd=100.] Traders ORB portfolio (magic 1340) — 12 estrategias intraday opening range breakout. Grid uniform winners. SL tight 0.5xATR_M1, partial 50% en R, max_hold 4-8h. Risk unificado 0.1% per trade. Built 2026-05-14T08:10:27.146215+00:00. | 2026-05-21: purge BRENT/WTI/GBPUSD (live PnL -$14k in 14d) | 2026-05-26: purge round 2 — AUDUSD/EURJPY/EURUSD/USDJPY (-$3.0k in 5d post-purge) | 2026-05-27: purge 3 — keep only 3 winners (NAS100, GBPAUD, GBPJPY)",
   "_metrics_aggregate": {
-    "n_strategies": 3,
+    "n_strategies": 0,
     "avg_pf": 2.47,
     "avg_pf_oos": 2.373,
     "avg_wr": 0.5362,
@@ -11,130 +11,6 @@
   },
   "magic_number": 1340,
   "risk_per_trade": 0.001,
-  "portfolio": [
-    {
-      "id": "TO_GBPJPY_07h_30m",
-      "sym": "GBPJPY",
-      "internal_sym": "GBPJPY",
-      "trader": "Qulla",
-      "setup_type": "ORB",
-      "variant": "GRID",
-      "signal_tf": "M1",
-      "entry_tf": "M1",
-      "direction_mode": "LONG",
-      "orb_params": {
-        "open_hour_utc": 7,
-        "open_minute_utc": 0,
-        "range_minutes": 30,
-        "breakout_window_minutes": 180
-      },
-      "exit_rules": {
-        "initial_sl_type": "atr",
-        "initial_sl_atr_mult": 0.5,
-        "initial_sl_pct": null,
-        "partials": [
-          {
-            "trigger": "r_multiple",
-            "value": 2.0,
-            "sell_frac": 0.5
-          }
-        ],
-        "trail_sma": null,
-        "time_stop_days": null,
-        "max_hold_hours": 8,
-        "max_hold_days": 0.3333333333333333,
-        "wait_bars": 2
-      },
-      "expected_wr": 0.5578,
-      "expected_pf": 2.754,
-      "expected_pf_oos": 2.643,
-      "expected_n_trades": 1454,
-      "expected_trades_per_year": 174.3,
-      "expected_net_r": 1557.87,
-      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
-    },
-    {
-      "id": "TO_NASDAQ100_13h_30m",
-      "sym": "NASDAQ100",
-      "internal_sym": "NASDAQ100",
-      "trader": "Qulla",
-      "setup_type": "ORB",
-      "variant": "GRID",
-      "signal_tf": "M1",
-      "entry_tf": "M1",
-      "direction_mode": "LONG",
-      "orb_params": {
-        "open_hour_utc": 13,
-        "open_minute_utc": 0,
-        "range_minutes": 30,
-        "breakout_window_minutes": 180
-      },
-      "exit_rules": {
-        "initial_sl_type": "atr",
-        "initial_sl_atr_mult": 0.5,
-        "initial_sl_pct": null,
-        "partials": [
-          {
-            "trigger": "r_multiple",
-            "value": 3.0,
-            "sell_frac": 0.5
-          }
-        ],
-        "trail_sma": null,
-        "time_stop_days": null,
-        "max_hold_hours": 8,
-        "max_hold_days": 0.3333333333333333,
-        "wait_bars": 2
-      },
-      "expected_wr": 0.5364,
-      "expected_pf": 2.33,
-      "expected_pf_oos": 2.053,
-      "expected_n_trades": 1758,
-      "expected_trades_per_year": 210.8,
-      "expected_net_r": 2102.83,
-      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
-    },
-    {
-      "id": "TO_GBPAUD_07h_30m",
-      "sym": "GBPAUD",
-      "internal_sym": "GBPAUD",
-      "trader": "Qulla",
-      "setup_type": "ORB",
-      "variant": "GRID",
-      "signal_tf": "M1",
-      "entry_tf": "M1",
-      "direction_mode": "LONG",
-      "orb_params": {
-        "open_hour_utc": 7,
-        "open_minute_utc": 0,
-        "range_minutes": 30,
-        "breakout_window_minutes": 180
-      },
-      "exit_rules": {
-        "initial_sl_type": "atr",
-        "initial_sl_atr_mult": 0.5,
-        "initial_sl_pct": null,
-        "partials": [
-          {
-            "trigger": "r_multiple",
-            "value": 2.0,
-            "sell_frac": 0.5
-          }
-        ],
-        "trail_sma": null,
-        "time_stop_days": null,
-        "max_hold_hours": 8,
-        "max_hold_days": 0.3333333333333333,
-        "wait_bars": 2
-      },
-      "expected_wr": 0.5716,
-      "expected_pf": 2.382,
-      "expected_pf_oos": 2.668,
-      "expected_n_trades": 1452,
-      "expected_trades_per_year": 174.1,
-      "expected_net_r": 1159.34,
-      "robustness_label": "ALTA_FRECUENCIA_OK_BY_SIZING"
-    }
-  ],
-  "risk_fixed_usd": 100
+  "portfolio": [],
+  "risk_fixed_usd": 50
 }

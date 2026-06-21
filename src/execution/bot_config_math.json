@@ -1,7 +1,7 @@
 {
   "_doc": "[2026-06-20 LIVE: podado a 2 estrategias MATH + risk_fixed_usd=100 (riesgo fijo $100/trade, override balance×pct). Historico abajo.] K3+M1mgmt 75 portfolio — discovery on 4 signal TFs (M1/M15/H1/H4) with M1 management (TP/SL walked minute-by-minute). Realistic Vantage friction (per-symbol). All FUERTE + ACEPTABLE after MC 10k bootstrap + walk-forward 50/50 + decay analysis. DEDUPED: best session per (symbol, tf, setup, direction). | 2026-06-10: PROFIT-ONLY — reactivate all MATH groups net-positive in 30d live (per user). 2-week eval.",
   "_metrics_aggregate": {
-    "n_strategies": 2,
+    "n_strategies": 0,
     "by_robustness": {
       "FUERTE": 59,
       "ACEPTABLE": 16
@@ -57,53 +57,6 @@
       }
     ]
   },
-  "portfolio": [
-    {
-      "id": "GBPUSD_M15_HURS_ASIA_INV",
-      "sym": "GBPUSD+",
-      "internal_sym": "GBPUSD",
-      "tf": "M15",
-      "session": "ASIA",
-      "setup_type": "HURST_TREND_MOM",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 0.5,
-      "sl_atr_mult": 0.5,
-      "atr_period": 14,
-      "rr": 1.0,
-      "expected_wr": 0.8921,
-      "expected_pf": 3.859,
-      "expected_pf_oos": 3.66,
-      "expected_n_trades": 1001,
-      "expected_trades_per_year": 121.8,
-      "expected_dd_r": 4.2,
-      "expected_expectancy_r": 0.4185,
-      "expected_net_r": 418.9,
-      "robustness_label": "FUERTE",
-      "mc_ruin_pct": 0.0,
-      "wf_deg_wr_pct": 1.31,
-      "decay_label": "ESTABLE",
-      "friction_r": 0.3668
-    },
-    {
-      "id": "XAUUSD_M1_KAL_LONDON_INV",
-      "sym": "XAUUSD+",
-      "internal_sym": "XAUUSD",
-      "tf": "M1",
-      "session": "LONDON",
-      "setup_type": "KALMAN_INNOV_EXPAND",
-      "direction_mode": "INVERT",
-      "tp_atr_mult": 1.0,
-      "sl_atr_mult": 1.0,
-      "atr_period": 14,
-      "rr": 1.0,
-      "expected_wr": 0.6141,
-      "expected_pf": 1.302,
-      "expected_n_trades": 1534,
-      "expected_trades_per_year": 183.9,
-      "expected_dd_r": 12.0,
-      "expected_calmar": 0.0107,
-      "expected_expectancy_r": 0.128
-    }
-  ],
-  "risk_fixed_usd": 100
+  "portfolio": [],
+  "risk_fixed_usd": 50
 }
