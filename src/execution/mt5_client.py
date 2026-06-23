@@ -4,6 +4,7 @@ Gateway stateless para MetaTrader 5 con reconexión automática y cálculo de AT
 """
 
 import MetaTrader5 as mt5
+import os
 import time
 import math
 from datetime import datetime, timezone
@@ -81,6 +82,16 @@ class MT5Client:
             self._broker_cfg["login"] if self._broker_cfg else None
         )
         self.attach_only = attach_only
+        # Pin MT5 to a specific terminal install (MT5_TERMINAL_PATH) so a second
+        # broker's terminal running on the same machine can NEVER be attached by
+        # accident. Combined with the expected_login check = hard safety.
+        self._terminal_path = os.environ.get("MT5_TERMINAL_PATH") or None
+
+    def _mt5_init(self, **kw) -> bool:
+        """mt5.initialize() pinned to self._terminal_path when configured."""
+        if self._terminal_path:
+            kw.setdefault("path", self._terminal_path)
+        return bool(mt5.initialize(**kw))
 
     def _initialize_mt5(self) -> bool:
         """mt5.initialize() forzando login de broker.yaml si esta presente.
@@ -94,7 +105,7 @@ class MT5Client:
         account_info() reporte el login esperado de broker.yaml.
         """
         if self.attach_only:
-            ok = bool(mt5.initialize())
+            ok = self._mt5_init()
             if not ok:
                 print(f"MT5Client[attach_only]: initialize() FAIL: {mt5.last_error()}")
                 return False
@@ -112,7 +123,7 @@ class MT5Client:
 
         if self._broker_cfg is None:
             print("MT5Client: WARNING — credenciales ausentes; usando cuenta activa del terminal.")
-            return bool(mt5.initialize())
+            return self._mt5_init()
 
         # CRITICAL (2026-06-02): try ATTACH-FIRST. A full
         # mt5.initialize(login=,password=,server=) forces a re-login on the
@@ -122,7 +133,7 @@ class MT5Client:
         # terminal and, if it's ALREADY logged into the expected account,
         # do NOT re-login. Only fall back to full login if the terminal is
         # absent or logged into a different account.
-        if mt5.initialize():
+        if self._mt5_init():
             info = mt5.account_info()
             if info is not None and int(info.login) == self._broker_cfg["login"]:
                 # Already on the right account — no re-login, preserve
@@ -130,7 +141,7 @@ class MT5Client:
                 return True
             # Wrong account or no login — needs explicit login below.
 
-        ok = mt5.initialize(
+        ok = self._mt5_init(
             login=self._broker_cfg["login"],
             password=self._broker_cfg["password"],
             server=self._broker_cfg["server"],
@@ -172,8 +183,16 @@ class MT5Client:
         """Verifica conexión y reconecta automáticamente si es necesario."""
         term = mt5.terminal_info()
         if term and term.connected:
-            self.connected = True
-            return True
+            info = mt5.account_info()
+            if info and self.expected_login and int(info.login) != self.expected_login:
+                # Attached to the WRONG account (e.g. a second broker's terminal
+                # on the same box). NEVER trade it — fall through to reconnect,
+                # which re-pins to the correct terminal/login via _initialize_mt5.
+                print(f"MT5Client: cuenta equivocada en linea ({info.login} vs "
+                      f"esperado {self.expected_login}); reconectando al correcto.")
+            else:
+                self.connected = True
+                return True
 
         print("MT5Client: Conexión perdida. Intentando reconectar...")
         for attempt in range(self.MAX_RECONNECT_ATTEMPTS):
