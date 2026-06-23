@@ -291,6 +291,15 @@ class TradeCopier:
 
     # ───────────────────────── main loop ─────────────────────────
     def tick(self) -> None:
+        # Heartbeat written EVERY cycle (even on the early returns below) so the
+        # external watchdog only restarts a truly HUNG process — a merely-blind
+        # copier (source/dest unreadable) stays up and alerts on its own.
+        try:
+            self.heartbeat_file.parent.mkdir(parents=True, exist_ok=True)
+            self.heartbeat_file.write_text(_now_iso(), encoding="utf-8")
+        except Exception:
+            pass
+
         # 1) Source = truth for what should be open. None => blind; alert, never close.
         source_positions = self.read_source()
         if source_positions is None:
@@ -333,6 +342,14 @@ class TradeCopier:
             if st in pending:
                 continue  # in-flight; don't re-send
             if st in ever:  # copy vanished while source still open
+                if self.backstop_sl_usd:
+                    # A backstop SL is active, so a vanished copy almost certainly
+                    # hit that protective stop. Re-opening would just re-arm the
+                    # stop and ping-pong — so DON'T re-open; alert for manual review.
+                    self.alert(f"backstophit:{st}",
+                               f"copy for source {st} CLOSED (likely backstop SL) while source "
+                               f"still OPEN — NOT re-opening. Manual review.")
+                    continue
                 n = reopen.get(st, 0) + 1
                 reopen[st] = n
                 if n > self.max_reopen:
