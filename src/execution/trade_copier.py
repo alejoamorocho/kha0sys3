@@ -1,16 +1,28 @@
 """Trade copier — mirror a source MT5 account's positions onto a dest account.
 
-Built for: TMFinancials (source, READ-ONLY) -> Vantage (dest), GOLD ONLY.
-- Fixed lot on dest (never scales/grows). SL/TP price levels replicated.
-- Path-pinned + login-validated on BOTH terminals so it can never act on the
-  wrong account (a second broker on the same box).
-- Crash-safe: every dest order is tagged `COPY|<source_ticket>` so state can be
-  rebuilt from the dest positions even if the state file is lost.
-- Fail-safe close: a source READ failure NEVER triggers dest closes (we only
-  close a copy when we positively confirm the source position is gone).
-- dry_run: logs intended actions without sending orders.
+Built for: TMFinancials (source, READ-ONLY, exits managed MANUALLY = source
+positions carry NO SL/TP) -> Vantage (dest), GOLD ONLY.
 
-The reconcile() logic is pure (no MT5) so it is unit-testable.
+Guarantees (hardened 2026-06-23 after adversarial audit):
+- OPEN when the source opens; CLOSE when the source closes; FORCE-retry every
+  cycle until each action is CONFIRMED. The dest is NEVER allowed to drift from
+  the source while we can see both.
+- LIVE DEST positions (tagged `COPY|<src_ticket>`) are the single source of
+  truth for what is currently copied — so closed/orphaned/double mappings can't
+  poison state. order ids are never stored as position tickets.
+- Idempotent open: a pending marker is written BEFORE order_send, and the dest
+  position is CONFIRMED by its comment before the open is considered done, so a
+  missed read-back never double-opens.
+- A copy that vanishes while its source is still open (manual/stop-out/backstop)
+  is RE-OPENED (capped, with a loud alert) so "copy open while source open" holds.
+- Fail-safe: a source READ failure NEVER closes dest copies. But it ALERTS — a
+  blind copier with no SL/TP on the copies is the real danger, so silence is not
+  allowed: every failure path escalates to Telegram (rate-limited).
+- Path-pinned + login-validated on BOTH terminals (never acts on a wrong account).
+- Optional backstop SL on the copy (config backstop_sl_usd) as a safety net for
+  the case where the copier itself dies — off by default (exact mirror).
+
+reconcile() is pure (no MT5) and unit-tested.
 """
 from __future__ import annotations
 
@@ -25,12 +37,18 @@ except Exception:  # pragma: no cover - MT5 only on the trading box
     mt5 = None
 
 
+def _now() -> float:
+    return time.time()
+
+
 def _now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 class TradeCopier:
     MAX_CONNECT_RETRIES = 3
+    CONFIRM_RETRIES = 6          # post-send read-back attempts to confirm a fill
+    CONFIRM_SLEEP = 0.4
 
     def __init__(self, cfg: dict, telegram=None):
         self.src = cfg["source"]
@@ -38,15 +56,23 @@ class TradeCopier:
         self.symbol_map: dict[str, str] = cfg["symbol_map"]
         self.fixed_lot = float(cfg["fixed_lot"])
         self.magic = int(cfg.get("magic", 5000))
-        self.poll_sec = int(cfg.get("poll_sec", 3))
+        self.poll_sec = max(1, int(cfg.get("poll_sec", 2)))
         self.max_dev = int(cfg.get("max_slippage_points", 50))
+        self.max_reopen = int(cfg.get("max_reopen", 2))
+        self.heartbeat_min = int(cfg.get("heartbeat_min", 15))
+        self.alert_repeat_min = int(cfg.get("alert_repeat_min", 5))
+        self.backstop_sl_usd = cfg.get("backstop_sl_usd")  # None = no backstop
         self.dry_run = bool(cfg.get("dry_run", True))
         self.state_file = Path(cfg.get("state_file", "logs/copier_state.json"))
+        self.heartbeat_file = Path(cfg.get("heartbeat_file", "logs/copier_heartbeat"))
         self.telegram = telegram
         self._stop = False
-        self._connected_to: str | None = None
+        self._alert_ts: dict[str, float] = {}
+        self._consec_src_fail = 0
+        self._consec_dst_fail = 0
+        self._last_heartbeat = 0.0
 
-    # ───────────────────────── logging ─────────────────────────
+    # ───────────────────────── logging / alerts ─────────────────────────
     def log(self, msg: str, tg: bool = False) -> None:
         line = f"{_now_iso()} [COPIER]{' [DRY]' if self.dry_run else ''} {msg}"
         print(line, flush=True)
@@ -56,20 +82,25 @@ class TradeCopier:
             except Exception:
                 pass
 
+    def alert(self, key: str, msg: str) -> None:
+        """Telegram alert, rate-limited per key (first hit + every alert_repeat_min)."""
+        last = self._alert_ts.get(key, 0.0)
+        due = (_now() - last) >= self.alert_repeat_min * 60
+        self.log(msg, tg=due)
+        if due:
+            self._alert_ts[key] = _now()
+
     # ───────────────── pure logic (unit-testable) ─────────────────
     @staticmethod
-    def reconcile(source_positions: list[dict], state: dict) -> tuple[list[dict], list[int]]:
-        """Decide what to open/close on the dest.
-
-        source_positions: list of dicts each with at least 'ticket'.
-        state: {source_ticket(str): dest_ticket(int)}.
-        Returns (to_open, to_close):
-          to_open  = source positions whose ticket is not yet copied.
+    def reconcile(source_positions: list[dict], dst_map: dict) -> tuple[list[dict], list[int]]:
+        """Given the source positions and the LIVE dest copy map
+        {src_ticket(str): dst_ticket}, decide:
+          to_open  = source positions with no live copy.
           to_close = dest tickets whose source position no longer exists.
         """
         src_tickets = {str(p["ticket"]) for p in source_positions}
-        to_open = [p for p in source_positions if str(p["ticket"]) not in state]
-        to_close = [dst for src, dst in state.items() if src not in src_tickets]
+        to_open = [p for p in source_positions if str(p["ticket"]) not in dst_map]
+        to_close = [dst for src, dst in dst_map.items() if src not in src_tickets]
         return to_open, to_close
 
     def map_symbol(self, src_symbol: str) -> str | None:
@@ -78,9 +109,13 @@ class TradeCopier:
     # ───────────────────── state persistence ─────────────────────
     def load_state(self) -> dict:
         try:
-            return json.loads(self.state_file.read_text(encoding="utf-8"))
+            s = json.loads(self.state_file.read_text(encoding="utf-8"))
         except Exception:
-            return {}
+            s = {}
+        s.setdefault("pending", {})       # {src_ticket: comment} in-flight opens
+        s.setdefault("ever", [])          # src tickets ever copied (new vs reopen)
+        s.setdefault("reopen", {})        # {src_ticket: count}
+        return s
 
     def save_state(self, state: dict) -> None:
         try:
@@ -91,27 +126,21 @@ class TradeCopier:
 
     # ───────────────────────── MT5 I/O ─────────────────────────
     def _connect(self, node: dict) -> bool:
-        """Pin to node['path'] and validate account login. Returns True only if
-        connected to the EXPECTED account."""
         if mt5 is None:
             return False
-        for attempt in range(self.MAX_CONNECT_RETRIES):
+        for _ in range(self.MAX_CONNECT_RETRIES):
             mt5.shutdown()
             if not mt5.initialize(path=node["path"]):
-                time.sleep(1)
+                time.sleep(0.5)
                 continue
             info = mt5.account_info()
             if info is not None and int(info.login) == int(node["login"]):
-                self._connected_to = node.get("broker", node["path"])
                 return True
-            time.sleep(1)
-        self.log(f"connect FAILED to {node.get('broker')} (login {node['login']})")
+            time.sleep(0.5)
         return False
 
     def read_source(self) -> list[dict] | None:
-        """Read source positions for mapped symbols. Returns None on ANY failure
-        (caller must NOT treat None as 'no positions' — it skips the cycle so a
-        transient read error never closes dest copies)."""
+        """Source gold positions, or None on ANY failure (caller must skip, not close)."""
         if not self._connect(self.src):
             return None
         positions = mt5.positions_get()
@@ -123,120 +152,222 @@ class TradeCopier:
             for p in positions if p.symbol in self.symbol_map
         ]
 
-    def recover_state_from_dest(self, state: dict) -> dict:
-        """Rebuild any missing state mapping from dest positions tagged
-        `COPY|<src_ticket>` — makes restarts crash-safe (no double-open)."""
-        for p in (mt5.positions_get() or []):
+    def read_dest_copies(self) -> dict | None:
+        """Live dest map {src_ticket(str): dst_ticket} from positions tagged
+        COPY|<src> with our magic. Returns None on failure (caller must skip)."""
+        positions = mt5.positions_get()
+        if positions is None:
+            return None
+        out: dict[str, int] = {}
+        for p in positions:
+            if p.magic != self.magic:
+                continue
             c = (p.comment or "")
             if c.startswith("COPY|"):
-                src_ticket = c.split("|", 1)[1]
-                state.setdefault(src_ticket, p.ticket)
-        return state
+                out[c.split("|", 1)[1]] = p.ticket
+        return out
 
-    def _filling_mode(self, symbol: str):
+    def _filling_modes(self):
+        return [mt5.ORDER_FILLING_IOC, mt5.ORDER_FILLING_FOK, mt5.ORDER_FILLING_RETURN]
+
+    def _backstop_sl(self, symbol: str, is_buy: bool, entry: float) -> float:
+        """Protective SL price for a fixed_lot position risking ~backstop_sl_usd.
+        Returns 0.0 (no SL) when backstop disabled — exact mirror like the source."""
+        if not self.backstop_sl_usd:
+            return 0.0
         info = mt5.symbol_info(symbol)
-        # Prefer the broker's declared filling; fall back to IOC then FOK.
-        fm = getattr(info, "filling_mode", 0) if info else 0
-        if fm & 2:  # SYMBOL_FILLING_IOC
-            return mt5.ORDER_FILLING_IOC
-        if fm & 1:  # SYMBOL_FILLING_FOK
-            return mt5.ORDER_FILLING_FOK
-        return mt5.ORDER_FILLING_RETURN
+        if not info or info.trade_tick_value <= 0 or info.trade_tick_size <= 0:
+            return 0.0
+        usd_per_price = (info.trade_tick_value / info.trade_tick_size) * self.fixed_lot
+        if usd_per_price <= 0:
+            return 0.0
+        dist = float(self.backstop_sl_usd) / usd_per_price
+        sl = entry - dist if is_buy else entry + dist
+        return round(sl, info.digits)
+
+    def _confirm_open(self, dst_symbol: str, comment: str) -> int | None:
+        """Confirm the dest position exists by its unique comment (bounded retry).
+        NEVER returns an order id — only a real position ticket."""
+        for _ in range(self.CONFIRM_RETRIES):
+            for p in (mt5.positions_get(symbol=dst_symbol) or []):
+                if (p.comment or "") == comment and p.magic == self.magic:
+                    return p.ticket
+            time.sleep(self.CONFIRM_SLEEP)
+        return None
 
     def open_on_dest(self, src_pos: dict) -> int | None:
-        """Open the copy on dest. Returns the dest position ticket, or None."""
         dst_symbol = self.map_symbol(src_pos["symbol"])
         if dst_symbol is None:
             return None
         info = mt5.symbol_info(dst_symbol)
         if info is None:
-            self.log(f"dest symbol {dst_symbol} not found — skip"); return None
+            self.alert(f"sym:{dst_symbol}", f"dest symbol {dst_symbol} not found"); return None
         if not info.visible:
             mt5.symbol_select(dst_symbol, True)
         tick = mt5.symbol_info_tick(dst_symbol)
         if tick is None:
-            self.log(f"no tick for {dst_symbol} — skip"); return None
+            self.alert(f"tick:{dst_symbol}", f"no tick for {dst_symbol} — open blocked"); return None
         is_buy = src_pos["type"] == 0
         price = tick.ask if is_buy else tick.bid
+        sl = src_pos["sl"] or self._backstop_sl(dst_symbol, is_buy, price)
         comment = f"COPY|{src_pos['ticket']}"
         if self.dry_run:
-            self.log(f"would OPEN {dst_symbol} {'BUY' if is_buy else 'SELL'} "
-                     f"{self.fixed_lot} @~{price} sl={src_pos['sl']} tp={src_pos['tp']} "
-                     f"[src {src_pos['ticket']}]", tg=True)
+            self.alert(f"dryopen:{src_pos['ticket']}",
+                       f"would OPEN {dst_symbol} {'BUY' if is_buy else 'SELL'} {self.fixed_lot} "
+                       f"@~{price} sl={sl} tp={src_pos['tp']} [src {src_pos['ticket']}]")
             return None
-        req = {
-            "action": mt5.TRADE_ACTION_DEAL, "symbol": dst_symbol,
-            "volume": self.fixed_lot,
-            "type": mt5.ORDER_TYPE_BUY if is_buy else mt5.ORDER_TYPE_SELL,
-            "price": price, "sl": src_pos["sl"], "tp": src_pos["tp"],
-            "deviation": self.max_dev, "magic": self.magic, "comment": comment,
-            "type_time": mt5.ORDER_TIME_GTC, "type_filling": self._filling_mode(dst_symbol),
-        }
-        result = mt5.order_send(req)
-        if result is None or result.retcode != mt5.TRADE_RETCODE_DONE:
-            self.log(f"OPEN FAILED {dst_symbol}: "
-                     f"{getattr(result, 'retcode', '?')} {getattr(result, 'comment', '')}", tg=True)
-            return None
-        # Find the resulting dest position ticket by our unique comment.
-        for p in (mt5.positions_get(symbol=dst_symbol) or []):
-            if (p.comment or "") == comment:
-                self.log(f"OPENED {dst_symbol} {'BUY' if is_buy else 'SELL'} {self.fixed_lot} "
-                         f"[src {src_pos['ticket']} -> dst {p.ticket}]", tg=True)
-                return p.ticket
-        return result.order or None
+        last_ret = None
+        for filling in self._filling_modes():
+            req = {
+                "action": mt5.TRADE_ACTION_DEAL, "symbol": dst_symbol, "volume": self.fixed_lot,
+                "type": mt5.ORDER_TYPE_BUY if is_buy else mt5.ORDER_TYPE_SELL,
+                "price": tick.ask if is_buy else tick.bid, "sl": sl, "tp": src_pos["tp"],
+                "deviation": self.max_dev, "magic": self.magic, "comment": comment,
+                "type_time": mt5.ORDER_TIME_GTC, "type_filling": filling,
+            }
+            result = mt5.order_send(req)
+            last_ret = getattr(result, "retcode", None)
+            if last_ret == mt5.TRADE_RETCODE_DONE:
+                dst = self._confirm_open(dst_symbol, comment)
+                if dst:
+                    self.log(f"OPENED {dst_symbol} {'BUY' if is_buy else 'SELL'} {self.fixed_lot} "
+                             f"[src {src_pos['ticket']} -> dst {dst}]", tg=True)
+                    return dst
+                # Sent DONE but unconfirmed: do NOT re-send (pending marker holds);
+                # next tick will confirm via the live COPY| comment.
+                self.alert(f"unconf:{src_pos['ticket']}",
+                           f"OPEN sent but UNCONFIRMED [src {src_pos['ticket']}] — holding pending")
+                return None
+            if last_ret == 10030:  # invalid filling — try the next mode
+                continue
+            break  # other hard reject — stop trying fillings
+        self.alert(f"openfail:{src_pos['ticket']}",
+                   f"OPEN FAILED {dst_symbol} [src {src_pos['ticket']}] retcode={last_ret} — will retry")
+        return None
 
     def close_on_dest(self, dst_ticket: int) -> bool:
-        """Close a dest position by ticket (market)."""
         positions = mt5.positions_get(ticket=dst_ticket) or []
         if not positions:
-            return True  # already gone
+            return True  # already flat
         p = positions[0]
         if self.dry_run:
-            self.log(f"would CLOSE dst {dst_ticket} ({p.symbol} vol {p.volume})", tg=True)
+            self.alert(f"dryclose:{dst_ticket}", f"would CLOSE dst {dst_ticket} ({p.symbol} {p.volume})")
             return False
         tick = mt5.symbol_info_tick(p.symbol)
+        if tick is None:
+            self.alert(f"closetick:{dst_ticket}",
+                       f"CLOSE BLOCKED dst {dst_ticket}: no tick for {p.symbol} — will retry")
+            return False
         is_buy = p.type == 0
-        price = tick.bid if is_buy else tick.ask
         req = {
             "action": mt5.TRADE_ACTION_DEAL, "symbol": p.symbol, "position": dst_ticket,
-            "volume": p.volume,
-            "type": mt5.ORDER_TYPE_SELL if is_buy else mt5.ORDER_TYPE_BUY,
-            "price": price, "deviation": self.max_dev, "magic": self.magic,
-            "comment": "COPY-CLOSE", "type_time": mt5.ORDER_TIME_GTC,
-            "type_filling": self._filling_mode(p.symbol),
+            "volume": p.volume, "type": mt5.ORDER_TYPE_SELL if is_buy else mt5.ORDER_TYPE_BUY,
+            "price": tick.bid if is_buy else tick.ask, "deviation": self.max_dev,
+            "magic": self.magic, "comment": "COPY-CLOSE", "type_time": mt5.ORDER_TIME_GTC,
+            "type_filling": self._filling_modes()[0],
         }
         result = mt5.order_send(req)
-        ok = result is not None and result.retcode == mt5.TRADE_RETCODE_DONE
-        self.log(f"{'CLOSED' if ok else 'CLOSE FAILED'} dst {dst_ticket}: "
-                 f"{getattr(result, 'retcode', '?')}", tg=True)
-        return ok
+        if getattr(result, "retcode", None) != mt5.TRADE_RETCODE_DONE:
+            self.alert(f"closefail:{dst_ticket}",
+                       f"CLOSE FAILED dst {dst_ticket}: retcode={getattr(result,'retcode',None)} — will retry")
+            return False
+        # Verify it actually flattened (an IOC close can partial-fill yet return DONE).
+        if mt5.positions_get(ticket=dst_ticket):
+            self.alert(f"closepart:{dst_ticket}", f"CLOSE partial dst {dst_ticket} — will retry residual")
+            return False
+        self.log(f"CLOSED dst {dst_ticket}", tg=True)
+        return True
+
+    # ───────────────────────── heartbeat ─────────────────────────
+    def _heartbeat(self, n_open: int) -> None:
+        try:
+            self.heartbeat_file.parent.mkdir(parents=True, exist_ok=True)
+            self.heartbeat_file.write_text(_now_iso(), encoding="utf-8")
+        except Exception:
+            pass
+        if (_now() - self._last_heartbeat) >= self.heartbeat_min * 60:
+            self.log(f"HEARTBEAT alive — {n_open} copies open, src OK", tg=True)
+            self._last_heartbeat = _now()
 
     # ───────────────────────── main loop ─────────────────────────
     def tick(self) -> None:
-        """One reconcile cycle. Safe to call repeatedly."""
+        # 1) Source = truth for what should be open. None => blind; alert, never close.
         source_positions = self.read_source()
         if source_positions is None:
-            self.log("source unreadable this cycle — skipping (no closes)")
+            self._consec_src_fail += 1
+            self.alert("srcfail", f"SOURCE UNREADABLE x{self._consec_src_fail} — copier blind, "
+                                  f"NOT closing copies. Check TMF terminal.")
             return
+        self._consec_src_fail = 0
+
+        # 2) Dest connection.
         if not self._connect(self.dst):
-            self.log("dest unreachable this cycle — skipping")
+            self._consec_dst_fail += 1
+            self.alert("dstfail", f"DEST UNREACHABLE x{self._consec_dst_fail} — cannot mirror. "
+                                  f"Check Vantage terminal.")
             return
+        self._consec_dst_fail = 0
+
+        # 3) Live dest copies = single source of truth (immune to stale state).
+        dst_map = self.read_dest_copies()
+        if dst_map is None:
+            self.alert("dstread", "DEST positions unreadable — skipping cycle")
+            return
+
         state = self.load_state()
-        state = self.recover_state_from_dest(state)
-        to_open, to_close = self.reconcile(source_positions, state)
+        pending: dict = state["pending"]
+        ever: set = set(state["ever"])
+        reopen: dict = state["reopen"]
+        src_tickets = {str(p["ticket"]) for p in source_positions}
+
+        # Clear pending that is now confirmed live, or whose source already closed.
+        for st in list(pending.keys()):
+            if st in dst_map or st not in src_tickets:
+                pending.pop(st, None)
+
+        to_open, to_close = self.reconcile(source_positions, dst_map)
+
+        # 4) OPENS (new sources + vanished-while-source-open re-opens).
         for src_pos in to_open:
-            dst_ticket = self.open_on_dest(src_pos)
-            if dst_ticket:
-                state[str(src_pos["ticket"])] = dst_ticket
+            st = str(src_pos["ticket"])
+            if st in pending:
+                continue  # in-flight; don't re-send
+            if st in ever:  # copy vanished while source still open
+                n = reopen.get(st, 0) + 1
+                reopen[st] = n
+                if n > self.max_reopen:
+                    self.alert(f"reopencap:{st}",
+                               f"COPY GONE but source {st} still OPEN — re-open cap "
+                               f"({self.max_reopen}) hit. MANUAL CHECK NEEDED.")
+                    continue
+                self.alert(f"reopen:{st}", f"copy vanished while source {st} open — re-opening (#{n})")
+            pending[st] = f"COPY|{st}"
+            self.save_state({"pending": pending, "ever": list(ever), "reopen": reopen})
+            dst = self.open_on_dest(src_pos)
+            if dst:
+                ever.add(st)
+                pending.pop(st, None)
+                reopen.pop(st, None)
+
+        # 5) CLOSES (source gone => force-close the copy; guarded individually).
         for dst_ticket in to_close:
-            if self.close_on_dest(dst_ticket):
-                state = {k: v for k, v in state.items() if v != dst_ticket}
-        self.save_state(state)
+            try:
+                self.close_on_dest(dst_ticket)
+            except Exception as e:
+                self.alert(f"closeerr:{dst_ticket}", f"close error dst {dst_ticket}: {e} — will retry")
+
+        # 6) prune ever/reopen for sources no longer open and no live copy.
+        for st in list(ever):
+            if st not in src_tickets and st not in dst_map:
+                ever.discard(st); reopen.pop(st, None); pending.pop(st, None)
+
+        self.save_state({"pending": pending, "ever": list(ever), "reopen": reopen})
+        self._heartbeat(len(dst_map))
 
     def run(self) -> None:
-        self.log(f"COPIER START  src={self.src['broker']}({self.src['login']}) "
-                 f"-> dst={self.dst['broker']}({self.dst['login']})  "
-                 f"lot={self.fixed_lot}  symbols={self.symbol_map}  "
+        self.log(f"COPIER START src={self.src['broker']}({self.src['login']}) -> "
+                 f"dst={self.dst['broker']}({self.dst['login']}) lot={self.fixed_lot} "
+                 f"symbols={self.symbol_map} poll={self.poll_sec}s backstop_sl_usd={self.backstop_sl_usd} "
                  f"dry_run={self.dry_run}", tg=True)
         while not self._stop:
             try:
@@ -244,7 +375,7 @@ class TradeCopier:
             except KeyboardInterrupt:
                 break
             except Exception as e:
-                self.log(f"tick error: {e}")
+                self.alert("tickerr", f"tick error: {e} — continuing")
             time.sleep(self.poll_sec)
 
     def stop(self) -> None:

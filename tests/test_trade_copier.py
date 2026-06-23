@@ -53,3 +53,19 @@ def test_symbol_map_gold_only():
 def test_fixed_lot_is_constant():
     c = _copier()
     assert c.fixed_lot == 0.12
+
+
+def test_reopen_when_copy_vanished_but_source_open():
+    # Source 111 still open but its copy is gone from the live dest map -> must
+    # be queued to (re)open. This is the "copy flat while source open" guard.
+    src = [{"ticket": 111}]
+    dst_map = {}  # no live copy
+    to_open, to_close = TradeCopier.reconcile(src, dst_map)
+    assert [p["ticket"] for p in to_open] == [111]
+    assert to_close == []
+
+
+def test_backstop_disabled_returns_zero_without_mt5():
+    c = _copier()  # config has no backstop_sl_usd
+    assert c.backstop_sl_usd is None
+    assert c._backstop_sl("XAUUSD+", True, 2000.0) == 0.0

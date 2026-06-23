@@ -1,5 +1,5 @@
 {
-  "_doc": "Trade copier TMFinancials (source, read-only) -> Vantage (dest). GOLD ONLY. Fixed lot, SL/TP replicated. dry_run=true observes without placing orders; flip to false to go live.",
+  "_doc": "Trade copier TMFinancials (source, read-only, NO SL/TP - manual exit) -> Vantage (dest). GOLD ONLY. Fixed lot. LIVE DEST positions are the source of truth (tagged COPY|<src>). dry_run=true observes; flip to false to go live. backstop_sl_usd: optional safety SL on the copy (null=exact mirror, no SL like source).",
   "source": {
     "path": "C:\\Program Files\\MetaBuy\\terminal64.exe",
     "login": 50925289,
@@ -15,8 +15,13 @@
   },
   "fixed_lot": 0.12,
   "magic": 5000,
-  "poll_sec": 3,
+  "poll_sec": 2,
   "max_slippage_points": 50,
+  "max_reopen": 2,
+  "heartbeat_min": 15,
+  "alert_repeat_min": 5,
+  "backstop_sl_usd": null,
   "state_file": "C:\\ProgramData\\Kha0sysCopier\\copier_state.json",
+  "heartbeat_file": "C:\\ProgramData\\Kha0sysCopier\\copier_heartbeat",
   "dry_run": true
 }
