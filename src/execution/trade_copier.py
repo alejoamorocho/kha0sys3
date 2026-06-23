@@ -71,6 +71,7 @@ class TradeCopier:
         self._consec_src_fail = 0
         self._consec_dst_fail = 0
         self._last_heartbeat = 0.0
+        self._diag_ts = 0.0
 
     # ───────────────────────── logging / alerts ─────────────────────────
     def log(self, msg: str, tg: bool = False) -> None:
@@ -139,17 +140,39 @@ class TradeCopier:
             time.sleep(0.5)
         return False
 
+    def _diag(self, msg: str) -> None:
+        """Rate-limited (~30s) diagnostic line so a live miss is visible in the log."""
+        if (_now() - self._diag_ts) >= 30:
+            self.log(f"DIAG {msg}")
+            self._diag_ts = _now()
+
     def read_source(self) -> list[dict] | None:
         """Source gold positions, or None on ANY failure (caller must skip, not close)."""
         if not self._connect(self.src):
             return None
+        # Wait for the broker connection to be live, then let positions sync — a
+        # fresh attach can briefly report 0 positions before they load.
+        for _ in range(6):
+            ti = mt5.terminal_info()
+            if ti and ti.connected:
+                break
+            time.sleep(0.3)
         positions = mt5.positions_get()
+        for _ in range(3):
+            if positions:
+                break
+            time.sleep(0.3)
+            positions = mt5.positions_get()
         if positions is None:
             return None
+        raw = list(positions)
+        ti = mt5.terminal_info()
+        self._diag(f"src: connected={getattr(ti, 'connected', None)} raw_positions={len(raw)} "
+                   f"symbols={[p.symbol for p in raw][:6]} (looking for {list(self.symbol_map)})")
         return [
             {"ticket": p.ticket, "symbol": p.symbol, "type": int(p.type),
              "sl": float(p.sl), "tp": float(p.tp), "volume": float(p.volume)}
-            for p in positions if p.symbol in self.symbol_map
+            for p in raw if p.symbol in self.symbol_map
         ]
 
     def read_dest_copies(self) -> dict | None:
