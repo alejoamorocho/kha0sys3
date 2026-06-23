@@ -1,0 +1,22 @@
+{
+  "_doc": "Trade copier TMFinancials (source, read-only) -> Vantage (dest). GOLD ONLY. Fixed lot, SL/TP replicated. dry_run=true observes without placing orders; flip to false to go live.",
+  "source": {
+    "path": "C:\\Program Files\\MetaBuy\\terminal64.exe",
+    "login": 50925289,
+    "broker": "TMFinancials"
+  },
+  "dest": {
+    "path": "C:\\Program Files\\MetaTrader 5\\terminal64.exe",
+    "login": 30046745,
+    "broker": "Vantage"
+  },
+  "symbol_map": {
+    "XAUUSD.f": "XAUUSD+"
+  },
+  "fixed_lot": 0.12,
+  "magic": 5000,
+  "poll_sec": 3,
+  "max_slippage_points": 50,
+  "state_file": "C:\\ProgramData\\Kha0sysCopier\\copier_state.json",
+  "dry_run": true
+}
