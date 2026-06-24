@@ -27,6 +27,7 @@ reconcile() is pure (no MT5) and unit-tested.
 from __future__ import annotations
 
 import json
+import os
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -51,7 +52,20 @@ class TradeCopier:
     CONFIRM_SLEEP = 0.4
 
     def __init__(self, cfg: dict, telegram=None):
-        self.src = cfg["source"]
+        self.src = dict(cfg["source"])
+        # Source full-login creds (MT5_*2 from .env) so the copier logs into TMF
+        # on its OWN session-0 terminal that actually SYNCS positions — instead
+        # of a position-blind cross-session attach to the GUI in session 1.
+        try:
+            from src.domain.env_loader import load_env
+            load_env()
+        except Exception:
+            pass
+        if os.environ.get("MT5_PASSWORD2") and os.environ.get("MT5_SERVER2"):
+            self.src["password"] = os.environ["MT5_PASSWORD2"]
+            self.src["server"] = os.environ["MT5_SERVER2"]
+            if os.environ.get("MT5_LOGIN2"):
+                self.src["login"] = int(os.environ["MT5_LOGIN2"])
         self.dst = cfg["dest"]
         self.symbol_map: dict[str, str] = cfg["symbol_map"]
         self.fixed_lot = float(cfg["fixed_lot"])
@@ -129,14 +143,25 @@ class TradeCopier:
     def _connect(self, node: dict) -> bool:
         if mt5 is None:
             return False
+        want = int(node["login"])
+        has_creds = bool(node.get("password") and node.get("server"))
         for _ in range(self.MAX_CONNECT_RETRIES):
             mt5.shutdown()
-            if not mt5.initialize(path=node["path"]):
-                time.sleep(0.5)
-                continue
-            info = mt5.account_info()
-            if info is not None and int(info.login) == int(node["login"]):
-                return True
+            # Attach-first: reuse a running terminal already on the right account
+            # (cheap; this is how subsequent ticks hit the persistent terminal).
+            if mt5.initialize(path=node["path"]):
+                info = mt5.account_info()
+                ti = mt5.terminal_info()
+                if info and int(info.login) == want and ti and ti.connected:
+                    return True
+            # Not on the right account / not connected: full login. Launches a
+            # dedicated session-0 terminal that actually SYNCS positions.
+            if has_creds:
+                if mt5.initialize(path=node["path"], login=want,
+                                  password=node["password"], server=node["server"]):
+                    info = mt5.account_info()
+                    if info and int(info.login) == want:
+                        return True
             time.sleep(0.5)
         return False
 
