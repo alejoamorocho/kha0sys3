@@ -18,6 +18,7 @@
   "poll_sec": 2,
   "max_slippage_points": 50,
   "max_reopen": 2,
+  "close_confirm_reads": 2,
   "heartbeat_min": 15,
   "alert_repeat_min": 5,
   "backstop_sl_usd": 300,

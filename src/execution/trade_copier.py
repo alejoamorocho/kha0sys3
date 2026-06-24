@@ -73,6 +73,9 @@ class TradeCopier:
         self.poll_sec = max(1, int(cfg.get("poll_sec", 2)))
         self.max_dev = int(cfg.get("max_slippage_points", 50))
         self.max_reopen = int(cfg.get("max_reopen", 2))
+        # Close only after the source position is confirmed GONE for this many
+        # consecutive successful reads (a single glitchy read can't wrong-close).
+        self.close_confirm = max(1, int(cfg.get("close_confirm_reads", 2)))
         self.heartbeat_min = int(cfg.get("heartbeat_min", 15))
         self.alert_repeat_min = int(cfg.get("alert_repeat_min", 5))
         self.backstop_sl_usd = cfg.get("backstop_sl_usd")  # None = no backstop
@@ -130,6 +133,7 @@ class TradeCopier:
         s.setdefault("pending", {})       # {src_ticket: comment} in-flight opens
         s.setdefault("ever", [])          # src tickets ever copied (new vs reopen)
         s.setdefault("reopen", {})        # {src_ticket: count}
+        s.setdefault("gone", {})          # {dst_ticket: consecutive source-gone reads}
         return s
 
     def save_state(self, state: dict) -> None:
@@ -414,10 +418,24 @@ class TradeCopier:
                 pending.pop(st, None)
                 reopen.pop(st, None)
 
-        # 5) CLOSES (source gone => force-close the copy; guarded individually).
+        # 5) CLOSES — only after the source position has been confirmed GONE for
+        #    close_confirm consecutive reads, so one glitchy/transient source read
+        #    can never wrong-close a real copy (critical: TMF copies have no SL/TP).
+        gone: dict = state["gone"]
+        close_set = {str(d) for d in to_close}
+        for dk in list(gone.keys()):           # source came back -> reset counter
+            if dk not in close_set:
+                gone.pop(dk, None)
         for dst_ticket in to_close:
+            dk = str(dst_ticket)
+            gone[dk] = gone.get(dk, 0) + 1
+            if gone[dk] < self.close_confirm:
+                self.log(f"source gone for dst {dst_ticket} — confirming "
+                         f"({gone[dk]}/{self.close_confirm}) before close")
+                continue
             try:
-                self.close_on_dest(dst_ticket)
+                if self.close_on_dest(dst_ticket):
+                    gone.pop(dk, None)
             except Exception as e:
                 self.alert(f"closeerr:{dst_ticket}", f"close error dst {dst_ticket}: {e} — will retry")
 
@@ -426,7 +444,7 @@ class TradeCopier:
             if st not in src_tickets and st not in dst_map:
                 ever.discard(st); reopen.pop(st, None); pending.pop(st, None)
 
-        self.save_state({"pending": pending, "ever": list(ever), "reopen": reopen})
+        self.save_state({"pending": pending, "ever": list(ever), "reopen": reopen, "gone": gone})
         self._heartbeat(len(dst_map))
 
     def run(self) -> None:

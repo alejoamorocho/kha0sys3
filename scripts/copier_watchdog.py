@@ -58,11 +58,37 @@ def restart_copier() -> None:
         log(f"restart err: {e}")
 
 
+def kill_session1_metabuy() -> int:
+    """Kill any MetaBuy terminal NOT in session 0. A session-1 MetaBuy (e.g. the
+    user reopening the GUI) would make the session-0 copier read positions
+    cross-session and go blind. Keep TMF to ONE session-0 terminal. Returns count."""
+    try:
+        r = subprocess.run(
+            ["powershell", "-NoProfile", "-Command",
+             "$p = Get-CimInstance Win32_Process -Filter \"Name='terminal64.exe'\" | "
+             "Where-Object { $_.ExecutablePath -like '*MetaBuy*' -and $_.SessionId -ne 0 }; "
+             "$p | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }; "
+             "($p | Measure-Object).Count"],
+            capture_output=True, text=True, timeout=30)
+        out = (r.stdout or "").strip()
+        return int(out) if out.isdigit() else 0
+    except Exception:
+        return 0
+
+
 def main() -> None:
     log("=== copier watchdog START ===")
     alerted = False
     missing_streak = 0
     while True:
+        # Guard: a session-1 MetaBuy (reopened TMF GUI) makes the copier read
+        # cross-session and go blind -> close it immediately and warn.
+        n_killed = kill_session1_metabuy()
+        if n_killed:
+            log(f"killed {n_killed} session-1 MetaBuy")
+            telegram(f"closed a session-1 MetaBuy/TMF window — it would blind the copier. "
+                     f"Watch TMF on the mobile app instead.")
+
         age = heartbeat_age()
         if age is None:
             missing_streak += 1
