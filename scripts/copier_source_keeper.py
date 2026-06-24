@@ -67,12 +67,20 @@ def main() -> None:
         ai = mt5.account_info() if mt5 else None
         healthy = bool(ti and ti.connected and ai and int(ai.login) == login)
         if not healthy:
-            # (Re)launch + login the session-0 terminal. NEVER shutdown -> persists.
+            # Clear any half/stuck state, then a CLEAN fresh login (a clean-slate
+            # initialize is what works; thrashing a half-launched terminal fails).
+            try:
+                mt5.shutdown()
+            except Exception:
+                pass
             ok = mt5.initialize(path=PATH, login=login, password=password, server=server)
             ai = mt5.account_info()
             ti = mt5.terminal_info()
             healthy = bool(ok and ai and int(ai.login) == login and ti and ti.connected)
             log(f"(re)connect source: ok={ok} login={getattr(ai, 'login', None)} healthy={healthy}")
+            if not healthy:
+                time.sleep(8)   # back off so we don't thrash a launching terminal
+                continue
         elif not healthy_before:
             log(f"source healthy (login {ai.login}, connected) — writing positions")
         healthy_before = healthy
