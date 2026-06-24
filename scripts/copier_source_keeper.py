@@ -47,7 +47,16 @@ DEAL_LOOKBACK_DAYS = 30       # window for reconstructing open positions from de
 MARGIN_EPS = 1e-6            # account margin <= this => NO position open (server truth, exact, no P&L ambiguity)
 FLOAT_EPS = 0.01             # |equity-balance| above this => floating P&L present (logged cross-check)
 FLAT_CONFIRM = 2              # consecutive margin==0 reads before force-closing copies (anti-glitch)
-BLIND_REFRESH_AFTER = 3       # cycles of (margin>0 but 0 gold seen) -> force refresh history
+REFRESH_BLIND_SEC = 2         # while margin>0 but 0 gold: re-pull history (free refresh) at most this often
+
+# Direction-inference backup (used ONLY when margin>0 but the deal never arrives).
+# Direction = sign(d_floating) vs sign(d_price): equity rises with price => long.
+GOLD_SYMBOL = "XAUUSD.f"     # source gold symbol, for price ticks
+INFER_AFTER_SEC = 3          # margin>0 with no deal for this long -> act on the inference
+PRICE_MOVE_MIN = 0.10        # min gold price move (abs) to trust a direction inference
+FLOAT_MOVE_MIN = 0.02        # min |floating P&L| change to trust it (above the 0.01 equity granularity)
+INFER_TICKET = "INFER"       # synthetic source ticket for a deal-less inferred copy
+INFER_VOL = 0.01             # cosmetic (copier uses fixed_lot); just needs to be >0
 
 # MT5 deal.entry: 0=IN (open), 1=OUT (close), 2=INOUT (reversal), 3=OUT_BY
 ENTRY_IN, ENTRY_OUT, ENTRY_INOUT, ENTRY_OUT_BY = 0, 1, 2, 3
@@ -161,8 +170,45 @@ def _merge(a: list, b: list) -> list:
     """Union of two position lists, deduped by ticket (position_id)."""
     seen = {}
     for p in (a or []) + (b or []):
-        seen[int(p["ticket"])] = p
+        seen[str(p["ticket"])] = p
     return list(seen.values())
+
+
+def infer_direction(samples, price_move_min=PRICE_MOVE_MIN, float_move_min=FLOAT_MOVE_MIN):
+    """PURE backup-direction logic. samples = [(floating_pnl, gold_price), ...]
+    collected over the life of the open position. Direction from how floating P&L
+    moved vs how price moved:  d_floating and d_price same sign => LONG(0);
+    opposite => SHORT(1). Returns 0/1, or None if price/PNL hasn't moved enough
+    to decide yet. Uses the sample with the LARGEST price move for the clearest
+    signal. Unit-tested in tests/test_copier_reconstruct.py."""
+    if not samples or len(samples) < 2:
+        return None
+    f0, p0 = samples[0]
+    best = None
+    best_dp = 0.0
+    for f, p in samples[1:]:
+        dp = p - p0
+        df = f - f0
+        if abs(dp) >= price_move_min and abs(df) >= float_move_min and abs(dp) > best_dp:
+            best_dp = abs(dp)
+            best = (df, dp)
+    if best is None:
+        return None
+    df, dp = best
+    return 0 if (df > 0) == (dp > 0) else 1
+
+
+def _gold_price():
+    """Mid price of the source gold symbol for the inference backup, or None if
+    the headless terminal can't quote it."""
+    try:
+        mt5.symbol_select(GOLD_SYMBOL, True)
+        t = mt5.symbol_info_tick(GOLD_SYMBOL)
+        if t is None or t.bid <= 0 or t.ask <= 0:
+            return None
+        return (t.bid + t.ask) / 2.0
+    except Exception:
+        return None
 
 
 def _force_refresh(login: int, password: str, server: str, why: str) -> None:
@@ -249,7 +295,10 @@ def main() -> None:
     dumped = False
     last_diag = 0.0
     flat_streak = 0
-    blind_streak = 0
+    blind_since = None       # time we first saw margin>0 with no usable deal
+    last_refresh = 0.0
+    episode = []             # (floating, gold_price) samples for the open episode (inference)
+    episode_dir = None       # locked inferred direction for the episode (anti flip-flop)
     while True:
         ti = mt5.terminal_info() if mt5 else None
         ai = mt5.account_info() if mt5 else None
@@ -302,44 +351,73 @@ def main() -> None:
                 for p in raw if _is_gold(p.symbol)
             ]
         merged = _merge(deals_open, posget)
+        gold_px = _gold_price()                       # for the inference backup + diag
 
         if flat:
-            # SERVER says NO position open (margin==0). This is authoritative ->
-            # close any copies. THE anti-orphan guarantee: TMF flat => copies
-            # closed, even if a close deal failed to sync. Confirm a couple of
-            # reads to ride out a one-off glitch read.
-            blind_streak = 0
+            # SERVER says NO position open (margin==0). Authoritative -> close any
+            # copies (anti-orphan). Reset the episode/inference state.
             flat_streak += 1
+            blind_since = None
+            episode = []
+            episode_dir = None
             if merged and flat_streak >= FLAT_CONFIRM:
                 log(f"margin=0 (TMF FLAT) x{flat_streak} but deals still show "
                     f"{[p['ticket'] for p in merged]} -> trusting server, CLOSING (anti-orphan)")
                 merged = []
         else:
-            # margin>0 => something IS open. Need the gold details from deals.
-            # If deals don't show it yet, give live history a few seconds then
-            # FORCE a (free) refresh; if still nothing, it's a non-gold position
-            # or deals are stuck -> alert, never go silent.
+            # margin>0 => something IS open. Collect a sample (floating vs price)
+            # for the inference backup.
             flat_streak = 0
-            if not merged:
-                blind_streak += 1
-                if blind_streak >= BLIND_REFRESH_AFTER:
-                    _force_refresh(login, password, server, f"margin={margin} (open) but 0 gold seen")
+            if gold_px is not None:
+                episode.append((floating, gold_px))
+                if len(episode) > 900:
+                    episode = episode[-900:]
+            now0 = time.time()
+            if merged:
+                # The deal is here = authoritative ticket + direction -> it wins.
+                blind_since = None
+                episode_dir = None
+            else:
+                # Deal not here yet. It is the authoritative source, so first try
+                # to pull it with a free refresh (rate-limited ~2s).
+                if now0 - last_refresh >= REFRESH_BLIND_SEC:
+                    _force_refresh(login, password, server, f"margin={margin} open but 0 gold seen")
+                    last_refresh = now0
                     deals_open = _open_positions_from_deals() or []
                     merged = _merge(deals_open, posget)
-                    blind_streak = 0
-                    if not merged:
-                        log(f"ALERT: margin={margin} (position OPEN) but 0 GOLD reconstructed "
-                            f"— non-gold position or deals not syncing. Check TMF.")
-            else:
-                blind_streak = 0
+                if merged:
+                    blind_since = None
+                    episode_dir = None
+                else:
+                    # BACKUP: still no deal -> infer the direction from equity vs
+                    # price so we copy anyway ("refuerzo por si no toma el deal").
+                    # Lock the inferred direction once to avoid flip-flop; a real
+                    # deal (above) always overrides it.
+                    if blind_since is None:
+                        blind_since = now0
+                    blind_secs = now0 - blind_since
+                    if episode_dir is None and blind_secs >= INFER_AFTER_SEC:
+                        cand = infer_direction(episode)
+                        if cand is not None:
+                            episode_dir = cand
+                            log(f"INFERRED dir={'BUY' if cand == 0 else 'SELL'} (no deal in "
+                                f"{blind_secs:.0f}s; gold {episode[0][1]}->{episode[-1][1]}, "
+                                f"floating {episode[0][0]:+.2f}->{episode[-1][0]:+.2f}) "
+                                f"-> copying via INFERENCE until the deal confirms")
+                        else:
+                            log(f"ALERT: margin={margin} open {blind_secs:.0f}s, no deal and can't "
+                                f"infer yet (gold_px={gold_px}, samples={len(episode)}) — watching")
+                    if episode_dir is not None:
+                        merged = [{"ticket": INFER_TICKET, "symbol": GOLD_SYMBOL, "type": episode_dir,
+                                   "sl": 0.0, "tp": 0.0, "volume": INFER_VOL}]
 
         _write(merged)
 
         now = time.time()
         if merged or not flat or (now - last_diag >= DIAG_SEC):
             log(f"open={len(merged)} (deals={len(deals_open)} posget={len(posget)}) "
-                f"margin={margin} floating={floating:+.2f} eq={equity} bal={balance} "
-                f"flat={flat} tickets={[p['ticket'] for p in merged]}")
+                f"margin={margin} floating={floating:+.2f} gold={gold_px} flat={flat} "
+                f"inferred={episode_dir} tickets={[p['ticket'] for p in merged]}")
             last_diag = now
         time.sleep(POLL_SEC)
 

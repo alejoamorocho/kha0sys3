@@ -14,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from scripts.copier_source_keeper import reconstruct_open
+from scripts.copier_source_keeper import reconstruct_open, infer_direction
 
 
 def deal(pos, entry, dtype, vol, sym="XAUUSD.f", t=0, ticket=0):
@@ -88,3 +88,46 @@ def test_multiple_simultaneous_opens():
     out = reconstruct_open(deals)
     tickets = sorted(p["ticket"] for p in out)
     assert tickets == [93873774, 93909211]
+
+
+# ── direction-inference backup (used only when the deal never arrives) ──
+# samples = [(floating_pnl, gold_price), ...]. Long: P&L rises as price rises.
+
+def test_infer_long_price_up():
+    # equity UP with price UP -> BUY/long
+    assert infer_direction([(-0.05, 4000.00), (0.30, 4000.20)]) == 0
+
+
+def test_infer_long_price_down():
+    # equity DOWN with price DOWN -> still BUY/long (same sign)
+    assert infer_direction([(0.00, 4000.00), (-0.40, 3999.80)]) == 0
+
+
+def test_infer_short_price_up():
+    # equity DOWN with price UP -> SELL/short
+    assert infer_direction([(-0.05, 4000.00), (-0.45, 4000.20)]) == 1
+
+
+def test_infer_short_price_down():
+    # equity UP with price DOWN -> SELL/short
+    assert infer_direction([(0.00, 4000.00), (0.40, 3999.80)]) == 1
+
+
+def test_infer_none_when_price_barely_moved():
+    assert infer_direction([(0.00, 4000.00), (0.01, 4000.02)]) is None
+
+
+def test_infer_none_when_pnl_barely_moved():
+    # price moved enough but P&L didn't (below the 0.01 equity granularity) -> undecided
+    assert infer_direction([(0.000, 4000.00), (0.005, 4000.20)]) is None
+
+
+def test_infer_none_with_one_sample():
+    assert infer_direction([(0.0, 4000.0)]) is None
+    assert infer_direction([]) is None
+
+
+def test_infer_uses_largest_price_move():
+    # a noisy tiny step (ignored) plus a clear large move that decides LONG
+    samples = [(0.0, 4000.00), (0.1, 4000.05), (0.5, 4000.30)]
+    assert infer_direction(samples) == 0
