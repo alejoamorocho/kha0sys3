@@ -74,16 +74,33 @@ class VPSConnection:
             "status": result.status_code,
         }
 
-    def upload_file(self, local_content: str, remote_path: str) -> dict:
-        """Sube contenido como archivo al VPS via base64 + PowerShell."""
+    def upload_file(self, local_content: str, remote_path: str, chunk: int = 2000) -> dict:
+        """Sube contenido como archivo al VPS via base64 + PowerShell.
+
+        Trocea el base64 (append a un .b64 temporal) y luego decodifica, porque
+        meter todo el base64 inline en UNA linea de PowerShell revienta el limite
+        de la linea de comando (~8KB) para archivos no triviales ("The command
+        line is too long"). El base64 solo usa [A-Za-z0-9+/=], asi que es seguro
+        envolverlo en comillas simples de PowerShell.
+        """
         import base64
 
         encoded = base64.b64encode(local_content.encode("utf-8")).decode("ascii")
-        ps_script = (
-            f"$bytes = [Convert]::FromBase64String('{encoded}');"
-            f"[IO.File]::WriteAllBytes('{remote_path}', $bytes)"
+        tmp = remote_path + ".b64upload"
+        # Limpia cualquier upload previo a medias.
+        self.run_ps(f"Remove-Item '{tmp}' -Force -ErrorAction SilentlyContinue")
+        for i in range(0, len(encoded), chunk):
+            part = encoded[i:i + chunk]
+            r = self.run_ps(f"Add-Content -Path '{tmp}' -Value '{part}' -NoNewline -Encoding ascii")
+            if r["status"] != 0:
+                return r
+        # Decodifica el .b64 completo al destino y limpia el temporal.
+        decode = (
+            f"$b64 = Get-Content '{tmp}' -Raw; "
+            f"[IO.File]::WriteAllBytes('{remote_path}', [Convert]::FromBase64String($b64)); "
+            f"Remove-Item '{tmp}' -Force -ErrorAction SilentlyContinue"
         )
-        return self.run_ps(ps_script)
+        return self.run_ps(decode)
 
     def test_connection(self) -> bool:
         """Verifica conectividad basica con el VPS."""

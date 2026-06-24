@@ -15,7 +15,7 @@
   },
   "fixed_lot": 0.12,
   "magic": 5000,
-  "poll_sec": 2,
+  "poll_sec": 1,
   "max_slippage_points": 50,
   "max_reopen": 2,
   "close_confirm_reads": 2,
