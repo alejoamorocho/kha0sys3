@@ -23,6 +23,8 @@
   "alert_repeat_min": 5,
   "backstop_sl_usd": 300,
   "state_file": "C:\\ProgramData\\Kha0sysCopier\\copier_state.json",
+  "source_file": "C:\\ProgramData\\Kha0sysCopier\\source_positions.json",
+  "src_stale_sec": 20,
   "heartbeat_file": "C:\\ProgramData\\Kha0sysCopier\\copier_heartbeat",
   "dry_run": false
 }

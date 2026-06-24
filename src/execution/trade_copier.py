@@ -61,11 +61,13 @@ class TradeCopier:
             load_env()
         except Exception:
             pass
-        if os.environ.get("MT5_PASSWORD2") and os.environ.get("MT5_SERVER2"):
-            self.src["password"] = os.environ["MT5_PASSWORD2"]
-            self.src["server"] = os.environ["MT5_SERVER2"]
-            if os.environ.get("MT5_LOGIN2"):
-                self.src["login"] = int(os.environ["MT5_LOGIN2"])
+        # Only the login id (for validation). The actual login is held by the
+        # dedicated source-keeper service, which keeps a logged-in session-0 TMF
+        # terminal alive. The copier ATTACHES only (no full-login here) so its
+        # per-tick shutdown never closes/relaunches the source terminal — that
+        # churn caused ~110s ticks and a watchdog restart loop.
+        if os.environ.get("MT5_LOGIN2"):
+            self.src["login"] = int(os.environ["MT5_LOGIN2"])
         self.dst = cfg["dest"]
         self.symbol_map: dict[str, str] = cfg["symbol_map"]
         self.fixed_lot = float(cfg["fixed_lot"])
@@ -82,6 +84,10 @@ class TradeCopier:
         self.dry_run = bool(cfg.get("dry_run", True))
         self.state_file = Path(cfg.get("state_file", "logs/copier_state.json"))
         self.heartbeat_file = Path(cfg.get("heartbeat_file", "logs/copier_heartbeat"))
+        # Source positions come from the keeper service via this file (so the
+        # copier never connects to the source terminal -> no per-tick churn).
+        self.source_file = Path(cfg.get("source_file", "logs/source_positions.json"))
+        self.src_stale_sec = int(cfg.get("src_stale_sec", 20))
         self.telegram = telegram
         self._stop = False
         self._alert_ts: dict[str, float] = {}
@@ -145,27 +151,23 @@ class TradeCopier:
 
     # ───────────────────────── MT5 I/O ─────────────────────────
     def _connect(self, node: dict) -> bool:
+        """Connect to the DEST (Vantage) terminal. The copier only ever connects
+        to this one terminal now (source comes from the keeper's file), so the
+        connection is PERSISTENT — reused across ticks, no per-tick teardown."""
         if mt5 is None:
             return False
         want = int(node["login"])
-        has_creds = bool(node.get("password") and node.get("server"))
+        info = mt5.account_info()
+        ti = mt5.terminal_info()
+        if info and int(info.login) == want and ti and ti.connected:
+            return True  # already connected to the right account — reuse it
         for _ in range(self.MAX_CONNECT_RETRIES):
             mt5.shutdown()
-            # Attach-first: reuse a running terminal already on the right account
-            # (cheap; this is how subsequent ticks hit the persistent terminal).
             if mt5.initialize(path=node["path"]):
                 info = mt5.account_info()
                 ti = mt5.terminal_info()
                 if info and int(info.login) == want and ti and ti.connected:
                     return True
-            # Not on the right account / not connected: full login. Launches a
-            # dedicated session-0 terminal that actually SYNCS positions.
-            if has_creds:
-                if mt5.initialize(path=node["path"], login=want,
-                                  password=node["password"], server=node["server"]):
-                    info = mt5.account_info()
-                    if info and int(info.login) == want:
-                        return True
             time.sleep(0.5)
         return False
 
@@ -176,33 +178,24 @@ class TradeCopier:
             self._diag_ts = _now()
 
     def read_source(self) -> list[dict] | None:
-        """Source gold positions, or None on ANY failure (caller must skip, not close)."""
-        if not self._connect(self.src):
+        """Source gold positions from the keeper's file. Returns None if the file
+        is missing or STALE (keeper down/blind) so the caller skips and never
+        closes copies blindly."""
+        try:
+            data = json.loads(self.source_file.read_text(encoding="utf-8"))
+            ts = datetime.fromisoformat(data["ts"])
+            if ts.tzinfo is None:
+                ts = ts.replace(tzinfo=timezone.utc)
+            age = (datetime.now(timezone.utc) - ts).total_seconds()
+            if age > self.src_stale_sec:
+                self._diag(f"source file STALE {age:.0f}s — keeper down?")
+                return None
+            positions = list(data.get("positions", []))
+            self._diag(f"src(file): {len(positions)} gold, age {age:.0f}s")
+            return positions
+        except Exception as e:
+            self._diag(f"source file unreadable: {e}")
             return None
-        # Wait for the broker connection to be live, then let positions sync — a
-        # fresh attach can briefly report 0 positions before they load.
-        for _ in range(6):
-            ti = mt5.terminal_info()
-            if ti and ti.connected:
-                break
-            time.sleep(0.3)
-        positions = mt5.positions_get()
-        for _ in range(3):
-            if positions:
-                break
-            time.sleep(0.3)
-            positions = mt5.positions_get()
-        if positions is None:
-            return None
-        raw = list(positions)
-        ti = mt5.terminal_info()
-        self._diag(f"src: connected={getattr(ti, 'connected', None)} raw_positions={len(raw)} "
-                   f"symbols={[p.symbol for p in raw][:6]} (looking for {list(self.symbol_map)})")
-        return [
-            {"ticket": p.ticket, "symbol": p.symbol, "type": int(p.type),
-             "sl": float(p.sl), "tp": float(p.tp), "volume": float(p.volume)}
-            for p in raw if p.symbol in self.symbol_map
-        ]
 
     def read_dest_copies(self) -> dict | None:
         """Live dest map {src_ticket(str): dst_ticket} from positions tagged
