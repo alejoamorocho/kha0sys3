@@ -1,7 +1,7 @@
 {
   "_doc": "[2026-06-20 LIVE: podado a 5 estrategias (SP500/XAUUSD FBD+FBU, NAS100 FBD) + risk_fixed_usd=100.] AMO8 V2 (event-level discovery). Built 2026-05-24T05:15:37.519502+00:00. Replaces V1 (84 sub-bucketed configs that never fired live due to ATR bias). V2 = 116 winners from event-level aggregation across 14 symbols × 4 magic_times × 4 OR_dur. Filter: PF>=2.0, WR>=0.65, tpy>=50.0. Risk reduced to 0.050% per trade (max simultaneous = 5.8%). | 2026-06-10: PROFIT PURGE — keep only 11 groups net-positive in 30d live. 2-week eval before live promotion.",
   "_metrics_aggregate": {
-    "n_strategies": 3,
+    "n_strategies": 4,
     "n_unique_pattern_slots": 50,
     "sum_trades_per_year": 9529.5,
     "avg_wr_weighted": 0.7413,
@@ -125,6 +125,34 @@
       "expected_n_trades": 681,
       "expected_expectancy_r": 0.450367107195301,
       "expected_sum_r": 306.7
+    },
+    {
+      "id": "AMO8_NASDAQ100_0700_15m_FALSE_BREAK_DOWN_L_OR05_RR15_081",
+      "internal_sym": "NASDAQ100",
+      "broker_sym": "NAS100",
+      "or_duration_min": 15,
+      "magic_time": "07:00",
+      "match_mode": "event_only",
+      "event_type": "FALSE_BREAK_DOWN",
+      "direction": "LONG",
+      "pattern_id": "EVENT_ONLY:FALSE_BREAK_DOWN_0700_15m_OR05_RR15",
+      "or_position": null,
+      "or_atr_bucket": null,
+      "pd_or_bucket": null,
+      "exit_rules": {
+        "mode": "OR_FIXED",
+        "sl_or_frac": 0.5,
+        "tp_or_frac": 0.75,
+        "rr": 1.5,
+        "max_hold_min": 150,
+        "wait_fill_min": 75
+      },
+      "expected_wr": 0.6835599505562423,
+      "expected_pf": 2.1214833759590785,
+      "expected_trades_per_year": 98.43012991339106,
+      "expected_n_trades": 809,
+      "expected_expectancy_r": 0.4336217552533992,
+      "expected_sum_r": 350.79999999999995
     }
   ],
   "risk_fixed_usd": 20
